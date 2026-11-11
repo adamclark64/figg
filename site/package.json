@@ -1,0 +1,12 @@
+{
+  "name": "figg-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --serve"
+  },
+  "dependencies": {
+    "marked": "^18.2.0"
+  }
+}

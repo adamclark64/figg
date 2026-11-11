@@ -1,0 +1,9 @@
+{
+  "name": "figg-bug-report-relay",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zero-dependency Vercel function that files figg bug reports as GitHub issues. Deployed as its own Vercel project (root directory: relay).",
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,98 @@
+name: Daily issue digest
+
+# Summarizes user reports filed through figg's in-app bug reporter. It only
+# writes a summary comment; it never edits code, opens PRs, or changes issues.
+# Docs: .github/issue-digest/README.md
+
+on:
+  schedule:
+    # 13:00 UTC daily.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Look-back window in hours"
+        required: false
+        default: "24"
+      post:
+        description: "Post to the digest issue (false = dry run to step summary only)"
+        required: false
+        default: "true"
+
+concurrency:
+  group: issue-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      REPO: ${{ github.repository }}
+      HOURS: ${{ github.event.inputs.hours || vars.DIGEST_HOURS || '24' }}
+      DIGEST_MODEL: ${{ vars.DIGEST_MODEL || 'claude-sonnet-5-5' }}
+      POST: ${{ github.event.inputs.post || 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/ensure-labels.sh
+
+      - name: Collect user reports
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/collect-issues.sh
+
+      - name: Render digest prompt
+        if: steps.collect.outputs.total != '0'
+        run: |
+          set -euo pipefail
+          rendered=$(sed -e "s#{{REPO}}#${REPO}#g" -e "s#{{HOURS}}#${HOURS}#g" .github/issue-digest/digest-prompt.md)
+          {
+            echo "DIGEST_PROMPT<<__PROMPT_EOF__"
+            echo "$rendered"
+            echo "__PROMPT_EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Write digest with Claude
+        id: claude
+        if: steps.collect.outputs.total != '0'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          # API billing. Swap for claude_code_oauth_token (from
+          # `claude setup-token`) to use subscription limits instead.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: ${{ env.DIGEST_PROMPT }}
+          claude_args: |
+            --model ${{ env.DIGEST_MODEL }}
+            --max-turns 15
+            --allowedTools "Read,Grep,Glob,Write"
+
+      - name: Fallback digest when the model step produced nothing
+        if: always()
+        run: bash .github/scripts/collect-issues.sh --fallback-digest
+
+      - name: Post digest
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.DIGEST_SLACK_WEBHOOK_URL }}
+        run: bash .github/scripts/post-digest.sh
+
+      - name: Upload digest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-digest-${{ github.run_id }}
+          path: digest/
+          retention-days: 30
+          if-no-files-found: ignore

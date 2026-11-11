@@ -1,0 +1,19 @@
+.build/
+build/
+.swiftpm/
+*.xcodeproj
+xcuserdata/
+.DS_Store
+.env*
+Resources/*-preview.png
+
+# Website build (site/build.mjs)
+site/dist/
+site/node_modules/
+
+# Local agent context and examples
+.claude/
+examples/
+
+# Local agent session artifacts
+docs/superpowers/

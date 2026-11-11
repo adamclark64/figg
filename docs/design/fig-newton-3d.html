@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Exploration: a WebGL fig newton loader.
+     Open this file in a browser. three.js and fonts load from CDNs. -->
+<title>Fig Newton Loader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one stage, the newton centre stage; controls and the in-app label under it. figg's own palette. */
+:root {
+  --paper: #F7F4EE;
+  --panel: #EFEAE2;
+  --surface: #FFFDF9;
+  --line: #E2DAD2;
+  --ink: #2A1F2B;
+  --ink-muted: #857883;
+  --plum: #7B2D5E;
+  --plum-soft: #F3E4EC;
+  --shadow: 42, 31, 43;
+  --font-display: "Fraunces", "New York", Georgia, serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1C1619; --panel: #231C20; --surface: #2C2328; --line: #3A2F35;
+    --ink: #F1EAEE; --ink-muted: #A8999F; --plum: #E08BBD; --plum-soft: #3A2233;
+    --shadow: 0, 0, 0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1C1619; --panel: #231C20; --surface: #2C2328; --line: #3A2F35;
+  --ink: #F1EAEE; --ink-muted: #A8999F; --plum: #E08BBD; --plum-soft: #3A2233;
+  --shadow: 0, 0, 0; color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 880px; margin: 0 auto; padding-block: 28px 48px; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--plum); }
+h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(28px, 5vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--ink-muted); max-width: 62ch; }
+
+.stage {
+  position: relative; border-radius: 18px; background: var(--panel); border: 1px solid var(--line);
+  aspect-ratio: 16 / 10; max-width: 100%; overflow: hidden; touch-action: none; cursor: grab;
+}
+.stage:active { cursor: grabbing; }
+.stage canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.stage.pixel canvas { image-rendering: pixelated; }
+.hint { position: absolute; right: 14px; bottom: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); pointer-events: none; }
+
+.status {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  font-family: var(--font-display); font-size: 19px; color: var(--ink-muted); min-height: 30px;
+}
+.pct { font-family: var(--font-mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: center; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.seg button {
+  font: 500 13px var(--font-body); color: var(--ink-muted); background: none; border: 0; border-radius: 999px;
+  padding: 6px 14px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--plum); color: var(--paper); }
+.seg button:focus-visible, .toggle input:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; }
+.field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); }
+input[type=range] { accent-color: var(--plum); width: 160px; max-width: 40vw; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); cursor: pointer; }
+.toggle input { accent-color: var(--plum); width: 16px; height: 16px; }
+[hidden] { display: none !important; }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.note h2 { font-family: var(--font-display); font-weight: 500; font-size: 17px; margin: 0 0 4px; }
+.note p { margin: 0; color: var(--ink-muted); font-size: 14px; }
+</style>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <span class="eyebrow">figg · exploration</span>
+    <h1>The fig newton, in 3D</h1>
+    <p class="lede">A WebGL take on figg's loader. The ends show what a real Fig Newton shows when it's cut: pale crumb around dark fig jam, full of seeds. Drag to turn it.</p>
+  </header>
+
+  <div class="stage" id="stage" role="img" aria-label="A 3D fig newton loader">
+    <span class="hint">drag to turn</span>
+  </div>
+
+  <div class="status" aria-live="polite">
+    <span id="statusText">Writing notes…</span>
+    <span class="pct" id="pct" hidden>0%</span>
+  </div>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Loader mode">
+      <button id="modeWait" aria-pressed="true">Unknown length</button>
+      <button id="modeProg" aria-pressed="false">Known progress</button>
+    </div>
+    <label class="field" id="progField" hidden>Progress
+      <input type="range" id="prog" min="0" max="100" value="35">
+    </label>
+    <label class="toggle" id="autoField" hidden><input type="checkbox" id="auto" checked> Play</label>
+    <label class="toggle"><input type="checkbox" id="pixel"> Pixel</label>
+  </div>
+
+  <section class="notes">
+    <div class="note">
+      <h2>Unknown length</h2>
+      <p>Crouch, hop, a quarter turn in the air, land with a squash. Every other hop shows the cut end and its jam. For the transcript pass, Enhance and Ask figg.</p>
+    </div>
+    <div class="note">
+      <h2>Known progress</h2>
+      <p>The newton is extruded from the back, the way the real ones are made: a tube of dough around fig paste, cut to length. 100% is a whole cookie. For the update download.</p>
+    </div>
+    <div class="note">
+      <h2>Pixel</h2>
+      <p>The same scene drawn at a fraction of the resolution and scaled up with hard edges, as a pixel-art variant.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fail = msg => stage.insertAdjacentHTML('beforeend', '<p style="position:absolute;inset:0;display:grid;place-items:center;padding:16px;text-align:center;color:var(--ink-muted)">' + msg + '</p>');
+  if (typeof THREE === 'undefined') { fail('The 3D library did not load. Check the connection and reload.'); return; }
+  let gl;
+  try {
+    gl = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  } catch (e) {
+    fail('This browser has WebGL turned off, so the 3D newton cannot be drawn.');
+    return;
+  }
+  gl.outputColorSpace = THREE.SRGBColorSpace;
+  gl.toneMapping = THREE.ACESFilmicToneMapping;
+  gl.toneMappingExposure = 1.05;
+  stage.prepend(gl.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1.6, 0.1, 50);
+  camera.position.set(3.5, 2.6, 5.4);
+  camera.lookAt(0, 0.3, 0);
+
+  // Lights: warm key, soft fill from the sky, plum rim from behind (figg's accent).
+  scene.add(new THREE.HemisphereLight(0xfff3e0, 0x5a3a2a, 1.1));
+  const key = new THREE.DirectionalLight(0xffe2b8, 2.4); key.position.set(3, 5, 4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xe08bbd, 1.6); rim.position.set(-4, 2.5, -3); scene.add(rim);
+
+  // Cross-section of the newton: flat bottom, rounded corners, domed pillow top.
+  // Units: 2 wide, about 1 tall.
+  function profile(path, s = 1, cy = 0.5) {
+    const P = (x, y) => [x * s, (y - cy) * s + cy];
+    const r = 0.2;
+    path.moveTo(...P(-1 + r, 0));
+    path.lineTo(...P(1 - r, 0));
+    path.quadraticCurveTo(...P(1, 0), ...P(1, r));
+    path.lineTo(...P(1, 0.6));
+    path.quadraticCurveTo(...P(1.0, 0.82), ...P(0.76, 0.87));
+    path.quadraticCurveTo(...P(0, 1.03), ...P(-0.76, 0.87));
+    path.quadraticCurveTo(...P(-1.0, 0.82), ...P(-1, 0.6));
+    path.lineTo(...P(-1, r));
+    path.quadraticCurveTo(...P(-1, 0), ...P(-1 + r, 0));
+  }
+  const shape = new THREE.Shape(); profile(shape);
+
+  const DEPTH = 1.8;
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: DEPTH, curveSegments: 32, steps: 1,
+    bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.035, bevelSegments: 4
+  });
+
+  // Cut-end texture, drawn in the same coordinates as the shape (caps use x, y as UVs).
+  const X0 = -1.06, X1 = 1.06, Y0 = -0.06, Y1 = 1.1;
+  function capTexture() {
+    const S = 1024, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    const mx = x => (x - X0) / (X1 - X0) * S, my = y => (1 - (y - Y0) / (Y1 - Y0)) * S;
+    const trace = (s) => {
+      g.beginPath();
+      const p = { moveTo: (x, y) => g.moveTo(mx(x), my(y)), lineTo: (x, y) => g.lineTo(mx(x), my(y)),
+        quadraticCurveTo: (a, b, x, y) => g.quadraticCurveTo(mx(a), my(b), mx(x), my(y)) };
+      profile(p, s); g.closePath();
+    };
+    g.fillStyle = '#B9762F'; g.fillRect(0, 0, S, S);
+    // Crust ring, then crumb inside it.
+    trace(1); g.fillStyle = '#B9762F'; g.fill();
+    trace(0.9);
+    const crumb = g.createLinearGradient(0, my(1), 0, my(0));
+    crumb.addColorStop(0, '#E9C58E'); crumb.addColorStop(1, '#DDB176');
+    g.fillStyle = crumb; g.fill();
+    // Crumb texture: tiny pores.
+    g.save(); trace(0.9); g.clip();
+    for (let i = 0; i < 2600; i++) {
+      const x = Math.random() * S, y = Math.random() * S, r = Math.random() * 3 + 0.6;
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(160,105,45,0.22)' : 'rgba(255,240,210,0.28)';
+      g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+    // Jam: a slab with a wobbly edge.
+    const jamTop = 0.66, jamBot = 0.24, jx = 0.8;
+    g.beginPath();
+    const pts = [];
+    for (let i = 0; i <= 40; i++) { const t = i / 40; pts.push([-jx + 2 * jx * t, jamTop + Math.sin(t * 19) * 0.012 + (Math.random() - 0.5) * 0.01]); }
+    for (let i = 40; i >= 0; i--) { const t = i / 40; pts.push([-jx + 2 * jx * t, jamBot + Math.sin(t * 23 + 1) * 0.012 + (Math.random() - 0.5) * 0.01]); }
+    pts.forEach(([x, y], i) => i ? g.lineTo(mx(x), my(y)) : g.moveTo(mx(x), my(y)));
+    g.closePath();
+    const jam = g.createLinearGradient(0, my(jamTop), 0, my(jamBot));
+    jam.addColorStop(0, '#5A1C40'); jam.addColorStop(0.5, '#6E2450'); jam.addColorStop(1, '#4A1534');
+    g.fillStyle = jam; g.fill();
+    g.save(); g.clip();
+    // Seeds: lots of small, pale, slightly elongated specks.
+    for (let i = 0; i < 520; i++) {
+      const x = mx(-jx + Math.random() * 2 * jx), y = my(jamBot + Math.random() * (jamTop - jamBot));
+      g.fillStyle = Math.random() < 0.7 ? 'rgba(232,190,150,0.85)' : 'rgba(255,225,190,0.95)';
+      g.beginPath(); g.ellipse(x, y, 2.6 + Math.random() * 1.6, 1.5 + Math.random(), Math.random() * 3, 0, 7); g.fill();
+    }
+    // Fibres.
+    g.strokeStyle = 'rgba(140,60,100,0.35)'; g.lineWidth = 2;
+    for (let i = 0; i < 70; i++) {
+      const x = mx(-jx + Math.random() * 2 * jx), y = my(jamBot + Math.random() * (jamTop - jamBot));
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 8); g.stroke();
+    }
+    g.restore(); g.restore();
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.repeat.set(1 / (X1 - X0), 1 / (Y1 - Y0));
+    t.offset.set(-X0 / (X1 - X0), -Y0 / (Y1 - Y0));
+    t.anisotropy = 8;
+    return t;
+  }
+
+  // Crust: baked mottling as a colour map and bumps.
+  function crustTexture() {
+    const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = '#C07E36'; g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 1800; i++) {
+      const x = Math.random() * S, y = Math.random() * S, r = Math.random() * 14 + 2;
+      const dark = Math.random() < 0.5;
+      g.fillStyle = dark ? `rgba(120,70,25,${Math.random() * 0.12})` : `rgba(240,190,120,${Math.random() * 0.12})`;
+      g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.6, 0.6);
+    return t;
+  }
+
+  const crust = new THREE.MeshPhysicalMaterial({
+    map: crustTexture(), roughness: 0.55, clearcoat: 0.45, clearcoatRoughness: 0.35, sheen: 0.4, sheenColor: new THREE.Color(0xffd29a)
+  });
+  const cap = new THREE.MeshStandardMaterial({ map: capTexture(), roughness: 0.8 });
+  const newton = new THREE.Mesh(geo, [cap, crust]);
+
+  // Pivot: newton centred in x, sitting on y = 0, growing forward from its back face.
+  const body = new THREE.Group();
+  newton.position.set(0, 0, -DEPTH / 2);
+  newton.scale.y = 0.7; // a real Fig Newton is flatter than its cut shape suggests
+  body.add(newton);
+  const spin = new THREE.Group(); spin.add(body); scene.add(spin);
+
+  // Soft blob shadow on the ground.
+  const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+  const sg = sc.getContext('2d'); const rg = sg.createRadialGradient(64, 64, 4, 64, 64, 62);
+  rg.addColorStop(0, 'rgba(0,0,0,0.55)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  sg.fillStyle = rg; sg.fillRect(0, 0, 128, 128);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.7), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false }));
+  shadow.rotation.x = -Math.PI / 2; shadow.position.y = -0.001; scene.add(shadow);
+
+  // State.
+  let mode = 'wait', progress = 0.35, auto = true, pixel = false;
+  let dragYaw = 0, dragging = false, lastX = 0;
+  const statusText = document.getElementById('statusText'), pct = document.getElementById('pct');
+  const progInput = document.getElementById('prog');
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeWait').setAttribute('aria-pressed', m === 'wait');
+    document.getElementById('modeProg').setAttribute('aria-pressed', m === 'prog');
+    document.getElementById('progField').hidden = m !== 'prog';
+    document.getElementById('autoField').hidden = m !== 'prog';
+    pct.hidden = m !== 'prog';
+    statusText.textContent = m === 'prog' ? 'Downloading the update…' : 'Writing notes…';
+  }
+  document.getElementById('modeWait').onclick = () => setMode('wait');
+  document.getElementById('modeProg').onclick = () => setMode('prog');
+  progInput.oninput = () => { progress = progInput.value / 100; auto = false; document.getElementById('auto').checked = false; };
+  document.getElementById('auto').onchange = e => { auto = e.target.checked; };
+  document.getElementById('pixel').onchange = e => { pixel = e.target.checked; stage.classList.toggle('pixel', pixel); resize(); };
+
+  stage.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; stage.setPointerCapture(e.pointerId); });
+  stage.addEventListener('pointermove', e => { if (!dragging) return; dragYaw += (e.clientX - lastX) * 0.01; lastX = e.clientX; });
+  stage.addEventListener('pointerup', () => { dragging = false; });
+  stage.addEventListener('pointercancel', () => { dragging = false; });
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    gl.setPixelRatio(pixel ? Math.max(0.12, 110 / w) : Math.min(devicePixelRatio, 2));
+    gl.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+
+  const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const PERIOD = 1.5;
+  let start = performance.now();
+
+  function frame(now) {
+    const time = (now - start) / 1000;
+    let y = 0, sy = 1, sxz = 1, yaw = -0.55, grow = 1;
+
+    if (mode === 'wait' && !reduce) {
+      const cycle = Math.floor(time / PERIOD), t = (time % PERIOD) / PERIOD;
+      // 0-0.18 crouch, 0.18-0.78 air with a quarter turn, 0.78-1 land and settle.
+      if (t < 0.18) { const k = Math.sin(t / 0.18 * Math.PI); sy = 1 - 0.14 * k; sxz = 1 + 0.07 * k; }
+      else if (t < 0.78) {
+        const a = (t - 0.18) / 0.6;
+        y = Math.sin(a * Math.PI) * 0.75;
+        sy = 1 + 0.08 * Math.sin(a * Math.PI); sxz = 1 - 0.04 * Math.sin(a * Math.PI);
+        yaw += (cycle + ease(a)) * Math.PI / 2;
+      } else {
+        const k = Math.sin((t - 0.78) / 0.22 * Math.PI); sy = 1 - 0.1 * k; sxz = 1 + 0.05 * k;
+      }
+      if (t >= 0.78) yaw += (cycle + 1) * Math.PI / 2;
+      else if (t < 0.18) yaw += cycle * Math.PI / 2;
+    } else if (mode === 'prog') {
+      if (auto) { progress = ((time % 6) / 5); if (progress > 1) progress = 1; progInput.value = Math.round(progress * 100); }
+      grow = Math.max(0.03, progress);
+      yaw = -0.55 + (reduce ? 0 : Math.sin(time * 0.6) * 0.12);
+      pct.textContent = Math.floor(progress * 100) + '%';
+    }
+
+    // Grows out of its back face; the group recentres it so it stays mid-stage.
+    newton.scale.z = grow;
+    body.position.z = DEPTH / 2 * (1 - grow);
+    spin.position.y = y;
+    spin.scale.set(sxz, sy, sxz);
+    spin.rotation.y = yaw + dragYaw;
+    const s = 1 - y * 0.45;
+    shadow.scale.set(s, s * (0.25 + 0.75 * grow), 1);
+    shadow.material.opacity = 0.9 - y * 0.6;
+
+    gl.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

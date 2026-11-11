@@ -1,0 +1,108 @@
+# Release automation. release-please keeps a "Release PR" open on main that
+# accumulates Conventional Commits into CHANGELOG.md and bumps the version.
+# Merging that PR creates the vX.Y.Z tag and GitHub Release, and the dmg job
+# below (same workflow: tags pushed with GITHUB_TOKEN never trigger other
+# workflows) builds figg-X.Y.Z.dmg and attaches it to the release.
+#
+# Signing: with no secrets configured the DMG is ad-hoc signed and not
+# notarized (right-click > Open on first launch). Once a Developer ID exists,
+# add these repo secrets and the same workflow signs and notarizes:
+#   FIGG_CERT_P12          base64 of the Developer ID Application .p12
+#   FIGG_CERT_PASSWORD     password for that .p12
+#   FIGG_SIGN_IDENTITY     e.g. "Developer ID Application: Name (TEAMID)"
+#   FIGG_NOTARY_APPLE_ID / FIGG_NOTARY_PASSWORD / FIGG_NOTARY_TEAM_ID
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  dmg:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: macos-26
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      # secrets.* is not allowed in step `if` expressions; env is.
+      HAS_CERT: ${{ secrets.FIGG_CERT_P12 != '' }}
+      HAS_BLOB: ${{ secrets.BLOB_READ_WRITE_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        run: echo "FIGG_VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Import Developer ID certificate (only when secrets exist)
+        if: env.HAS_CERT == 'true'
+        env:
+          CERT_P12: ${{ secrets.FIGG_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.FIGG_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/figg.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$CERT_P12" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+
+      - name: Build Figg.app
+        env:
+          FIGG_SIGN_IDENTITY: ${{ secrets.FIGG_SIGN_IDENTITY }}
+        run: scripts/bundle.sh
+
+      - name: Package DMG
+        env:
+          FIGG_SIGN_IDENTITY: ${{ secrets.FIGG_SIGN_IDENTITY }}
+          FIGG_NOTARY_APPLE_ID: ${{ secrets.FIGG_NOTARY_APPLE_ID }}
+          FIGG_NOTARY_PASSWORD: ${{ secrets.FIGG_NOTARY_PASSWORD }}
+          FIGG_NOTARY_TEAM_ID: ${{ secrets.FIGG_NOTARY_TEAM_ID }}
+        run: scripts/dmg.sh
+
+      # figg.dmg is the same file under a fixed name, for a stable download
+      # link on the release.
+      - name: Upload DMG to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "build/figg-$FIGG_VERSION.dmg" build/figg.dmg
+          gh release upload "$TAG" "build/figg-$FIGG_VERSION.dmg" build/figg.dmg
+
+      # The website and the in-app updater read from the figg-downloads
+      # Vercel Blob store: a versioned copy, then figg.dmg overwritten in
+      # place with a short cache so the button picks up the new release
+      # quickly. Last comes latest.json, which is how installed copies of
+      # figg learn of the release: without this step nobody is offered it.
+      - name: Publish DMG to Vercel Blob (only when the token exists)
+        if: env.HAS_BLOB == 'true'
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        # The SDK, not `vercel blob put`: the CLI needs a Vercel login on top
+        # of this token and fails without one. If this step ever fails, the
+        # "publish dmg to blob" workflow republishes a release by tag.
+        run: |
+          npm install --no-save --no-package-lock @vercel/blob@2.8.2
+          node scripts/publish-dmg-blob.mjs "build/figg-$FIGG_VERSION.dmg" "$FIGG_VERSION"
+

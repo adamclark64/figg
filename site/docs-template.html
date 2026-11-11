@@ -1,0 +1,239 @@
+<!doctype html>
+<!-- The frame around every docs page. build.mjs fills the {{slots}} from the
+     Markdown files in the repo; the text of a page is never edited here. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}} · figg</title>
+<meta name="description" content="{{description}}">
+<meta name="theme-color" content="#12041f">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="alternate" type="text/markdown" href="{{raw}}">
+<meta property="og:title" content="{{title}} · figg">
+<meta property="og:description" content="{{description}}">
+<meta property="og:image" content="/figg-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #fbeef6;
+    --text: #e6d6ea;
+    --ink-muted: #bfa3bd;
+    --pink: #ff5fb4;
+    --cyan: #5ff2ff;
+    --peach: #ffb37a;
+    --night: #12041f;
+    --line: rgba(251, 238, 246, 0.12);
+    --panel: rgba(251, 238, 246, 0.05);
+    --serif: "Instrument Serif", ui-serif, Georgia, serif;
+    --pixel: VT323, ui-monospace, monospace;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 520px at 85% -160px, rgba(255, 95, 180, 0.20), transparent 70%),
+      radial-gradient(900px 480px at -10% -120px, rgba(95, 242, 255, 0.10), transparent 70%),
+      var(--night);
+    background-attachment: fixed;
+    color: var(--text);
+    font: 16px/1.7 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--cyan); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: #fff; }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+
+  .top {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px clamp(16px, 4vw, 48px);
+    background: rgba(18, 4, 31, 0.78);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .mark {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--ink); text-decoration: none;
+    font-family: var(--serif); font-size: 28px; line-height: 1;
+  }
+  .mark img { width: 28px; height: 28px; border-radius: 8px; }
+  .top nav { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+  .top nav a { color: var(--ink-muted); text-decoration: none; }
+  .top nav a:hover, .top nav a[aria-current] { color: var(--ink); }
+  .top nav a.get {
+    padding: 7px 14px; border-radius: 999px; color: #fff; font-weight: 600;
+    background: linear-gradient(135deg, #ff8ac6, #c44aa0 55%, #7b2d5e);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  }
+
+  .shell {
+    display: grid; grid-template-columns: 220px minmax(0, 760px);
+    gap: clamp(28px, 5vw, 72px); justify-content: center;
+    padding: 40px clamp(16px, 4vw, 48px) 96px;
+  }
+
+  .side { position: sticky; top: 96px; align-self: start; font-size: 14px; }
+  .side .nav-group {
+    margin: 22px 0 6px; font-family: var(--pixel); font-size: 17px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan);
+  }
+  .side .nav-group:first-child { margin-top: 0; }
+  .side ul { list-style: none; margin: 0; padding: 0; }
+  .side a {
+    display: block; padding: 5px 0 5px 12px; margin-left: -1px;
+    border-left: 2px solid transparent;
+    color: var(--ink-muted); text-decoration: none; line-height: 1.4;
+  }
+  .side a:hover { color: var(--ink); }
+  .side a[aria-current] { color: var(--ink); border-left-color: var(--pink); }
+
+  .doc { min-width: 0; overflow-wrap: break-word; }
+  .doc h1, .doc h2 { font-family: var(--serif); font-weight: 400; color: var(--ink); letter-spacing: -0.005em; }
+  .doc h1 { font-size: clamp(40px, 6vw, 60px); line-height: 1.02; margin: 0 0 24px; text-wrap: balance; }
+  .doc h2 {
+    font-size: clamp(27px, 3.4vw, 33px); line-height: 1.15;
+    margin: 56px 0 14px; padding-top: 28px; border-top: 1px solid var(--line);
+  }
+  .doc h3 { font-size: 18px; font-weight: 600; color: var(--ink); margin: 34px 0 10px; line-height: 1.35; }
+  .doc h4 { font-size: 16px; font-weight: 600; color: var(--ink); margin: 26px 0 8px; }
+  .doc h2, .doc h3, .doc h4 { position: relative; }
+  .doc .anchor {
+    position: absolute; right: 100%; padding-right: 8px;
+    font-family: var(--pixel); font-size: 0.8em; color: var(--pink);
+    text-decoration: none; opacity: 0;
+  }
+  .doc :is(h2, h3, h4):hover .anchor, .doc .anchor:focus-visible { opacity: 1; }
+  .doc p, .doc ul, .doc ol, .doc pre, .doc .table-wrap, .doc blockquote { margin: 0 0 18px; }
+  .doc ul, .doc ol { padding-left: 1.4em; }
+  .doc li { margin: 6px 0; }
+  .doc li > ul, .doc li > ol { margin: 6px 0 0; }
+  .doc li > p { margin-bottom: 8px; }
+  .doc li::marker { color: var(--ink-muted); }
+  .doc strong { color: var(--ink); font-weight: 600; }
+  .doc hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
+  .doc blockquote { padding: 2px 0 2px 18px; border-left: 2px solid var(--pink); color: var(--ink-muted); }
+  .doc code {
+    font-family: var(--mono); font-size: 0.86em;
+    padding: 0.12em 0.38em; border-radius: 5px;
+    background: rgba(251, 238, 246, 0.09); color: #ffd9bf;
+  }
+  .doc pre {
+    padding: 15px 18px; overflow-x: auto; border-radius: 12px;
+    background: rgba(8, 2, 16, 0.66); border: 1px solid var(--line);
+    line-height: 1.55;
+  }
+  .doc pre code { padding: 0; background: none; color: #dff9ff; font-size: 13.5px; }
+  .doc a code { color: inherit; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  .doc table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.5; }
+  .doc th, .doc td { padding: 9px 14px; text-align: left; vertical-align: top; }
+  .doc th { font-weight: 600; color: var(--ink); background: var(--panel); }
+  .doc td { border-top: 1px solid var(--line); }
+  .doc img { max-width: 100%; height: auto; border-radius: 10px; }
+
+  .toc { margin: 0 0 30px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .toc summary {
+    cursor: pointer; padding: 10px 16px; list-style-position: inside;
+    font-family: var(--pixel); font-size: 18px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink);
+  }
+  .toc summary span { color: var(--ink-muted); letter-spacing: 0.04em; margin-left: 8px; }
+  .toc ol { list-style: none; margin: 0; padding: 4px 16px 14px; columns: 2 240px; column-gap: 28px; font-size: 14px; }
+  .toc li { margin: 0; padding: 3px 0; break-inside: avoid; line-height: 1.4; }
+  .toc a { color: var(--ink-muted); text-decoration: none; }
+  .toc a:hover { color: var(--ink); }
+
+  .agent {
+    margin: 0 0 30px; padding: 18px 20px 16px; border-radius: 14px;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#1c0a2d, #1c0a2d) padding-box,
+      linear-gradient(120deg, var(--pink), #c06bff 50%, var(--cyan)) border-box;
+  }
+  .agent-eyebrow {
+    margin: 0 0 8px; font-family: var(--pixel); font-size: 18px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan);
+  }
+  .agent-row { display: flex; align-items: flex-start; gap: 14px; }
+  .agent-prompt { flex: 1; min-width: 0; margin: 0; font-family: var(--mono); font-size: 14px; line-height: 1.6; color: var(--ink); overflow-wrap: anywhere; }
+  .copy {
+    flex: none; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    font: 600 13px Inter, ui-sans-serif, system-ui, sans-serif; color: var(--night);
+    background: var(--cyan); border: 0;
+  }
+  .copy:hover { background: #fff; }
+  .agent-note { margin: 12px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-muted); }
+
+  .source {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-muted);
+  }
+  .source code { font-family: var(--mono); font-size: 12.5px; }
+
+  @media (max-width: 860px) {
+    .shell { display: block; padding-top: 0; }
+    /* The sidebar turns into one row of links that scrolls sideways. */
+    .side {
+      position: static; display: flex; align-items: center; gap: 8px;
+      margin: 0 calc(-1 * clamp(16px, 4vw, 48px)) 28px; padding: 12px clamp(16px, 4vw, 48px);
+      overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none;
+    }
+    .side::-webkit-scrollbar { display: none; }
+    .side .nav-group { display: none; }
+    .side ul { display: contents; }
+    .side li { flex: none; }
+    .side a {
+      margin: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap;
+    }
+    .side a[aria-current] { border-color: var(--pink); }
+    .doc .anchor { display: none; }
+    .top nav a.hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="/"><img src="/favicon.png" alt="">figg</a>
+  <nav aria-label="Site">
+    <a class="hide-sm" href="/docs" aria-current="true">How it works</a>
+    <a class="get" href="https://3gwgc5ir6t6yxpzh.public.blob.vercel-storage.com/figg.dmg">Download</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <nav class="side" aria-label="Docs">
+{{nav}}
+  </nav>
+
+  <main class="doc">
+{{agent}}
+{{toc}}
+<article>
+{{content}}
+</article>
+    <p class="source">This page is <code>{{source}}</code> from the figg repo, published as written. <a href="{{raw}}">Raw Markdown</a></p>
+  </main>
+</div>
+
+<script>
+  // The prompt needs a full address; a local preview has none at build time.
+  for (const el of document.querySelectorAll('[data-origin=""]')) el.textContent = location.origin;
+  for (const button of document.querySelectorAll('[data-copy]')) {
+    button.addEventListener('click', async () => {
+      const text = document.getElementById(button.dataset.copy).textContent.trim();
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = 'Copied';
+      } catch {
+        button.textContent = 'Select and copy';
+      }
+      setTimeout(() => { button.textContent = 'Copy'; }, 1800);
+    });
+  }
+</script>
+</body>
+</html>
