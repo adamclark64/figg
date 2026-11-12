@@ -144,7 +144,7 @@ logs. The `Daily issue digest` workflow (`.github/issue-digest/README.md`)
 posts a read-only triage summary of `user-report` issues each day; it never
 edits code or issues.
 
-## Known gaps (v1)
+## Known gaps
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).

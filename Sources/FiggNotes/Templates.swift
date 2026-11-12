@@ -6,7 +6,7 @@ import Foundation
 public struct NoteTemplate: Sendable, Equatable, Identifiable {
     public let id: String
     public let name: String
-    /// Middle sections, in order, as "Heading | what goes in it".
+    /// Middle sections, in order: the heading and a hint of what goes in it.
     public let sections: [(heading: String, hint: String)]
     /// Extra style guidance for this meeting type, or empty.
     public let guidance: String

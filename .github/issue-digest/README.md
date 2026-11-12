@@ -1,7 +1,7 @@
 # Daily issue digest
 
-Every day (13:00 UTC) the `Daily issue digest` workflow
-gathers the last 24 hours of `user-report` issues plus the open backlog, has
+Every day (13:00 UTC) the `Daily issue digest` workflow gathers the last
+24 hours of `user-report` issues plus the open backlog, has
 Claude write a short triage digest (groups, likely duplicates, suggested
 priority, open questions), and posts it as a comment on the single
 pinned **Daily issue digest** issue. It also lands in the run's step summary

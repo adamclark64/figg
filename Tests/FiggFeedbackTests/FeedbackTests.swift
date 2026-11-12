@@ -47,10 +47,8 @@ func samplePayload(screenshots: [Screenshot] = []) -> BugReportPayload {
         #expect(shots.count == 1)
         #expect(shots[0]["mime"] as? String == "image/jpeg")
         #expect((shots[0]["base64"] as? String)?.hasPrefix("data:image/jpeg;base64,") == true)
-        // The payload carries no page URL.
-        #expect(json["url"] == nil)
-        #expect(json["userAgent"] == nil)
-        #expect(json["viewport"] == nil)
+        // Nothing rides along beyond these fields.
+        #expect(Set(json.keys) == ["type", "description", "email", "appVersion", "extra", "screenshots"])
     }
 
     @Test func validation() {

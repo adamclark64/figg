@@ -5,7 +5,7 @@ import Foundation
 // started, what failed, and how loud each stream was.
 // Usage: swift run figg-audio-probe [seconds]
 //        swift run figg-audio-probe --mic-users   (which apps hold the mic now)
-// Note: run from a terminal, macOS applies the terminal's permissions, not
+// Note: when run from a terminal, macOS applies the terminal's permissions, not
 // figg's. To test figg's own permissions: open build/Figg.app --args --probe-audio
 setvbuf(stdout, nil, _IONBF, 0)
 let seconds = Double(CommandLine.arguments.dropFirst().first ?? "") ?? 6
