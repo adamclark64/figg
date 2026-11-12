@@ -35,10 +35,10 @@ what to click and wait for them.
    attribute from the app.
 6. **Say the free-model warning out loud.** If the human picks OpenRouter's
    free models, or any other free model, tell them in plain words before
-   the first meeting: free models may log or train on
-   the text they are sent, which is their notes, the transcript and their
-   questions. They should think twice before using them for confidential
-   meetings. Audio is never sent with any provider.
+   the first meeting: free models may log or train on the text they are
+   sent, which is their notes, the transcript and their questions. They
+   should think twice before using them for confidential meetings. Audio
+   is never sent with any provider.
 
 ## 1. Requirements
 

@@ -164,7 +164,7 @@ struct MeetingView: View {
         return lines.map(\.displaySpeaker).filter { seen.insert($0).inserted }
     }
 
-    /// "Today 11:23", "Yesterday 09:00", or "Mon, Nov 3 14:00".
+    /// "Today 11:23", "Yesterday 09:00", or "Mon, Jan 5 14:00".
     static func when(_ date: Date) -> String {
         let time = date.formatted(date: .omitted, time: .shortened)
         let cal = Calendar.current

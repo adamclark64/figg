@@ -2,8 +2,8 @@ import Foundation
 import Yams
 
 /// Everything a user can set, stored in `~/.config/figg/config.yaml`.
-/// Secrets (Atlassian email and API token) are never in this file; they
-/// live in the Keychain. Missing keys fall back to the defaults below, so
+/// Secrets (Atlassian login, model provider API keys) are never in this
+/// file; they live in the Keychain. Missing keys fall back to the defaults below, so
 /// a partial file is fine.
 public struct FiggConfig: Codable, Equatable, Sendable {
     public var llm = LLM()
