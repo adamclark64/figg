@@ -36,7 +36,7 @@ import Testing
         c.transcription.separateSpeakers = false
         c.detection.ignoreApps = ["com.example.app"]
         c.appearance.theme = "system"
-        c.appearance.loader = "newton"
+        c.appearance.loader = "fig"
         c.notes.template = "standup"
         c.sharing.confluenceSpace = "has \"quotes\" and \\ slash"
         c.updates.autoCheck = false
@@ -121,19 +121,20 @@ import Testing
         #expect(c.llm.providers[0] == .bedrock)
     }
 
-    @Test func theNewtonLoaderIsAnEasterEgg() throws {
-        // The default is the fig, and a default file does not mention the key.
-        #expect(FiggConfig().appearance.loader == "fig")
+    @Test func theFigLoaderIsAHiddenOption() throws {
+        // The default is the fig newton, and a default file does not mention the key.
+        #expect(FiggConfig().appearance.loader == "newton")
         #expect(!FiggConfig().yaml().contains("loader"))
-        #expect(try FiggConfig.parse("appearance:\n  theme: system\n").appearance.loader == "fig")
+        #expect(try FiggConfig.parse("appearance:\n  theme: system\n").appearance.loader == "newton")
         // Set by hand, it is read, and it survives figg rewriting the file.
-        var c = try FiggConfig.parse("appearance:\n  loader: newton\n")
-        #expect(c.appearance.loader == "newton")
+        var c = try FiggConfig.parse("appearance:\n  loader: fig\n")
+        #expect(c.appearance.loader == "fig")
         #expect(c.appearance.theme == "fig")
-        #expect(c.yaml().contains("  loader: \"newton\""))
+        #expect(c.yaml().contains("  loader: \"fig\""))
         #expect(try FiggConfig.parse(c.yaml()) == c)
-        // Back to the default, the line goes again.
-        c.appearance.loader = "fig"
+        // Back to the default, the line goes again. So does a `newton` line
+        // someone added while the fig was the default (0.6.0).
+        c.appearance.loader = "newton"
         #expect(!c.yaml().contains("loader"))
     }
 
