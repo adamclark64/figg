@@ -182,3 +182,8 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   and a scratch-window check of the key handling, but have not been tried
   in the running app or against GitHub's issue form in each browser.
 - No Developer ID yet, so no notarized `.dmg`.
+- The updater trusts the download store. It only takes a DMG from the same
+  HTTPS host as the version file, but it checks no signature or checksum, so
+  whoever can write to that store (the `BLOB_READ_WRITE_TOKEN` secret)
+  decides what installed copies run. Signing releases with a key the app
+  carries is the fix; see `SECURITY.md`.

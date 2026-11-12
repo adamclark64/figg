@@ -7,8 +7,9 @@
 // This uses the @vercel/blob SDK rather than `vercel blob put`: the Vercel
 // CLI refuses to run any command without a Vercel login, even when the blob
 // token is set, and the release job has only the store's read-write token.
-// The workflows install the SDK right before calling this; nothing here is
-// part of the app.
+// The workflows install the SDK right before calling this, at the versions
+// pinned in scripts/package-lock.json (`npm ci --prefix scripts`); nothing
+// here is part of the app.
 import { readFile } from "node:fs/promises";
 import { put } from "@vercel/blob";
 

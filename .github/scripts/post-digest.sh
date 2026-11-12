@@ -7,6 +7,15 @@
 set -euo pipefail
 [ -s digest/DIGEST.md ] || { echo "no digest to post"; exit 0; }
 
+# The digest is built from text anyone can file, so it is cut to a sane
+# length and every "@" gets a zero-width space after it: the comment then
+# reads the same and pings nobody. The same goes after the "#" of a reference
+# to another repository (owner/name#12), which would otherwise leave a
+# backlink on that repository's issue. Plain "#12" still links here.
+head -c 20000 digest/DIGEST.md \
+  | perl -CSD -pe 's/@/@\x{200B}/g; s{([\w.-]+/[\w.-]+)#(?=\d)}{$1#\x{200B}}g' > digest/DIGEST.safe.md
+mv digest/DIGEST.safe.md digest/DIGEST.md
+
 {
   echo "# Daily issue digest"; echo
   cat digest/DIGEST.md
@@ -31,8 +40,12 @@ gh issue comment "$num" -R "$REPO" --body-file digest/comment.md
 echo "posted to issue #${num}"
 
 if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
-  text=$(head -c 3500 digest/DIGEST.md)
+  # Slack reads <...> as a link, a mention or a channel-wide ping.
+  text=$(head -c 3500 digest/DIGEST.md | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
   link="https://github.com/${REPO}/issues/${num}"
-  payload=$(jq -n --arg t "*Daily issue digest* (${date_utc})\n${text}\n<${link}|Full digest>" '{text: $t}')
+  # printf turns the \n into real line breaks; inside the quotes alone they
+  # would reach Slack as a backslash and an n.
+  message=$(printf '*Daily issue digest* (%s)\n%s\n<%s|Full digest>' "$date_utc" "$text" "$link")
+  payload=$(jq -n --arg t "$message" '{text: $t}')
   curl -sS -X POST -H 'content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL" > /dev/null || echo "slack post failed"
 fi
