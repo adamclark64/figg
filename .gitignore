@@ -11,6 +11,9 @@ Resources/*-preview.png
 site/dist/
 site/node_modules/
 
+# Release tooling (scripts/package.json)
+scripts/node_modules/
+
 # Local agent context and examples
 .claude/
 examples/

@@ -1,0 +1,8 @@
+{
+  "name": "figg-release-scripts",
+  "private": true,
+  "description": "Pins what the release workflows install to publish the DMG. Not part of the app.",
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  }
+}

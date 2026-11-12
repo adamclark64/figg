@@ -166,3 +166,8 @@ edits code or issues.
   the pill stays out of screen shares on macOS 15 has not been checked on a
   real call.
 - No Developer ID yet, so no notarized `.dmg`.
+- The updater trusts the download store. It only takes a DMG from the same
+  HTTPS host as the version file, but it checks no signature or checksum, so
+  whoever can write to that store (the `BLOB_READ_WRITE_TOKEN` secret)
+  decides what installed copies run. Signing releases with a key the app
+  carries is the fix; see `SECURITY.md`.

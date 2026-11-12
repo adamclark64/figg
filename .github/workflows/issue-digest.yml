@@ -1,8 +1,15 @@
 name: Daily issue digest
 
-# Summarizes user reports filed through figg's in-app bug reporter. It only
+# Summarizes user reports filed from figg's Report a Bug window. It only
 # writes a summary comment; it never edits code, opens PRs, or changes issues.
 # Docs: .github/issue-digest/README.md
+#
+# Anyone on GitHub can file a report, so issue text is hostile input. The work
+# is split in two jobs so that text never meets a token that can write:
+#   write  reads the issues and asks the model for text. Read-only token. The
+#          model has no tools and sees no files.
+#   post   publishes the text. It holds the write token and the Slack secret,
+#          runs no model, and treats the digest as plain text.
 
 on:
   schedule:
@@ -19,29 +26,29 @@ on:
         required: false
         default: "true"
 
+permissions: {}
+
 concurrency:
   group: issue-digest
   cancel-in-progress: false
 
+env:
+  REPO: ${{ github.repository }}
+  HOURS: ${{ github.event.inputs.hours || vars.DIGEST_HOURS || '24' }}
+
 jobs:
-  digest:
+  write:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
+      issues: read
     env:
-      REPO: ${{ github.repository }}
-      HOURS: ${{ github.event.inputs.hours || vars.DIGEST_HOURS || '24' }}
       DIGEST_MODEL: ${{ vars.DIGEST_MODEL || 'claude-sonnet-5-5' }}
-      POST: ${{ github.event.inputs.post || 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Ensure labels
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/ensure-labels.sh
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Collect user reports
         id: collect
@@ -49,50 +56,55 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/collect-issues.sh
 
-      - name: Render digest prompt
-        if: steps.collect.outputs.total != '0'
-        run: |
-          set -euo pipefail
-          rendered=$(sed -e "s#{{REPO}}#${REPO}#g" -e "s#{{HOURS}}#${HOURS}#g" .github/issue-digest/digest-prompt.md)
-          {
-            echo "DIGEST_PROMPT<<__PROMPT_EOF__"
-            echo "$rendered"
-            echo "__PROMPT_EOF__"
-          } >> "$GITHUB_ENV"
-
       - name: Write digest with Claude
-        id: claude
         if: steps.collect.outputs.total != '0'
         continue-on-error: true
-        uses: anthropics/claude-code-action@v1
-        with:
-          # API billing. Swap for claude_code_oauth_token (from
-          # `claude setup-token`) to use subscription limits instead.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          prompt: ${{ env.DIGEST_PROMPT }}
-          claude_args: |
-            --model ${{ env.DIGEST_MODEL }}
-            --max-turns 15
-            --allowedTools "Read,Grep,Glob,Write"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: bash .github/scripts/write-digest.sh
 
       - name: Fallback digest when the model step produced nothing
         if: always()
         run: bash .github/scripts/collect-issues.sh --fallback-digest
 
-      - name: Post digest
+      - name: Hand the digest to the post job
         if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: issue-digest-${{ github.run_id }}
+          path: digest/DIGEST.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+  post:
+    needs: write
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      POST: ${{ github.event.inputs.post || 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Fetch the digest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: issue-digest-${{ github.run_id }}
+          path: digest
+
+      - name: Ensure labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/ensure-labels.sh
+
+      - name: Post digest
         env:
           GH_TOKEN: ${{ github.token }}
           SLACK_WEBHOOK_URL: ${{ secrets.DIGEST_SLACK_WEBHOOK_URL }}
         run: bash .github/scripts/post-digest.sh
-
-      - name: Upload digest artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: issue-digest-${{ github.run_id }}
-          path: digest/
-          retention-days: 30
-          if-no-files-found: ignore
