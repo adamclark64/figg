@@ -17,6 +17,9 @@ figg is a personal project with no bounty.
 - No secrets on disk or in logs. AWS credentials come from the AWS CLI at
   run time and stay in memory; API keys and tokens live in the macOS
   Keychain.
+- An update installed from inside the app was signed by figg's release
+  job. The app refuses a download with a missing or wrong signature and
+  keeps running the version it has.
 - A bug report carries only what you type, the screenshots you add, the
   app version and build, the macOS version, the Mac's model, and the name
   of the transcription engine. It is a public GitHub issue, and you read it
@@ -31,11 +34,15 @@ A way to break any of these is a security problem worth reporting.
 - Releases are not signed with a Developer ID and are not notarized.
   `scripts/bundle.sh` signs a build with a certificate you create on your
   own Mac (`docs/local-signing.md`).
-- The in-app updater downloads over HTTPS from one fixed host and refuses a
-  DMG from any other, but it checks no signature on the download. Its
-  safety rests on that host and on the token the release workflow uses to
-  write to it. If you would rather not rely on that, build from source and
-  do not install updates from inside the app.
+- The in-app updater only installs a DMG that is signed with figg's
+  release key, so the download store and its write token cannot change
+  what installed copies run. The key is held by the release workflow in
+  GitHub Actions, so the check is only as strong as control of this
+  repository and its workflows. It does not cover the first download from
+  the website, and copies of 0.7.0 or earlier do not check anything until
+  they have updated once. Details in `docs/release-signing.md`. If you
+  would rather not rely on that, build from source and do not install
+  updates from inside the app.
 - `relay/` is an optional function for people who host their own bug-report
   endpoint. It accepts reports from anyone who knows its address and files
   them with your token, so give that token access to one repository only,
@@ -45,6 +52,6 @@ A way to break any of these is a security problem worth reporting.
 
 Changes to `.github/`, `scripts/`, `site/`, `relay/`, `README.md` and
 `docs/agent-setup.md` deserve a slower read than the rest: workflows hold
-the release token, and the setup guide is written to be followed by coding
+the release token and the key that signs updates, and the setup guide is written to be followed by coding
 agents on other people's machines. The reasons behind the issue digest's
 design are in `.github/issue-digest/README.md`.

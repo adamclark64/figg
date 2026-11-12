@@ -88,6 +88,8 @@ macOS permissions, or Bedrock.
 
 ## Updates
 - [ ] After a release, `curl https://3gwgc5ir6t6yxpzh.public.blob.vercel-storage.com/latest.json` names the new version and a dmg URL that downloads
+- [ ] After a release, `latest.json` has a `signature` of 88 characters, and the `publish` job's log names a public key that is in `UpdateVerifier.releaseKeys`
+- [ ] Signed update: from a figg that checks signatures (any release after 0.7.0), Update now installs the next release. From 0.7.0, Update now still installs it (0.7.0 ignores the signature)
 - [ ] In-app update (needs figg 0.5.1 or later): run an older figg,
   Settings > Recording > Check for Updates, Update now, confirm figg
   relaunches as the new version and, with the local signing certificate,

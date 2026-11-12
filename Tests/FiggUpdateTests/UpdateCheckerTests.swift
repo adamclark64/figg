@@ -35,6 +35,26 @@ final class FakeHTTP: HTTPClient, @unchecked Sendable {
         #expect(http.requests.first?.url == Self.feed)
     }
 
+    @Test func carriesTheSignatureThrough() async throws {
+        let (checker, _) = checker(#"{"version": "0.8.0", "dmg_url": "https://store.example.com/releases/figg-0.8.0.dmg", "size": 12345, "signature": "c2lnbmF0dXJl"}"#)
+        #expect(try await checker.latest().signature == "c2lnbmF0dXJl")
+    }
+
+    @Test func aVersionFileWithoutASignatureStillParses() async throws {
+        // The release is still reported, so the user is told the update was
+        // refused (UpdateInstaller does that) instead of never seeing one.
+        let (checker, _) = checker(#"{"version": "0.8.0", "dmg_url": "https://store.example.com/releases/figg-0.8.0.dmg", "size": 12345}"#)
+        #expect(try await checker.latest().signature == nil)
+    }
+
+    @Test func fieldsThisVersionDoesNotKnowAreIgnored() async throws {
+        // What lets a field be added to the file without breaking copies
+        // already installed: 0.7.0 reads a file with "signature" in it the
+        // same way this reads one with a field from the future.
+        let (checker, _) = checker(#"{"version": "0.8.0", "dmg_url": "https://store.example.com/figg.dmg", "size": 1, "signature": "c2ln", "from_the_future": {"a": [1, 2]}}"#)
+        #expect(try await checker.latest().version == "0.8.0")
+    }
+
     @Test func asksNothingOfGitHubAndSendsNoCredentials() async throws {
         // The check never goes to GitHub.
         let (checker, http) = checker(#"{"version": "0.5.1", "dmg_url": "https://store.example.com/figg.dmg", "size": 1}"#)

@@ -7,11 +7,16 @@ public struct ReleaseInfo: Equatable, Sendable {
     public var version: String
     public var dmgURL: URL
     public var dmgSize: Int
+    /// Base64 Ed25519 signature over the dmg's bytes, as the version file
+    /// gave it. Nil when the file had none; `UpdateVerifier` then refuses
+    /// the download.
+    public var signature: String?
 
-    public init(version: String, dmgURL: URL, dmgSize: Int) {
+    public init(version: String, dmgURL: URL, dmgSize: Int, signature: String? = nil) {
         self.version = version
         self.dmgURL = dmgURL
         self.dmgSize = dmgSize
+        self.signature = signature
     }
 }
 
@@ -19,6 +24,8 @@ public enum UpdateError: LocalizedError, Equatable {
     case badResponse(Int)
     case unreadableFeed
     case untrustedDownload
+    case unsignedUpdate
+    case badSignature
 
     public var errorDescription: String? {
         switch self {
@@ -28,6 +35,10 @@ public enum UpdateError: LocalizedError, Equatable {
             "Couldn't read the update information."
         case .untrustedDownload:
             "The update points somewhere other than figg's download site, so it was ignored."
+        case .unsignedUpdate:
+            "This update has no signature, so figg did not install it. The version you have is untouched."
+        case .badSignature:
+            "This update is not signed with figg's release key, so figg did not install it. The version you have is untouched."
         }
     }
 }
@@ -35,7 +46,13 @@ public enum UpdateError: LocalizedError, Equatable {
 /// Reads the version file that every release publishes to figg's public
 /// download store, next to the dmg:
 ///
-///     {"version": "0.5.1", "dmg_url": "https://<store>/releases/figg-0.5.1.dmg", "size": 22151932}
+///     {"version": "0.5.1", "dmg_url": "https://<store>/releases/figg-0.5.1.dmg", "size": 22151932,
+///      "signature": "<base64 Ed25519 signature over the dmg>"}
+///
+/// The signature is only carried from here to `UpdateInstaller`, which
+/// checks it against the downloaded file (`UpdateVerifier`). A file without
+/// one still parses, so the user is told why the update was refused rather
+/// than never hearing of it.
 ///
 /// A static file, not the GitHub Releases API, so the check never depends on
 /// GitHub's anonymous rate limits. It is anonymous: no token exists anywhere
@@ -64,8 +81,9 @@ public struct UpdateChecker: Sendable {
             var version: String
             var dmgURL: URL
             var size: Int
+            var signature: String?
             enum CodingKeys: String, CodingKey {
-                case version, size
+                case version, size, signature
                 case dmgURL = "dmg_url"
             }
         }
@@ -79,7 +97,8 @@ public struct UpdateChecker: Sendable {
             throw UpdateError.untrustedDownload
         }
         let version = latest.version.hasPrefix("v") ? String(latest.version.dropFirst()) : latest.version
-        return ReleaseInfo(version: version, dmgURL: latest.dmgURL, dmgSize: latest.size)
+        return ReleaseInfo(version: version, dmgURL: latest.dmgURL, dmgSize: latest.size,
+                           signature: latest.signature)
     }
 
     /// Strict numeric dot-component compare. Anything non-numeric (prerelease
