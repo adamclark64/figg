@@ -2,7 +2,9 @@
 # accumulates Conventional Commits into CHANGELOG.md and bumps the version.
 # Merging that PR creates the vX.Y.Z tag and GitHub Release, and the dmg job
 # below (same workflow: tags pushed with GITHUB_TOKEN never trigger other
-# workflows) builds figg-X.Y.Z.dmg and attaches it to the release.
+# workflows) builds figg-X.Y.Z.dmg and attaches it to the release. The
+# publish job then signs that dmg for the in-app updater and puts it on the
+# download store.
 #
 # Signing: with no secrets configured the DMG is ad-hoc signed and not
 # notarized (right-click > Open on first launch). Once a Developer ID exists,
@@ -44,7 +46,6 @@ jobs:
       TAG: ${{ needs.release-please.outputs.tag_name }}
       # secrets.* is not allowed in step `if` expressions; env is.
       HAS_CERT: ${{ secrets.FIGG_CERT_P12 != '' }}
-      HAS_BLOB: ${{ secrets.BLOB_READ_WRITE_TOKEN != '' }}
     steps:
       # The build runs code from the package dependencies, so the checkout
       # leaves no token behind for it to find. The steps that need one get
@@ -95,22 +96,53 @@ jobs:
           cp "build/figg-$FIGG_VERSION.dmg" build/figg.dmg
           gh release upload "$TAG" "build/figg-$FIGG_VERSION.dmg" build/figg.dmg
 
-      # The website and the in-app updater read from the figg-downloads
-      # Vercel Blob store: a versioned copy, then figg.dmg overwritten in
-      # place with a short cache so the button picks up the new release
-      # quickly. Last comes latest.json, which is how installed copies of
-      # figg learn of the release: without this step nobody is offered it.
-      - name: Publish DMG to Vercel Blob (only when the token exists)
+  # The website and the in-app updater read from the figg-downloads Vercel
+  # Blob store: a versioned copy, then figg.dmg overwritten in place with a
+  # short cache so the button picks up the new release quickly. Last comes
+  # latest.json, which is how installed copies of figg learn of the release:
+  # without this job nobody is offered it.
+  #
+  # latest.json carries a signature over the dmg, made here with the release
+  # key, and installed copies refuse a download without it
+  # (docs/release-signing.md). That key is why this is its own job: the dmg
+  # job runs code from the package dependencies, and the key must never be
+  # on the same runner. It is also why the job names the "release"
+  # environment, which holds the key and only runs for main.
+  publish:
+    needs: [release-please, dmg]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      # secrets.* is not allowed in step `if` expressions; env is.
+      HAS_BLOB: ${{ secrets.BLOB_READ_WRITE_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Derive version from tag
+        run: echo "FIGG_VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Download the dmg from the release
+        if: env.HAS_BLOB == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" --pattern "figg-$FIGG_VERSION.dmg" --dir build
+
+      - name: Sign and publish DMG to Vercel Blob (only when the token exists)
         if: env.HAS_BLOB == 'true'
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          FIGG_UPDATE_SIGNING_KEY: ${{ secrets.FIGG_UPDATE_SIGNING_KEY }}
         # The SDK, not `vercel blob put`: the CLI needs a Vercel login on top
         # of this token and fails without one. If this step ever fails, the
         # "publish dmg to blob" workflow republishes a release by tag.
         # scripts/package-lock.json pins the SDK and everything under it, and
-        # no install script runs: this step holds the token that decides
-        # what every installed copy of figg downloads.
+        # no install script runs: this step holds the key and the token that
+        # together decide what every installed copy of figg installs.
         run: |
           npm ci --prefix scripts --ignore-scripts
           node scripts/publish-dmg-blob.mjs "build/figg-$FIGG_VERSION.dmg" "$FIGG_VERSION"
-

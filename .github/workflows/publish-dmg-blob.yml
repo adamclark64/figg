@@ -6,8 +6,10 @@
 #   gh workflow run publish-dmg-blob.yml -f tag=v0.2.0
 #
 # It uploads the dmg already attached to the GitHub release. Nothing is
-# rebuilt. Both figg.dmg and latest.json end up naming the tag given, so
-# after republishing an old tag, republish the newest one too.
+# rebuilt; the dmg is signed again for the in-app updater with the release
+# key (docs/release-signing.md), which the "release" environment holds and
+# only hands to runs on main. Both figg.dmg and latest.json end up naming the
+# tag given, so after republishing an old tag, republish the newest one too.
 name: publish dmg to blob
 
 on:
@@ -24,6 +26,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: release
     env:
       # Never interpolate the input into a script; read it from the environment.
       TAG: ${{ inputs.tag }}
@@ -42,9 +45,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download "$TAG" --pattern "figg-$FIGG_VERSION.dmg" --dir build
 
-      - name: Publish DMG to Vercel Blob
+      - name: Sign and publish DMG to Vercel Blob
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          FIGG_UPDATE_SIGNING_KEY: ${{ secrets.FIGG_UPDATE_SIGNING_KEY }}
         run: |
           npm ci --prefix scripts --ignore-scripts
           node scripts/publish-dmg-blob.mjs "build/figg-$FIGG_VERSION.dmg" "$FIGG_VERSION"
