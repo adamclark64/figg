@@ -3,14 +3,16 @@ import Foundation
 /// Which drawing figg's loading indicator uses.
 public enum LoaderStyle: String, Equatable, Sendable {
     /// The low-poly fig from the logo and the website, turning on the spot.
+    /// Not offered in Settings: it is set by hand with
+    /// `appearance.loader: fig` in config.yaml.
     case fig
-    /// The hopping fig newton. Not offered in Settings: it is set by hand
-    /// with `appearance.loader: newton` in config.yaml.
+    /// The hopping fig newton, the default.
     case newton
 
-    /// Anything but "newton" is the fig, so a typo can only give the default.
+    /// Anything but "fig" is the fig newton, so a typo can only give the
+    /// default.
     public static func named(_ name: String) -> LoaderStyle {
-        name.trimmingCharacters(in: .whitespaces).lowercased() == "newton" ? .newton : .fig
+        name.trimmingCharacters(in: .whitespaces).lowercased() == "fig" ? .fig : .newton
     }
 }
 

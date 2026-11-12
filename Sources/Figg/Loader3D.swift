@@ -3,8 +3,8 @@ import FiggWidget
 import SceneKit
 import SwiftUI
 
-/// A 3D loader as a SwiftUI view: the spinning fig or the hopping fig
-/// newton, by `style`. It fills its frame and is clear around the drawing.
+/// A 3D loader as a SwiftUI view: the hopping fig newton or the spinning
+/// fig, by `style`. It fills its frame and is clear around the drawing.
 ///
 /// With `animated` it moves; without, it holds its still pose. The scene is
 /// built once per view, so a view whose `style` may change needs a new

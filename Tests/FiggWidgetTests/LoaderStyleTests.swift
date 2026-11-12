@@ -3,14 +3,14 @@ import Foundation
 import Testing
 
 @Suite struct LoaderStyleTests {
-    @Test func theFigIsTheDefaultAndTheNewtonIsAskedForByName() {
-        #expect(LoaderStyle.named("fig") == .fig)
+    @Test func theNewtonIsTheDefaultAndTheFigIsAskedForByName() {
         #expect(LoaderStyle.named("newton") == .newton)
-        #expect(LoaderStyle.named(" Newton ") == .newton)
+        #expect(LoaderStyle.named("fig") == .fig)
+        #expect(LoaderStyle.named(" Fig ") == .fig)
         // A typo or an empty value can only give the default.
-        #expect(LoaderStyle.named("") == .fig)
-        #expect(LoaderStyle.named("newtons") == .fig)
-        #expect(LoaderStyle.named("spinner") == .fig)
+        #expect(LoaderStyle.named("") == .newton)
+        #expect(LoaderStyle.named("figs") == .newton)
+        #expect(LoaderStyle.named("spinner") == .newton)
     }
 
     @Test func theFigStartsAtRestAndTurnsOncePerPeriod() {

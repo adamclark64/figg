@@ -95,8 +95,9 @@ macOS permissions, or Bedrock.
 - [ ] While the update downloads, a banner shows the 3D fig newton being extruded from its back with a percentage, then hopping beside "Installing the update"; Settings shows the same
 
 ## Loading states
-- [ ] By default every loader below is the low-poly fig turning on the spot, the same colours each time, and a default config.yaml has no `loader` line
-- [ ] Add `loader: newton` under `appearance:` in config.yaml and switch back to figg: every loader is the fig newton, and the items below describe it; change a setting in the app and the `loader` line is still in the file
+- [ ] By default every loader below is the fig newton, and a default config.yaml has no `loader` line
+- [ ] Add `loader: fig` under `appearance:` in config.yaml and switch back to figg: every loader is the low-poly fig turning on the spot, the same colours each time; change a setting in the app and the `loader` line is still in the file. Take the line out again for the items below
+- [ ] With `loader: newton` in config.yaml (left from 0.6.0), the loaders are the fig newton, and the line goes the next time figg writes the file
 - [ ] Stop a recording: the status chip shows a small hopping 3D fig newton with "Finishing transcript…", then "Writing notes…", and the Enhanced tab shows a large 3D fig newton over the same words, never "Enhance now"
 - [ ] On a first run, the sidebar shows a small 3D fig newton beside "Loading speech model…"; sending a bug report shows one beside "Sending your report…"
 - [ ] Before the first notes text arrives, the Enhanced tab shows a large 3D fig newton hopping over "Writing notes…", not "Enhance now"; every other hop shows the jam; while notes stream, a small one hops where Edit goes

@@ -1,10 +1,10 @@
 import FiggWidget
 import SwiftUI
 
-/// figg's loading indicator. By default it is the low-poly fig from the
-/// logo, turning on the spot. With `appearance.loader: newton` in config.yaml
-/// it is the fig newton instead, which hops with a quarter turn and, given
-/// `progress` (0...1), is extruded from its back until it is whole. Reduce
+/// figg's loading indicator. By default it is the fig newton, which hops
+/// with a quarter turn and, given `progress` (0...1), is extruded from its
+/// back until it is whole. With `appearance.loader: fig` in config.yaml it
+/// is the low-poly fig from the logo instead, turning on the spot. Reduce
 /// Motion holds either still.
 ///
 /// `size` sets the scale: the fig newton is that wide, and the fig is sized
@@ -68,7 +68,7 @@ struct FigLoader: View {
 }
 
 private struct LoaderStyleKey: EnvironmentKey {
-    static let defaultValue = LoaderStyle.fig
+    static let defaultValue = LoaderStyle.newton
 }
 
 extension EnvironmentValues {

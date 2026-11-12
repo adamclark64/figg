@@ -202,11 +202,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public init() {}
         /// "fig" (warm paper and plum, from the logo) or "system" (stock macOS colours).
         public var theme = "fig"
-        /// The loading indicator: "fig" (the spinning fig) or "newton" (the
-        /// hopping fig newton). The newton is an easter egg: it has no control
+        /// The loading indicator: "newton" (the hopping fig newton) or "fig"
+        /// (the spinning fig). The fig is a hidden option: it has no control
         /// in Settings and its line is only written to config.yaml once
         /// someone has set it by hand.
-        public var loader = "fig"
+        public var loader = "newton"
     }
 
     public struct Updates: Codable, Equatable, Sendable {
@@ -250,7 +250,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         }
         // The loader line is left out while it is the default, so the fig
-        // newton stays an easter egg.
+        // stays a hidden option.
         let loaderLine = appearance.loader == Appearance().loader ? "" : "\n  loader: \(q(appearance.loader))"
         // Each line carries its own indentation: text interpolated into the
         // literal below is not re-indented.
