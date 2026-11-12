@@ -133,16 +133,29 @@ check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
 
 ## Bug reports
 
-"Report a Bug…" (menu bar menu or Help menu) files a GitHub issue in this
-repo via the hosted relay (`relay/`, a zero-dependency Vercel function; the
-app never holds a GitHub token). Point the app at the deployed relay with
-`feedback.bug_report_endpoint` in config.yaml; when unset, the sheet opens a
-prefilled GitHub issue in the browser instead.
-Reports carry only user text, user-chosen screenshots and app/OS/engine
-versions; never audio, transcripts, notes, meeting titles, calendar data or
-logs. The `Daily issue digest` workflow (`.github/issue-digest/README.md`)
-posts a read-only triage summary of `user-report` issues each day; it never
-edits code or issues.
+"Report a Bug…" (menu bar menu or Help menu) needs no setup. It opens the
+report as a prefilled GitHub issue in the browser, where the reporter reads
+it and submits it from their own GitHub account. A link cannot hold a
+picture, so screenshots (added, dropped, or pasted with Command-V) are
+copied to the clipboard to paste into the issue (`ScreenshotHandoff`). A
+text too long for a link is cut; the whole report then goes on the
+clipboard to paste over the form, and the screenshots follow in a second
+paste. The issue templates in `.github/ISSUE_TEMPLATE/`
+label the issue. The link names a template by its file name, so renaming a
+template breaks Report a Bug in every installed copy.
+
+`relay/` is an optional Vercel function for anyone who would rather have
+reports filed without a GitHub account: it holds a GitHub token server-side
+and the app posts to it when `feedback.bug_report_endpoint` is set by hand
+in config.yaml. There is no hosted relay, and the app never holds a GitHub
+token either way. With a relay, an optional reporter email is included and
+is public.
+
+Reports are public issues. They carry only user text, user-chosen
+screenshots and app/OS/engine versions; never audio, transcripts, notes,
+meeting titles, calendar data or logs. The `Daily issue digest` workflow
+(`.github/issue-digest/README.md`) posts a read-only triage summary of
+`user-report` issues each day; it never edits code or issues.
 
 ## Known gaps (v1)
 
@@ -165,4 +178,7 @@ edits code or issues.
   without a Developer ID has to be granted again after each update. Whether
   the pill stays out of screen shares on macOS 15 has not been checked on a
   real call.
+- Report a Bug's Command-V paste and its browser handoff have unit tests
+  and a scratch-window check of the key handling, but have not been tried
+  in the running app or against GitHub's issue form in each browser.
 - No Developer ID yet, so no notarized `.dmg`.

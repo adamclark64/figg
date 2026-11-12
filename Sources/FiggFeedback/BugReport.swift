@@ -68,9 +68,10 @@ public struct Screenshot: Codable, Equatable, Sendable {
     }
 }
 
-/// The JSON body POSTed to the relay. App context goes in `appVersion` and
-/// `extra`. Privacy rule: `extra` never carries meeting content, transcripts,
-/// titles or calendar data.
+/// One report: what the issue link is built from, and the JSON body POSTed
+/// to a relay when one is set. App context goes in `appVersion` and `extra`.
+/// Privacy rule: `extra` never carries meeting content, transcripts, titles
+/// or calendar data.
 public struct BugReportPayload: Codable, Equatable, Sendable {
     public var type: ReportType
     public var description: String
@@ -126,19 +127,91 @@ public enum BugReportErrorMessage {
     }
 
     public static let networkFailure = "Couldn't reach the server. Please try again."
+
+    /// A pasted or copied picture the decoder could not read.
+    public static let unreadableImage = "Couldn't read that image. Try a PNG or JPEG."
 }
 
-/// Builds the browser fallback: a prefilled new-issue URL used when no relay
-/// endpoint is configured or the relay is unreachable. Text only; screenshots
-/// cannot ride a URL.
+/// Builds the prefilled new-issue link that Report a Bug opens in the
+/// browser. This is how a report is filed unless someone hosts the relay: it
+/// needs no setup and no token, and the reporter reads the issue before
+/// submitting it. A link cannot hold a picture; `ScreenshotHandoff` carries
+/// the screenshots.
 public enum GitHubIssueURL {
     public static let defaultRepo = "adamclark64/figg"
 
-    public static func url(for payload: BugReportPayload, repo: String = defaultRepo) -> URL {
-        let firstLine = payload.description.split(separator: "\n", omittingEmptySubsequences: true)
-            .first.map(String.init) ?? ""
-        let title = "\(payload.type.titlePrefix) \(String(firstLine.prefix(72)))"
+    /// GitHub answers a longer link with an error page, so a long
+    /// description is cut to fit.
+    public static let maxLength = 6000
 
+    /// The Report a Bug window stays open after a cut with the whole report
+    /// (`fullBody`) on the clipboard, so the note can point back at it.
+    static let cutNote = "\n\n_(Cut short to fit in a link. The full report is on your clipboard: select everything here and paste over it. figg's Report a Bug window can copy it again.)_"
+
+    /// The longest title GitHub is sent, in bytes. A first line of emoji or
+    /// stacked accents is short in characters and long in the link.
+    static let maxTitleBytes = 300
+
+    /// A new-issue link, and whether the description was cut to make it.
+    public struct Link: Equatable, Sendable {
+        public var url: URL
+        public var wasCut: Bool
+    }
+
+    /// The issue template in `.github/ISSUE_TEMPLATE` for a report type.
+    /// The template is what labels the issue. The link carries no `labels`
+    /// of its own: GitHub only takes those from someone who can already
+    /// label issues in the repo.
+    public static func template(for type: ReportType) -> String {
+        switch type {
+        case .bug: return "bug.md"
+        case .enhancement: return "feature.md"
+        case .question: return "question.md"
+        }
+    }
+
+    public static func url(for payload: BugReportPayload, repo: String = defaultRepo) -> URL {
+        link(for: payload, repo: repo).url
+    }
+
+    public static func link(for payload: BugReportPayload, repo: String = defaultRepo) -> Link {
+        let whole = build(payload, description: payload.description, repo: repo)
+        guard whole.absoluteString.utf8.count > maxLength else { return Link(url: whole, wasCut: false) }
+        // What a character adds to the link depends on the text: one byte
+        // for a Latin letter, nine for a Japanese one, more for an emoji.
+        // So search for the longest start of the text that fits, not guess.
+        let characters = Array(payload.description)
+        var fits = 0
+        var tooLong = characters.count
+        var best = build(payload, description: cutNote, repo: repo)
+        while tooLong - fits > 1 {
+            let middle = (fits + tooLong) / 2
+            let candidate = build(payload, description: String(characters[..<middle]) + cutNote, repo: repo)
+            if candidate.absoluteString.utf8.count <= maxLength {
+                fits = middle
+                best = candidate
+            } else {
+                tooLong = middle
+            }
+        }
+        return Link(url: best, wasCut: true)
+    }
+
+    /// The whole issue text, uncut. When the link could only hold the start
+    /// of it, this is what the reporter pastes over the form.
+    public static func fullBody(for payload: BugReportPayload) -> String {
+        body(payload, description: payload.description)
+    }
+
+    static func title(for payload: BugReportPayload) -> String {
+        // `isNewline` also splits a Windows line ending, which is a single
+        // character and would otherwise ride into the title.
+        var firstLine = String(payload.description.split(whereSeparator: \.isNewline).first ?? "").prefix(72)
+        while firstLine.utf8.count > maxTitleBytes { firstLine.removeLast() }
+        return "\(payload.type.titlePrefix) \(firstLine)"
+    }
+
+    private static func body(_ payload: BugReportPayload, description: String) -> String {
         var contextLines = ["- **Type:** \(payload.type.rawValue)"]
         if !payload.appVersion.isEmpty { contextLines.append("- **App version:** \(payload.appVersion)") }
         for key in payload.extra.keys.sorted() {
@@ -146,22 +219,34 @@ public enum GitHubIssueURL {
         }
         if !payload.email.isEmpty { contextLines.append("- **Reporter:** \(payload.email)") }
 
-        let body = [
-            "_Reported from figg (relay unavailable, filed via browser)._",
+        var lines = [
+            "_Reported from figg._",
             "",
-            payload.description,
+            description,
             "",
             "---",
             "### Context",
             contextLines.joined(separator: "\n"),
-        ].joined(separator: "\n")
+        ]
+        if !payload.screenshots.isEmpty {
+            lines += ["", "### Screenshots", "_Paste your screenshots here._"]
+        }
+        return lines.joined(separator: "\n")
+    }
 
+    private static func build(_ payload: BugReportPayload, description: String, repo: String) -> URL {
         var components = URLComponents(string: "https://github.com/\(repo)/issues/new")!
         components.queryItems = [
-            URLQueryItem(name: "title", value: title),
-            URLQueryItem(name: "body", value: body),
-            URLQueryItem(name: "labels", value: "\(payload.type.rawValue),user-report,macos"),
+            URLQueryItem(name: "template", value: template(for: payload.type)),
+            URLQueryItem(name: "title", value: title(for: payload)),
+            URLQueryItem(name: "body", value: body(payload, description: description)),
         ]
+        // URLComponents leaves "+" and ";" as they are. GitHub reads "+" as
+        // a space ("C++" would arrive as "C  "), and some servers split a
+        // query at ";".
+        components.percentEncodedQuery = components.percentEncodedQuery?
+            .replacingOccurrences(of: "+", with: "%2B")
+            .replacingOccurrences(of: ";", with: "%3B")
         return components.url!
     }
 }
