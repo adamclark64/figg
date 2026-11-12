@@ -2,9 +2,9 @@ import Foundation
 import Yams
 
 /// Everything a user can set, stored in `~/.config/figg/config.yaml`.
-/// Secrets (Atlassian email and API token) are never in this file; they
-/// live in the Keychain. Missing keys fall back to the defaults below, so
-/// a partial file is fine.
+/// Secrets (Atlassian login, model provider API keys) are never in this
+/// file; they live in the Keychain. Missing keys fall back to the defaults
+/// below, so a partial file is fine.
 public struct FiggConfig: Codable, Equatable, Sendable {
     public var llm = LLM()
     public var aws = AWS()
@@ -188,10 +188,12 @@ public struct FiggConfig: Codable, Equatable, Sendable {
 
     public struct Feedback: Codable, Equatable, Sendable {
         public init() {}
-        /// URL of the hosted bug-report relay (relay/ in the repo, deployed on
-        /// Vercel). Not a secret: the relay holds the GitHub token server-side.
-        /// Empty means unset; the Report a Bug sheet then offers a prefilled
-        /// GitHub issue in the browser instead.
+        /// URL of a hosted bug-report relay (relay/ in the repo, deployed on
+        /// Vercel), for people who run one. Not a secret: the relay holds the
+        /// GitHub token server-side. Empty is the default and needs no setup:
+        /// Report a Bug opens the report as a GitHub issue in the browser.
+        /// Like the loader, this is a hidden option: the section is only
+        /// written to config.yaml once someone has set it by hand.
         public var bugReportEndpoint = ""
         enum CodingKeys: String, CodingKey {
             case bugReportEndpoint = "bug_report_endpoint"
@@ -252,6 +254,18 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         // The loader line is left out while it is the default, so the fig
         // stays a hidden option.
         let loaderLine = appearance.loader == Appearance().loader ? "" : "\n  loader: \(q(appearance.loader))"
+        // Reporting a bug needs no setup, so the feedback section is left out
+        // unless someone has pointed figg at a relay of their own.
+        let feedbackSection = feedback.bugReportEndpoint.isEmpty ? "" : """
+
+            feedback:
+              # A bug-report relay you host (relay/ in the repo), e.g.
+              # https://<your-relay>.vercel.app/api/bug-report (not a secret; the
+              # GitHub token lives on the relay). Without this section, Report a
+              # Bug opens the report as a GitHub issue in your browser.
+              bug_report_endpoint: \(q(feedback.bugReportEndpoint))
+
+            """
         // Each line carries its own indentation: text interpolated into the
         // literal below is not re-indented.
         let providers = llm.providers.map { p in
@@ -345,14 +359,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           atlassian_site: \(q(sharing.atlassianSite))
           confluence_space: \(q(sharing.confluenceSpace))
           jira_project: \(q(sharing.jiraProject))
-
-        feedback:
-          # Where "Report a Bug" sends reports: the deployed relay/ endpoint, e.g.
-          # https://<your-relay>.vercel.app/api/bug-report (not a secret; the
-          # GitHub token lives on the relay). Empty: the sheet opens a prefilled
-          # GitHub issue in the browser instead (text only, no screenshots).
-          bug_report_endpoint: \(q(feedback.bugReportEndpoint))
-
+        \(feedbackSection)
         appearance:
           # "fig" (warm paper and plum, from the logo) or "system" (stock macOS colours).
           theme: \(q(appearance.theme))\(loaderLine)

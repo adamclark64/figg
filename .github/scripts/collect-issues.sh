@@ -4,6 +4,7 @@
 #
 # Env: REPO, HOURS, GH_TOKEN. Writes step outputs: total, new, open, closed.
 set -euo pipefail
+[[ "${HOURS:-}" =~ ^[0-9]{1,4}$ ]] || { echo "HOURS must be a whole number"; exit 1; }
 mkdir -p digest
 
 if [ "${1:-}" = "--fallback-digest" ]; then
@@ -13,11 +14,15 @@ if [ "${1:-}" = "--fallback-digest" ]; then
     echo
     echo "_Look-back: last ${HOURS}h. The model step did not produce a summary; this is the raw list._"
     echo
+    # Titles are anyone's text. In a code span GitHub shows them as written:
+    # no mention pings anyone and no link or issue reference is made.
     echo "### New reports"
-    jq -r 'if length == 0 then "- none" else .[] | "- #\(.number) [\(.labels | map(.name) | join(", "))] \(.title) (\(.url))" end' digest/new.json
+    jq -r 'def code: "`" + (gsub("[`\\s]+"; " ") | .[0:120]) + "`";
+      if length == 0 then "- none" else .[] | "- #\(.number) [\(.labels | map(.name) | join(", "))] \(.title | code)" end' digest/new.json
     echo
     echo "### Closed in window"
-    jq -r 'if length == 0 then "- none" else .[] | "- #\(.number) \(.title)" end' digest/closed.json
+    jq -r 'def code: "`" + (gsub("[`\\s]+"; " ") | .[0:120]) + "`";
+      if length == 0 then "- none" else .[] | "- #\(.number) \(.title | code)" end' digest/closed.json
     echo
     echo "### Open backlog"
     jq -r '"- \(length) open user reports"' digest/open.json

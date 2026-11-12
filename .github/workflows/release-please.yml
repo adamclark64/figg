@@ -28,7 +28,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: release
         with:
           config-file: release-please-config.json
@@ -46,7 +46,12 @@ jobs:
       HAS_CERT: ${{ secrets.FIGG_CERT_P12 != '' }}
       HAS_BLOB: ${{ secrets.BLOB_READ_WRITE_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      # The build runs code from the package dependencies, so the checkout
+      # leaves no token behind for it to find. The steps that need one get
+      # it from their own env.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Derive version from tag
         run: echo "FIGG_VERSION=${TAG#v}" >> "$GITHUB_ENV"
@@ -102,7 +107,10 @@ jobs:
         # The SDK, not `vercel blob put`: the CLI needs a Vercel login on top
         # of this token and fails without one. If this step ever fails, the
         # "publish dmg to blob" workflow republishes a release by tag.
+        # scripts/package-lock.json pins the SDK and everything under it, and
+        # no install script runs: this step holds the token that decides
+        # what every installed copy of figg downloads.
         run: |
-          npm install --no-save --no-package-lock @vercel/blob@2.8.2
+          npm ci --prefix scripts --ignore-scripts
           node scripts/publish-dmg-blob.mjs "build/figg-$FIGG_VERSION.dmg" "$FIGG_VERSION"
 

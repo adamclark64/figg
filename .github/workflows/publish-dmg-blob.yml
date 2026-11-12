@@ -28,7 +28,9 @@ jobs:
       # Never interpolate the input into a script; read it from the environment.
       TAG: ${{ inputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Check the tag
         run: |
@@ -44,5 +46,5 @@ jobs:
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: |
-          npm install --no-save --no-package-lock @vercel/blob@2.8.2
+          npm ci --prefix scripts --ignore-scripts
           node scripts/publish-dmg-blob.mjs "build/figg-$FIGG_VERSION.dmg" "$FIGG_VERSION"

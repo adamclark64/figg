@@ -2,8 +2,8 @@ import AppKit
 import FiggWidget
 import SceneKit
 
-/// The 3D fig newton: a SceneKit port of the WebGL exploration
-/// in `docs/design/fig-newton-3d.html`. A pillow of golden crust, extruded
+/// The 3D fig newton: a SceneKit port of the WebGL exploration in
+/// `docs/design/fig-newton-3d.html`. A pillow of golden crust, extruded
 /// from a cross-section with a flat bottom and domed top, whose two cut ends
 /// show pale crumb around dark fig jam full of seeds.
 ///

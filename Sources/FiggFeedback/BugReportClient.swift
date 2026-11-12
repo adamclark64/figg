@@ -6,13 +6,16 @@ public enum BugReportResult: Equatable, Sendable {
     /// The relay filed the issue. Number and URL come from GitHub.
     case filed(number: Int?, url: URL?)
     /// Validation, relay or network failure, already mapped to user text.
-    /// `offerBrowserFallback` is true when the relay could not be reached at
-    /// all, so filing a text-only issue in the browser would still work.
+    /// `offerBrowserFallback` is true when the fault is the relay's (it
+    /// could not be reached, or it answered with a server error or a rate
+    /// limit), so filing the issue in the browser would still work.
     case failed(message: String, offerBrowserFallback: Bool)
 }
 
-/// POSTs a report to the hosted relay (relay/api/bug-report.js). The app
-/// holds no GitHub token (hard rule 2); the relay holds it server-side.
+/// POSTs a report to a hosted relay (relay/api/bug-report.js), for people
+/// who run one and set `feedback.bug_report_endpoint`. Without it the report
+/// goes through the browser (`GitHubIssueURL`). The app holds no GitHub
+/// token either way (hard rule 2); a relay holds it server-side.
 public struct BugReportClient: Sendable {
     public let endpoint: URL
     let http: any HTTPClient
@@ -53,7 +56,7 @@ public struct BugReportClient: Sendable {
 
         guard (200..<300).contains(response.statusCode) else {
             return .failed(message: BugReportErrorMessage.message(for: reply?.error),
-                           offerBrowserFallback: false)
+                           offerBrowserFallback: response.statusCode >= 500 || response.statusCode == 429)
         }
         return .filed(number: reply?.number, url: reply?.url.flatMap(URL.init(string:)))
     }

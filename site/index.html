@@ -62,29 +62,6 @@
   nav { display: flex; gap: 22px; font-size: 14px; }
   nav a { color: var(--ink-muted); text-decoration: none; }
   nav a:hover { color: var(--ink); }
-  nav { align-items: center; }
-  .music {
-    display: flex; align-items: center; gap: 7px; padding: 0;
-    background: none; border: 0; cursor: pointer;
-    font: inherit; color: var(--ink-muted);
-  }
-  .music:hover { color: var(--ink); }
-  .music[aria-pressed="true"] { color: var(--cyan); }
-  .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
-  .eq i { width: 2px; height: 4px; background: currentColor; border-radius: 1px; }
-  .music[aria-pressed="true"] .eq i { animation: eq 0.9s ease-in-out infinite alternate; }
-  .eq i:nth-child(2) { height: 8px; animation-delay: -0.3s !important; }
-  .eq i:nth-child(3) { height: 6px; animation-delay: -0.6s !important; }
-  @keyframes eq { from { height: 3px; } to { height: 12px; } }
-  .music-wrap { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
-  .vol {
-    width: 0; opacity: 0; margin: 0; cursor: pointer;
-    accent-color: var(--cyan); transition: width 0.2s ease, opacity 0.2s ease;
-  }
-  .music-wrap:hover .vol, .music-wrap:focus-within .vol { width: 84px; opacity: 1; }
-  @media (hover: none) {
-    .music-wrap:has(.music[aria-pressed="true"]) .vol { width: 84px; opacity: 1; }
-  }
 
   .hero {
     margin-top: auto;
@@ -164,8 +141,6 @@
   @media (prefers-reduced-motion: reduce) {
     .eyebrow .dot { animation: none; }
     .btn { transition: none; }
-    .music[aria-pressed="true"] .eq i { animation: none; }
-    .vol { transition: none; }
   }
 </style>
 <script type="importmap">
@@ -185,12 +160,6 @@
   <header>
     <a class="mark" href="/"><img src="favicon.png" alt="">figg</a>
     <nav>
-      <div class="music-wrap">
-        <input class="vol" id="volume" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Music volume">
-        <button class="music" id="music" type="button" aria-pressed="false" title="Play some office music">
-          <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="label">music</span>
-        </button>
-      </div>
       <a href="/docs">How it works</a>
       <a href="https://github.com/adamclark64/figg">GitHub</a>
     </nav>
@@ -1107,69 +1076,6 @@ function tick() {
 document.fonts.ready.then(() => { drawScreen(0); drawWhiteboard(); });
 drawWhiteboard();
 tick();
-</script>
-<script>
-/* Office music. Nothing downloads or plays until the button is pressed.
-   music.mp3 is a seamless loop (scripts/site-music.py) with PAD seconds of
-   wrap-around on each side, so looping between loopStart and loopEnd stays
-   gapless whatever padding the mp3 decoder adds. */
-(() => {
-  const btn = document.getElementById('music');
-  const label = btn.querySelector('.label');
-  const vol = document.getElementById('volume');
-  const PAD = 0.5, LOOP = 4032000 / 44100;
-  let ctx, gain, loading = false, playing = false;
-
-  // The chosen level is a per-visitor nicety, so browser storage is fine.
-  try { const v = localStorage.getItem('figg-volume'); if (v !== null) vol.value = v; } catch {}
-  const level = () => Math.pow(Number(vol.value), 2); // feels linear to the ear
-  vol.addEventListener('input', () => {
-    try { localStorage.setItem('figg-volume', vol.value); } catch {}
-    if (ctx && playing) fade(level(), 0.05);
-  });
-
-  async function load() {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const res = await fetch('music.mp3');
-    const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-    gain = ctx.createGain();
-    gain.gain.value = 0;
-    gain.connect(ctx.destination);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-    src.loopStart = PAD;
-    src.loopEnd = PAD + LOOP;
-    src.connect(gain);
-    src.start(0, PAD);
-  }
-
-  function fade(to, secs) {
-    const now = ctx.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(gain.gain.value, now);
-    gain.gain.linearRampToValueAtTime(to, now + secs);
-  }
-
-  btn.addEventListener('click', async () => {
-    if (loading) return;
-    playing = !playing;
-    btn.setAttribute('aria-pressed', String(playing));
-    btn.title = playing ? 'Pause the music' : 'Play some office music';
-    try {
-      if (!ctx) { loading = true; label.textContent = 'loading'; await load(); }
-      if (playing) { await ctx.resume(); fade(level(), 2.5); }
-      else { fade(0, 0.6); setTimeout(() => { if (!playing) ctx.suspend(); }, 650); }
-    } catch (err) {
-      playing = false;
-      btn.setAttribute('aria-pressed', 'false');
-      console.warn('music unavailable', err);
-    } finally {
-      loading = false;
-      label.textContent = 'music';
-    }
-  });
-})();
 </script>
 </body>
 </html>

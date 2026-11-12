@@ -1,0 +1,20 @@
+# Keeps the pinned workflow actions and the release tooling current. The
+# actions are pinned to commit hashes, which only stay safe if something
+# moves them forward.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /scripts
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: monthly

@@ -3,7 +3,8 @@
 A Granola-style meeting notes app for macOS. figg records your meeting (your mic
 and the other people on the call), transcribes it **on your Mac**, and turns
 your rough notes plus the transcript into clean notes with Claude on AWS
-Bedrock. Audio never leaves the computer; only text goes to Bedrock.
+Bedrock, or another model provider you choose. Audio never leaves the
+computer; only text goes to the model provider.
 
 - Record from the toolbar, the menu bar, or **⌃⌥⌘R** in any app
 - **Meeting detection**: when a meeting app (Zoom, Teams, Meet in a browser, or any other) starts using your mic, figg offers to record, and offers to stop when it lets go
@@ -36,7 +37,8 @@ aws sso login --profile <name>
 ```
 
 The profile needs permission for `bedrock:InvokeModelWithResponseStream` on
-the configured Claude models. Bedrock usage is billed to your AWS account. To see which model IDs your account offers:
+the configured Claude models. Bedrock usage is billed to your AWS account.
+To see which model IDs your account offers:
 
 ```bash
 aws bedrock list-inference-profiles --profile <name> --region us-east-1 --query "inferenceProfileSummaries[?contains(inferenceProfileId,'claude')].inferenceProfileId"
@@ -156,3 +158,7 @@ locally; [scripts/dmg.sh](scripts/dmg.sh) is the shared packaging step.
 transcripts), `meetings/<id>/pending/` (audio not yet transcribed) and
 `models/` (speech model). The Atlassian email and API token are in the
 Keychain under `dev.adamclark.figg`.
+
+## License
+
+[MIT](LICENSE).

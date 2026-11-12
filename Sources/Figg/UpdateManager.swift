@@ -55,9 +55,9 @@ final class UpdateManager: ObservableObject {
     }
 
     /// Download, install over the running bundle, relaunch. The recording
-    /// guard lives in AppModel, which owns that state.
-    /// `canRelaunch` is asked after the install, so the caller can veto the
-    /// quit if circumstances changed during the download. Returns whether it
+    /// guard lives in AppModel, which owns that state. `canRelaunch` is
+    /// asked after the install, so the caller can veto the quit if
+    /// circumstances changed during the download. Returns whether it
     /// relaunched.
     @discardableResult
     func downloadAndInstall(_ release: ReleaseInfo, canRelaunch: () -> Bool = { true }) async -> Bool {
