@@ -86,7 +86,7 @@ struct BugReportCommands: Commands {
 }
 
 extension FiggApp {
-    /// Fig silhouette from the app bundle, as a template so macOS tints it for
+    /// Three-quarter fig newton glyph from the app bundle, as a template so macOS tints it for
     /// light and dark menu bars. Missing when run via `swift run`.
     static let menuBarIcon: NSImage? = {
         guard let image = Bundle.main.image(forResource: "MenuBarIcon") else { return nil }

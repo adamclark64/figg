@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <meta property="og:title" content="figg">
 <meta property="og:description" content="Meeting notes that stay on your Mac.">
-<meta property="og:image" content="figg-logo.png">
+<meta property="og:image" content="figg-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=VT323&family=Caveat:wght@500&display=swap" rel="stylesheet">
@@ -36,7 +36,7 @@
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
   #scene.grabbing { cursor: grabbing; }
 
-  /* Fallback when WebGL is missing: the flat logo on a sunset gradient. */
+  /* Fallback when WebGL is missing: the app icon on a sunset gradient. */
   .fallback {
     position: fixed; inset: 0; display: none;
     background: linear-gradient(#1a0633 0%, #5b1a5e 55%, #ff6fa8 85%, #ffb37a 100%);
@@ -154,7 +154,7 @@
 </head>
 <body>
 <canvas id="scene" aria-hidden="true"></canvas>
-<div class="fallback"><img src="figg-logo.png" alt=""></div>
+<div class="fallback"><img src="figg-icon.png" alt=""></div>
 
 <div class="overlay">
   <header>
@@ -401,10 +401,11 @@ function makeFig() {
   pivot.add(inner);
   return pivot;
 }
+// The fig sits on the floor by the pedestal, bean-bag sized, as a prop you can
+// pick up; the fig newton has the pedestal (below).
 const fig = makeFig();
-const FIG_Y = 2.0;
-fig.position.set(0, FIG_Y, 0);
-fig.scale.setScalar(0.95);
+fig.scale.setScalar(0.5);
+fig.position.set(1.3, 1.75 * 0.45 * 0.5, 1.15);
 fig.rotation.y = 0.6;
 room.add(fig);
 
@@ -737,7 +738,7 @@ floppy.position.set(0.25, 0.806, 0.05);
 floppy.rotation.y = 0.4;
 deskGroup.add(floppy);
 
-/* ---------- fig newtons: the app's loader, as an office snack ----------
+/* ---------- the fig newton: figg's icon, spinning over the pedestal ----------
    Ported from the WebGL loader exploration (docs/design/fig-newton-3d.html):
    a domed cross-section extruded like the real dough tube, with the cut end
    painted as crumb around seedy fig jam. */
@@ -824,12 +825,21 @@ function figNewton(depth, size) {
   return g;
 }
 
-// One oversized newton on the floor by the pedestal, bean-bag sized, with a
-// cut end turned towards the room so the jam and seeds read.
-const newton = figNewton(1.8, 0.45);
-newton.position.set(1.25, 0, 1.15);
-newton.rotation.y = 0.75;
-room.add(newton);
+// The hero: one big newton floating over the pedestal, tipped towards the
+// camera so the crust on top and the jam at each cut end both show as it turns.
+// The pivot is the newton's middle, so it spins and tilts about its centre.
+const NEWTON_SIZE = 0.78;
+const hero = new THREE.Group();
+const heroTip = new THREE.Group();
+const heroNewton = figNewton(1.3, NEWTON_SIZE);
+heroNewton.position.y = -NEWTON_SIZE * 0.7 * 0.5;
+heroTip.add(heroNewton);
+heroTip.rotation.set(0.32, 0, -0.1);
+hero.add(heroTip);
+const HERO_Y = 1.95;
+hero.position.set(0, HERO_Y, 0);
+hero.rotation.y = 0.6;
+room.add(hero);
 
 /* ---------- lights ---------- */
 scene.add(new THREE.HemisphereLight(0xffd6e6, 0x5a2a55, 0.85));
@@ -876,7 +886,7 @@ function resize() {
     baseCam.set(0, 2.3, 8.4);
     target.set(0.4, 1.9, 0);
   } else {
-    // Tall screens: lift the room so the fig sits above the copy.
+    // Tall screens: lift the room so the newton sits above the copy.
     camera.setViewOffset(w, h, 0, h * 0.2, w, h);
     baseCam.set(0, 2.9, Math.min(15, 8.4 * (1.05 / aspect) * 0.72));
     target.set(0, 2.4, 0);
@@ -887,7 +897,7 @@ window.addEventListener('resize', resize);
 resize();
 
 /* =================== interaction ===================
-   Drag the fig to spin it. Drag a prop to pick it up and carry it; let go and it
+   Drag the newton to spin it. Drag a prop to pick it up and carry it; let go and it
    drops onto whatever is under it. Tap a prop to flip it a quarter turn, scroll
    over (or while holding) one to turn it. Drag empty space to look around. */
 const pointer = new THREE.Vector2(), smooth = new THREE.Vector2(), ndc = new THREE.Vector2();
@@ -898,7 +908,7 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const surfaces = [floor, rug, sill, pedCap, cabBody, deskGroup.userData.top];
 
 // Everything you can pick up lives directly in the room so moving it is simple.
-const pickables = [bustGroup, flamingoGroup, chairGroup, plant, tall, can, floppy, newton, deskGroup.userData.mug];
+const pickables = [bustGroup, flamingoGroup, chairGroup, plant, tall, can, floppy, fig, deskGroup.userData.mug];
 const box3 = new THREE.Box3();
 for (const o of pickables) {
   room.attach(o);
@@ -910,7 +920,7 @@ for (const o of pickables) {
   };
 }
 const propOf = (obj) => { while (obj && !obj.userData.prop) obj = obj.parent; return obj; };
-const isFig = (obj) => { while (obj) { if (obj === fig) return true; obj = obj.parent; } return false; };
+const isHero = (obj) => { while (obj) { if (obj === hero) return true; obj = obj.parent; } return false; };
 
 function setRay(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -918,10 +928,10 @@ function setRay(e) {
 }
 function hitTest(e) {
   setRay(e);
-  const hits = raycaster.intersectObjects([fig, ...pickables], true);
+  const hits = raycaster.intersectObjects([hero, ...pickables], true);
   if (!hits.length) return null;
   const o = hits[0].object;
-  if (isFig(o)) return { kind: 'fig' };
+  if (isHero(o)) return { kind: 'hero' };
   const p = propOf(o);
   return p ? { kind: 'prop', obj: p } : null;
 }
@@ -951,7 +961,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   canvas.classList.add('grabbing');
   const hit = hitTest(e);
-  if (hit?.kind === 'fig') { mode = 'fig'; spinVel = 0; }
+  if (hit?.kind === 'hero') { mode = 'hero'; spinVel = 0; }
   else if (hit?.kind === 'prop') {
     mode = 'prop'; held = hit.obj;
     const p = held.userData.prop;
@@ -970,9 +980,9 @@ window.addEventListener('pointermove', (e) => {
   const dtE = Math.max((now - lastT) / 1000, 1 / 240);
   if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) moved = true;
 
-  if (mode === 'fig') {
+  if (mode === 'hero') {
     const step = dx * 0.009;
-    fig.rotation.y += step;
+    hero.rotation.y += step;
     spinVel = THREE.MathUtils.lerp(spinVel, step / dtE, 0.5);
     tilt = THREE.MathUtils.clamp(tilt + dy * 0.003, -0.35, 0.35);
   } else if (mode === 'orbit') {
@@ -996,7 +1006,7 @@ window.addEventListener('pointermove', (e) => {
 function release() {
   if (!mode) return;
   canvas.classList.remove('grabbing');
-  if (mode === 'fig') {
+  if (mode === 'hero') {
     if (performance.now() - lastT > 80) spinVel = 0; // stopped before letting go: no fling
     spinVel = THREE.MathUtils.clamp(spinVel, -12, 12);
   } else if (mode === 'prop') {
@@ -1049,7 +1059,7 @@ function updateCamera() {
   camera.lookAt(target);
 }
 
-/* ---------- loop: the fig turns slowly, the transcript types, nothing else moves ---------- */
+/* ---------- loop: the newton turns slowly, the transcript types, nothing else moves ---------- */
 const clock = new THREE.Clock();
 let screenTimer = 0;
 function tick() {
@@ -1058,13 +1068,13 @@ function tick() {
   updateCamera();
   updateProps(dt);
 
-  if (mode !== 'fig') {
-    fig.rotation.y += (0.18 * SPEED + spinVel) * dt;
+  if (mode !== 'hero') {
+    hero.rotation.y += (0.18 * SPEED + spinVel) * dt;
     spinVel *= Math.exp(-1.5 * dt);
     tilt *= Math.exp(-3 * dt);
   }
-  fig.rotation.x = tilt;
-  fig.position.y = FIG_Y + Math.sin(t * 0.8) * 0.04;
+  hero.rotation.x = tilt;
+  hero.position.y = HERO_Y + Math.sin(t * 0.8) * 0.04;
 
   stepTranscript(dt);
   screenTimer += dt;

@@ -128,6 +128,7 @@ check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
 | In-app updates | `Sources/FiggUpdate/`, `Sources/Figg/UpdateManager.swift`, `scripts/publish-dmg-blob.mjs` |
 | Bug reporter | `Sources/FiggFeedback/`, `Sources/Figg/BugReportView.swift`, `relay/api/bug-report.js` |
 | Colours, fonts, theme | `Sources/Figg/Theme.swift` |
+| App icon, menu bar glyph | `docs/design/newton-icon-mocks.html` (draw), `scripts/make-icon.swift` (build), `Resources/*-source.png` |
 | Website: landing page, docs pages | `site/index.html` (the 3D landing page), `site/build.mjs` (renders README and `docs/` Markdown into `/docs` pages; its `SOURCES` list decides what is published), `site/docs-template.html` (the frame around a docs page) |
 | Loading states (fig newton loader) | `Sources/Figg/FigLoader.swift` (the views), `FigNewtonScene.swift` (the fig newton, the default), `FigScene.swift` (the spinning fig, set with `appearance.loader: fig`), `Loader3D.swift`, `Sources/FiggWidget/LoaderStyle.swift` and `NewtonMotion.swift` (timing) |
 

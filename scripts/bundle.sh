@@ -37,7 +37,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/Figg" "$APP/Contents/MacOS/Figg"
 # Package resource bundles (GRDB, swift-crypto, swift-transformers).
 find "$BIN" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP/Contents/Resources/" \;
-# Icons; regenerate from Resources/figg-logo.png with: swift scripts/make-icon.swift
+# Icons; regenerate from Resources/AppIcon-source.png and MenuBarIcon-source.png with: swift scripts/make-icon.swift
 cp Resources/AppIcon.icns Resources/MenuBarIcon.png Resources/MenuBarIcon@2x.png "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
