@@ -34,12 +34,15 @@ public struct ProcessRunner: CommandRunner {
 
 public enum InstallError: LocalizedError, Equatable {
     case appMissingFromDMG
+    case wrongVersion(expected: String, found: String?)
     case command(tool: String, status: Int32, stderr: String)
 
     public var errorDescription: String? {
         switch self {
         case .appMissingFromDMG:
             "The downloaded dmg does not contain Figg.app."
+        case let .wrongVersion(expected, found):
+            "The download is figg \(found ?? "of an unknown version"), not the \(expected) that was offered, so it was not installed."
         case let .command(tool, status, stderr):
             "\((tool as NSString).lastPathComponent) failed (\(status)): \(stderr)"
         }
@@ -50,20 +53,31 @@ public enum InstallError: LocalizedError, Equatable {
 /// destructive happens after the new copy is fully staged next to the
 /// destination (same volume, so the swap is two renames), which keeps the
 /// running app intact if any earlier step fails.
+///
+/// There is no way to install a dmg without its signature being checked:
+/// the only entry point verifies first.
 public struct UpdateInstaller: Sendable {
     let runner: any CommandRunner
+    let verifier: UpdateVerifier
 
-    public init(runner: any CommandRunner = ProcessRunner()) {
+    public init(runner: any CommandRunner = ProcessRunner(), verifier: UpdateVerifier = UpdateVerifier()) {
         self.runner = runner
+        self.verifier = verifier
     }
 
-    public func install(dmg: URL, over appURL: URL) async throws {
+    /// `dmg` is the downloaded file for `release`. It must carry a valid
+    /// release signature and contain exactly the version that was offered.
+    public func install(_ release: ReleaseInfo, dmg: URL, over appURL: URL) async throws {
+        // Before hdiutil: mounting already means parsing the file, so an
+        // unverified dmg is never even attached.
+        try verifier.verify(dmg: dmg, signature: release.signature)
+
         let fm = FileManager.default
         let mount = dmg.deletingLastPathComponent().appendingPathComponent("mnt")
         try await runner.run("/usr/bin/hdiutil",
                              ["attach", dmg.path, "-nobrowse", "-readonly", "-mountpoint", mount.path])
         do {
-            try await stageAndSwap(from: mount, over: appURL, fm: fm)
+            try await stageAndSwap(from: mount, version: release.version, over: appURL, fm: fm)
         } catch {
             _ = try? await runner.run("/usr/bin/hdiutil", ["detach", mount.path, "-force"])
             throw error
@@ -71,10 +85,18 @@ public struct UpdateInstaller: Sendable {
         _ = try? await runner.run("/usr/bin/hdiutil", ["detach", mount.path, "-force"])
     }
 
-    private func stageAndSwap(from mount: URL, over appURL: URL, fm: FileManager) async throws {
+    private func stageAndSwap(from mount: URL, version: String, over appURL: URL, fm: FileManager) async throws {
         let source = mount.appendingPathComponent("Figg.app")
         guard fm.fileExists(atPath: source.appendingPathComponent("Contents").path) else {
             throw InstallError.appMissingFromDMG
+        }
+        // The signature covers the dmg, not the version file's claim about
+        // it. Without this, whoever controls the store could offer an old,
+        // genuinely signed release under a new version number and walk
+        // installed copies back to a build with a known flaw.
+        let found = Self.bundleVersion(of: source)
+        guard found == version else {
+            throw InstallError.wrongVersion(expected: version, found: found)
         }
 
         // Stage beside the destination so the final move is a same-volume rename.
@@ -112,5 +134,15 @@ public struct UpdateInstaller: Sendable {
             throw error
         }
         try? fm.removeItem(at: old)
+    }
+
+    /// CFBundleShortVersionString of an app bundle on disk, which
+    /// scripts/bundle.sh stamps from the release tag.
+    static func bundleVersion(of app: URL) -> String? {
+        let plist = app.appendingPathComponent("Contents/Info.plist")
+        guard let data = try? Data(contentsOf: plist),
+              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return nil }
+        return info["CFBundleShortVersionString"] as? String
     }
 }

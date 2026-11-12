@@ -138,7 +138,9 @@ main updates a "Release PR" that collects Conventional Commits into
 `CHANGELOG.md` and bumps the version. Merging that PR tags `vX.Y.Z`, creates
 the GitHub Release, and CI
 ([.github/workflows/release-please.yml](.github/workflows/release-please.yml))
-builds and attaches `figg-X.Y.Z.dmg`.
+builds and attaches `figg-X.Y.Z.dmg`. It then signs the DMG for the in-app
+updater, which refuses anything not signed with the release key
+([docs/release-signing.md](docs/release-signing.md)).
 
 There is no Apple Developer ID yet, so the DMG is ad-hoc signed and not
 notarized: right-click > Open on first launch. When a Developer ID exists, add

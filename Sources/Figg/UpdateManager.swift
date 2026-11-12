@@ -87,7 +87,8 @@ final class UpdateManager: ObservableObject {
             try FileManager.default.moveItem(at: temp, to: dmg)
 
             phase = .installing
-            try await UpdateInstaller().install(dmg: dmg, over: Bundle.main.bundleURL)
+            // Checks the release signature before anything is mounted.
+            try await UpdateInstaller().install(release, dmg: dmg, over: Bundle.main.bundleURL)
             guard canRelaunch() else {
                 phase = .idle
                 return false

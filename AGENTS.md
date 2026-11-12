@@ -125,7 +125,7 @@ check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
 | Calendar (titles, attendees, brief) | `Sources/FiggCalendar/`, `Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | Settings / config.yaml | `Sources/FiggConfig/FiggConfig.swift`, `Sources/Figg/AppSettings.swift` |
-| In-app updates | `Sources/FiggUpdate/`, `Sources/Figg/UpdateManager.swift`, `scripts/publish-dmg-blob.mjs` |
+| In-app updates | `Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `Sources/Figg/UpdateManager.swift`, `scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
 | Bug reporter | `Sources/FiggFeedback/`, `Sources/Figg/BugReportView.swift`, `relay/api/bug-report.js` |
 | Colours, fonts, theme | `Sources/Figg/Theme.swift` |
 | Website: landing page, docs pages | `site/index.html` (the 3D landing page), `site/build.mjs` (renders README and `docs/` Markdown into `/docs` pages; its `SOURCES` list decides what is published), `site/docs-template.html` (the frame around a docs page) |
@@ -182,8 +182,9 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   and a scratch-window check of the key handling, but have not been tried
   in the running app or against GitHub's issue form in each browser.
 - No Developer ID yet, so no notarized `.dmg`.
-- The updater trusts the download store. It only takes a DMG from the same
-  HTTPS host as the version file, but it checks no signature or checksum, so
-  whoever can write to that store (the `BLOB_READ_WRITE_TOKEN` secret)
-  decides what installed copies run. Signing releases with a key the app
-  carries is the fix; see `SECURITY.md`.
+- Updates are signed by the release job and the app refuses any other DMG
+  (`docs/release-signing.md`), but the key is a GitHub Actions secret:
+  whoever controls the repository's workflows on `main` can still sign.
+  Copies of 0.7.0 or earlier install the first signed release unchecked.
+  The signing step and the split release workflow have not run on a real
+  release yet.
