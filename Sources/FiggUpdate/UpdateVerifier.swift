@@ -19,7 +19,9 @@ public struct UpdateVerifier: Sendable {
     /// (the release that introduces the new key is signed with the old one).
     /// `scripts/publish-dmg-blob.mjs` reads this file and refuses to publish
     /// with a key that is not listed here.
-    public static let releaseKeys: [String] = []
+    public static let releaseKeys: [String] = [
+        "DSJbB0qQorYKYxvKkhr+Pq+cc4A59B+IASauskT+7Yc=",
+    ]
 
     /// Raw public keys. Kept as bytes so the type stays Sendable.
     private let keys: [Data]

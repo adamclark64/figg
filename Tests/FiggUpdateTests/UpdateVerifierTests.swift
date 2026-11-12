@@ -111,6 +111,16 @@ struct SigningFixture {
         }
     }
 
+    @Test func theAppShipsWithAUsableReleaseKey() throws {
+        // An empty or mistyped list would make every installed copy refuse
+        // every update, with no way to send it a fix.
+        #expect(!UpdateVerifier.releaseKeys.isEmpty)
+        for key in UpdateVerifier.releaseKeys {
+            let raw = try #require(Data(base64Encoded: key))
+            #expect(throws: Never.self) { try Curve25519.Signing.PublicKey(rawRepresentation: raw) }
+        }
+    }
+
     @Test func acceptsASignatureMadeOutsideCryptoKit() throws {
         // RFC 8032 section 7.1, test 2: a published Ed25519 key, one-byte
         // message and signature. The release job signs with Node, not
