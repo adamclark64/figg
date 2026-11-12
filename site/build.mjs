@@ -29,12 +29,10 @@ const SOURCES = [
   { group: 'Guides', file: 'docs/agent-setup.md', url: '/docs/agent-setup', label: 'Set up with an agent', agentPrompt: true },
 ];
 
-/** Files in site/ that are part of the build, not of the website.
-    music.mp3 (made by scripts/site-music.py) is kept for when the landing
-    page plays music again; nothing uses it now, so it is not published. */
+/** Files in site/ that are part of the build, not of the website. */
 const NOT_STATIC = new Set([
   'build.mjs', 'docs-template.html', 'package.json', 'package-lock.json',
-  'vercel.json', 'node_modules', 'dist', '.vercel', '.DS_Store', 'music.mp3',
+  'vercel.json', 'node_modules', 'dist', '.vercel', '.DS_Store',
 ]);
 
 /** Links to repo files that are not published here (scripts, source) point

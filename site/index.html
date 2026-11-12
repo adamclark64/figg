@@ -62,6 +62,34 @@
   nav { display: flex; gap: 22px; font-size: 14px; }
   nav a { color: var(--ink-muted); text-decoration: none; }
   nav a:hover { color: var(--ink); }
+  nav { align-items: center; }
+  /* The speaker turns the office music on and off; its volume slider slides
+     out beside it on hover or keyboard focus. */
+  .music-wrap { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+  .music {
+    display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    background: none; border: 0; border-radius: 8px; cursor: pointer;
+    color: var(--ink-muted);
+  }
+  .music:hover { color: var(--ink); }
+  .music:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+  .music[aria-pressed="true"] { color: var(--cyan); }
+  .music svg {
+    width: 20px; height: 20px; fill: none; stroke: currentColor;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .music .on, .music[aria-pressed="true"] .off { display: none; }
+  .music[aria-pressed="true"] .on { display: inline; }
+  .music[aria-busy="true"] svg { animation: music-wait 0.7s ease-in-out infinite alternate; }
+  @keyframes music-wait { from { opacity: 1; } to { opacity: 0.35; } }
+  .vol {
+    width: 0; opacity: 0; margin: 0; cursor: pointer;
+    accent-color: var(--cyan); transition: width 0.2s ease, opacity 0.2s ease;
+  }
+  .music-wrap:hover .vol, .music-wrap:focus-within .vol { width: 84px; opacity: 1; }
+  @media (hover: none) {
+    .music-wrap:has(.music[aria-pressed="true"]) .vol { width: 84px; opacity: 1; }
+  }
 
   .hero {
     margin-top: auto;
@@ -132,6 +160,8 @@
 
   @media (max-width: 760px) {
     nav a.hide-sm { display: none; }
+    /* No room for the slider beside the links; phones have volume buttons. */
+    .vol { display: none; }
     .hero { max-width: none; }
     .overlay::before {
       background: linear-gradient(180deg, transparent 30%, rgba(18,4,31,.55) 55%, rgba(18,4,31,.92) 100%);
@@ -141,6 +171,8 @@
   @media (prefers-reduced-motion: reduce) {
     .eyebrow .dot { animation: none; }
     .btn { transition: none; }
+    .music[aria-busy="true"] svg { animation: none; }
+    .vol { transition: none; }
   }
 </style>
 <script type="importmap">
@@ -160,6 +192,17 @@
   <header>
     <a class="mark" href="/"><img src="favicon.png" alt="">figg</a>
     <nav>
+      <div class="music-wrap">
+        <input class="vol" id="volume" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Music volume">
+        <button class="music" id="music" type="button" aria-pressed="false" aria-label="Office music" title="Play some office music">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 9.5h3.5L11 6v12l-4.5-3.5H3z"/>
+            <path class="on" d="M15 9a4.2 4.2 0 0 1 0 6"/>
+            <path class="on" d="M17.8 6.2a8.2 8.2 0 0 1 0 11.6"/>
+            <path class="off" d="M16 9.5l5 5M21 9.5l-5 5"/>
+          </svg>
+        </button>
+      </div>
       <a href="/docs">How it works</a>
       <a href="https://github.com/adamclark64/figg">GitHub</a>
     </nav>
@@ -1076,6 +1119,76 @@ function tick() {
 document.fonts.ready.then(() => { drawScreen(0); drawWhiteboard(); });
 drawWhiteboard();
 tick();
+</script>
+<script>
+/* Office music: "VHS Skylines" by Bon Chic, used with the artist's permission.
+   The artist asked for no credit on the page, so it is named only here.
+   Nothing downloads or plays until the speaker is pressed. The song streams
+   through an audio element, because a decoded copy of all of it would hold
+   about 80 MB of memory. Its level goes through a gain node, because iOS
+   ignores audio.volume. */
+(() => {
+  const btn = document.getElementById('music');
+  const vol = document.getElementById('volume');
+  let ctx, gain, audio, loading = false, playing = false;
+
+  // The chosen level is a per-visitor nicety, so browser storage is fine.
+  try { const v = localStorage.getItem('figg-volume'); if (v !== null) vol.value = v; } catch {}
+  const level = () => Math.pow(Number(vol.value), 2); // feels linear to the ear
+  vol.addEventListener('input', () => {
+    try { localStorage.setItem('figg-volume', vol.value); } catch {}
+    if (ctx && playing) fade(level(), 0.05);
+  });
+
+  function setUp() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    audio = new Audio('vhs-skylines.mp3');
+    audio.loop = true; // the file fades in and out, so the wrap is clean
+    gain = ctx.createGain();
+    gain.gain.value = 0;
+    ctx.createMediaElementSource(audio).connect(gain).connect(ctx.destination);
+  }
+
+  function show(on) {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.title = on ? 'Pause the music' : 'Play some office music';
+  }
+
+  function fade(to, secs) {
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(to, now + secs);
+  }
+
+  btn.addEventListener('click', async () => {
+    if (loading) return;
+    playing = !playing;
+    show(playing);
+    try {
+      if (!audio) setUp();
+      if (playing) {
+        // The icon pulses until enough of the song has arrived to start.
+        loading = true;
+        btn.setAttribute('aria-busy', 'true');
+        if (audio.error) audio.load(); // try again after a failed download
+        // Both are started inside the click itself, as Safari requires.
+        await Promise.all([ctx.resume(), audio.play()]);
+        fade(level(), 2.5);
+      } else {
+        fade(0, 0.6);
+        setTimeout(() => { if (!playing) { audio.pause(); ctx.suspend(); } }, 650);
+      }
+    } catch (err) {
+      playing = false;
+      show(false);
+      console.warn('music unavailable', err);
+    } finally {
+      loading = false;
+      btn.removeAttribute('aria-busy');
+    }
+  });
+})();
 </script>
 </body>
 </html>
