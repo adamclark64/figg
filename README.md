@@ -156,3 +156,7 @@ locally; [scripts/dmg.sh](scripts/dmg.sh) is the shared packaging step.
 transcripts), `meetings/<id>/pending/` (audio not yet transcribed) and
 `models/` (speech model). The Atlassian email and API token are in the
 Keychain under `dev.adamclark.figg`.
+
+## License
+
+[MIT](LICENSE).
