@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/adamclark64/figg/compare/v0.7.0...v0.8.0) (2026-11-12)
+
+
+### Features
+
+* **update:** only install updates signed with the release key ([#13](https://github.com/adamclark64/figg/issues/13)) ([ee778d4](https://github.com/adamclark64/figg/commit/ee778d4d1191b9c244c5da7717634a124beb1929))
+
 ## [0.7.0](https://github.com/adamclark64/figg/compare/v0.6.0...v0.7.0) (2026-11-12)
 
 
