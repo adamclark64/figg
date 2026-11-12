@@ -35,6 +35,7 @@
   }
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
   #scene.grabbing { cursor: grabbing; }
+  #scene.pressable { cursor: pointer; }
 
   /* Fallback when WebGL is missing: the flat logo on a sunset gradient. */
   .fallback {
@@ -63,9 +64,14 @@
   nav a { color: var(--ink-muted); text-decoration: none; }
   nav a:hover { color: var(--ink); }
   nav { align-items: center; }
-  /* The speaker turns the office music on and off; its volume slider slides
-     out beside it on hover or keyboard focus. */
+  /* The radio on the sill is the music control. This speaker and its volume
+     slider stay for keyboard and screen reader users: out of sight until
+     focused, and always shown when there is no WebGL scene (and so no radio). */
   .music-wrap { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+  html:not(.no-webgl) .music-wrap:not(:focus-within) {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
   .music {
     display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
     background: none; border: 0; border-radius: 8px; cursor: pointer;
@@ -874,6 +880,143 @@ newton.position.set(1.25, 0, 1.15);
 newton.rotation.y = 0.75;
 room.add(newton);
 
+/* ---------- the office radio on the sill: tap it to play the music ----------
+   A chunky low-poly boombox. Its play key stays pressed while the song plays,
+   the dial glows, the speaker cones thump with the bass and notes drift up.
+   Scroll over it to turn the volume knob. The music itself lives in the
+   plain script at the bottom of the page (window.figgMusic). */
+function makeRadio() {
+  const g = new THREE.Group();
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+  const shell = flat(0x74cfc6, { roughness: 0.55 });
+  const trim = flat(0xf08cbf, { roughness: 0.6 });
+  const dark = flat(0x2a1f2b, { roughness: 0.9 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xe9e4ee, roughness: 0.3, metalness: 0.8, flatShading: true });
+  const W0 = 0.62, H0 = 0.32, D0 = 0.18;
+
+  add(new THREE.BoxGeometry(W0, H0, D0), shell, 0, H0 / 2 + 0.02, 0);
+  add(new THREE.BoxGeometry(W0 + 0.02, 0.04, D0 + 0.02), trim, 0, 0.02, 0); // base strip
+  for (const x of [-0.22, 0.22]) add(new THREE.BoxGeometry(0.06, 0.03, 0.12), dark, x, 0.005, 0); // feet
+
+  // two speakers: dark grille ring and a cone that thumps
+  const cones = [];
+  for (const x of [-0.18, 0.18]) {
+    const ring = add(new THREE.CylinderGeometry(0.105, 0.105, 0.02, 12), trim, x, 0.17, D0 / 2);
+    ring.rotation.x = Math.PI / 2;
+    const grille = add(new THREE.CylinderGeometry(0.09, 0.09, 0.022, 12), dark, x, 0.17, D0 / 2);
+    grille.rotation.x = Math.PI / 2;
+    const cone = add(new THREE.ConeGeometry(0.06, 0.05, 10), flat(0x4b3a52), x, 0.17, D0 / 2 + 0.03);
+    cone.rotation.x = -Math.PI / 2;
+    const cap = add(new THREE.SphereGeometry(0.022, 8, 6), metal, x, 0.17, D0 / 2 + 0.012);
+    cones.push({ cone, cap, z: D0 / 2 });
+  }
+
+  // tuning dial between the speakers: a glowing window with a needle
+  const dialMat = new THREE.MeshStandardMaterial({ color: 0x3a2a40, emissive: 0xff9f5a, emissiveIntensity: 0, roughness: 0.4 });
+  add(new THREE.BoxGeometry(0.13, 0.06, 0.01), dialMat, 0, 0.27, D0 / 2 + 0.002);
+  const needle = add(new THREE.BoxGeometry(0.006, 0.05, 0.012), flat(0xff4a5e), -0.04, 0.27, D0 / 2 + 0.006);
+  const led = add(new THREE.SphereGeometry(0.012, 6, 4),
+    new THREE.MeshStandardMaterial({ color: 0x401018, emissive: 0xff4a5e, emissiveIntensity: 0 }), 0, 0.09, D0 / 2 + 0.004);
+
+  // volume knob on the front, bottom middle
+  const knob = add(new THREE.CylinderGeometry(0.03, 0.032, 0.03, 8), metal, 0, 0.15, D0 / 2 + 0.012);
+  knob.rotation.x = Math.PI / 2;
+  const notch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.006, 0.022), dark);
+  notch.position.set(0, 0.02, 0.016); notch.rotation.x = Math.PI / 2;
+  knob.add(notch);
+
+  // carry handle
+  for (const x of [-0.24, 0.24]) add(new THREE.BoxGeometry(0.03, 0.08, 0.03), metal, x, H0 + 0.06, 0);
+  add(new THREE.BoxGeometry(0.51, 0.03, 0.035), metal, 0, H0 + 0.1, 0);
+
+  // keys along the top: the big pink one is play
+  const keys = [];
+  [[-0.12, 0x2a1f2b], [-0.06, 0x2a1f2b], [0.0, 0xff5fb4], [0.06, 0x2a1f2b]].forEach(([x, c]) => {
+    const k = add(new THREE.BoxGeometry(0.045, 0.03, 0.06), flat(c, { roughness: 0.5 }), x, H0 + 0.035, 0.03);
+    keys.push(k);
+  });
+  const play = keys[2];
+  const tri = new THREE.Shape();
+  tri.moveTo(-0.01, -0.012); tri.lineTo(0.014, 0); tri.lineTo(-0.01, 0.012); tri.closePath();
+  const glyph = new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: 0xfff4fa }));
+  glyph.rotation.x = -Math.PI / 2; glyph.position.y = 0.016;
+  play.add(glyph);
+
+  // antenna, leaning back towards the window
+  const ant = add(new THREE.CylinderGeometry(0.006, 0.01, 0.55, 5), metal, 0.27, H0 + 0.28, -0.04);
+  ant.rotation.set(-0.25, 0, -0.35);
+  ant.castShadow = false;
+
+  g.userData.radio = { cones, dialMat, needle, led, knob, play, playY: play.position.y };
+  return g;
+}
+const radio = makeRadio();
+radio.position.set(1.45, WIN.y0 + 0.035, WALL_Z + 0.16);
+radio.rotation.y = -0.18;
+radio.scale.setScalar(1.2);
+room.add(radio);
+const isRadio = (obj) => { while (obj) { if (obj === radio) return true; obj = obj.parent; } return false; };
+
+// Little music notes that float up out of the radio while it plays.
+const noteTex = canvasTex(64, 64, (c, w, h) => {
+  c.clearRect(0, 0, w, h);
+  c.font = '48px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  // a plum outline keeps the note readable against the bright sky
+  c.lineWidth = 6; c.lineJoin = 'round'; c.strokeStyle = '#3a1240';
+  c.strokeText('♪', w / 2, h / 2 + 2);
+  c.fillStyle = '#fff'; c.fillText('♪', w / 2, h / 2 + 2);
+});
+const noteColors = [0xff5fb4, 0x5ff2ff, 0xffb37a, 0xc06bff];
+const notes = [];
+let noteTimer = 0;
+function spawnNote() {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, color: noteColors[notes.length % 4], transparent: true, depthWrite: false, fog: false }));
+  s.scale.setScalar(0.2);
+  s.position.set((Math.random() - 0.5) * 0.4, 0.42, 0.05);
+  s.userData = { age: 0, life: 2.4 + Math.random(), sway: Math.random() * 6, drift: (Math.random() - 0.5) * 0.25 };
+  radio.add(s);
+  notes.push(s);
+}
+
+const music = () => window.figgMusic;
+let radioGlow = 0, radioSpin = 0;
+function updateRadio(dt, t) {
+  const r = radio.userData.radio, m = music();
+  const on = !!m?.playing, busy = !!m?.loading;
+  const beat = on ? m.beat() : 0;
+  radioGlow += ((on ? 1 : 0) - radioGlow) * (1 - Math.exp(-4 * dt));
+
+  r.dialMat.emissiveIntensity = radioGlow * 1.6 + (busy ? 0.6 + 0.6 * Math.sin(t * 14) : 0);
+  r.led.material.emissiveIntensity = on ? 2.2 : busy ? (Math.sin(t * 14) > 0 ? 2 : 0) : 0;
+  r.play.position.y = r.playY - (on || busy ? 0.014 : 0);
+  // the needle wanders slowly along the dial, as if someone is tuning in
+  r.needle.position.x = -0.04 + radioGlow * (0.05 + Math.sin(t * 0.3) * 0.015);
+  for (const c of r.cones) {
+    const push = beat * 0.035 * SPEED;
+    c.cone.position.z = c.z + 0.03 + push;
+    c.cap.position.z = c.z + 0.012 + push;
+    c.cone.scale.setScalar(1 + beat * 0.12);
+  }
+  // knob follows the volume, with a little spin when it is scrolled
+  radioSpin *= Math.exp(-8 * dt);
+  r.knob.rotation.y = -(m ? m.volume() : 0.35) * 4.5 + radioSpin;
+  // a tiny hop on loud beats, so the whole radio feels alive
+  radio.position.y = WIN.y0 + 0.035 + (reduceMotion ? 0 : beat * beat * 0.012);
+
+  if (on && !reduceMotion) {
+    noteTimer -= dt;
+    if (noteTimer <= 0) { spawnNote(); noteTimer = 0.45 + Math.random() * 0.5; }
+  }
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const s = notes[i], u = s.userData;
+    u.age += dt;
+    s.position.y += dt * 0.32;
+    s.position.x += Math.sin(u.age * 3 + u.sway) * dt * 0.12 + u.drift * dt;
+    s.material.opacity = Math.min(1, u.age * 3) * Math.max(0, 1 - u.age / u.life);
+    if (u.age > u.life) { radio.remove(s); s.material.dispose(); notes.splice(i, 1); }
+  }
+}
+
 /* ---------- lights ---------- */
 scene.add(new THREE.HemisphereLight(0xffd6e6, 0x5a2a55, 0.85));
 const key = new THREE.DirectionalLight(0xfff0e6, 1.15);
@@ -932,7 +1075,8 @@ resize();
 /* =================== interaction ===================
    Drag the fig to spin it. Drag a prop to pick it up and carry it; let go and it
    drops onto whatever is under it. Tap a prop to flip it a quarter turn, scroll
-   over (or while holding) one to turn it. Drag empty space to look around. */
+   over (or while holding) one to turn it. Tap the radio on the sill to play or
+   pause the music, scroll over it for the volume. Drag empty space to look around. */
 const pointer = new THREE.Vector2(), smooth = new THREE.Vector2(), ndc = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -961,10 +1105,11 @@ function setRay(e) {
 }
 function hitTest(e) {
   setRay(e);
-  const hits = raycaster.intersectObjects([fig, ...pickables], true);
+  const hits = raycaster.intersectObjects([fig, radio, ...pickables], true).filter((h) => !h.object.isSprite);
   if (!hits.length) return null;
   const o = hits[0].object;
   if (isFig(o)) return { kind: 'fig' };
+  if (isRadio(o)) return { kind: 'radio' };
   const p = propOf(o);
   return p ? { kind: 'prop', obj: p } : null;
 }
@@ -995,6 +1140,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.classList.add('grabbing');
   const hit = hitTest(e);
   if (hit?.kind === 'fig') { mode = 'fig'; spinVel = 0; }
+  else if (hit?.kind === 'radio') mode = 'radio';
   else if (hit?.kind === 'prop') {
     mode = 'prop'; held = hit.obj;
     const p = held.userData.prop;
@@ -1007,11 +1153,12 @@ canvas.addEventListener('pointerdown', (e) => {
 
 window.addEventListener('pointermove', (e) => {
   pointer.set((e.clientX / window.innerWidth) * 2 - 1, (e.clientY / window.innerHeight) * 2 - 1);
-  if (!mode) return;
+  if (!mode) { hover(e); return; }
   const now = performance.now();
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   const dtE = Math.max((now - lastT) / 1000, 1 / 240);
   if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) moved = true;
+  if (mode === 'radio' && moved) mode = 'orbit'; // dragged off the radio: look around instead
 
   if (mode === 'fig') {
     const step = dx * 0.009;
@@ -1042,6 +1189,8 @@ function release() {
   if (mode === 'fig') {
     if (performance.now() - lastT > 80) spinVel = 0; // stopped before letting go: no fling
     spinVel = THREE.MathUtils.clamp(spinVel, -12, 12);
+  } else if (mode === 'radio') {
+    if (!moved) window.figgMusic?.toggle(); // pointerup still counts as the user's gesture for audio
   } else if (mode === 'prop') {
     const p = held.userData.prop;
     if (!moved) { p.vy = 2.6; p.yaw += Math.PI / 2; } // tap: hop and quarter turn
@@ -1053,7 +1202,25 @@ function release() {
 window.addEventListener('pointerup', release);
 window.addEventListener('pointercancel', release);
 
+// Show a pointer and a tooltip over the radio, so it reads as something to press.
+let overRadio = false;
+function hover(e) {
+  if (e.pointerType === 'touch') return;
+  const now = hitTest(e)?.kind === 'radio';
+  if (now === overRadio) return;
+  overRadio = now;
+  canvas.classList.toggle('pressable', now);
+  canvas.title = now ? (window.figgMusic?.playing ? 'Pause the music' : 'Play some office music') : '';
+}
+window.addEventListener('figg-music', () => { overRadio = false; });
+
 canvas.addEventListener('wheel', (e) => {
+  if (!held && hitTest(e)?.kind === 'radio' && window.figgMusic) {
+    e.preventDefault();
+    window.figgMusic.nudge(-e.deltaY * 0.0015);
+    radioSpin += -e.deltaY * 0.002;
+    return;
+  }
   const target = held || hitTest(e)?.obj;
   if (!target) return;
   e.preventDefault();
@@ -1092,7 +1259,7 @@ function updateCamera() {
   camera.lookAt(target);
 }
 
-/* ---------- loop: the fig turns slowly, the transcript types, nothing else moves ---------- */
+/* ---------- loop: the fig turns slowly, the transcript types, the radio plays ---------- */
 const clock = new THREE.Clock();
 let screenTimer = 0;
 function tick() {
@@ -1109,6 +1276,7 @@ function tick() {
   fig.rotation.x = tilt;
   fig.position.y = FIG_Y + Math.sin(t * 0.8) * 0.04;
 
+  updateRadio(dt, clock.elapsedTime);
   stepTranscript(dt);
   screenTimer += dt;
   if (screenTimer > 1 / 15) { drawScreen(clock.elapsedTime); screenTimer = 0; }
@@ -1123,22 +1291,26 @@ tick();
 <script>
 /* Office music: "VHS Skylines" by Bon Chic, used with the artist's permission.
    The artist asked for no credit on the page, so it is named only here.
-   Nothing downloads or plays until the speaker is pressed. The song streams
-   through an audio element, because a decoded copy of all of it would hold
-   about 80 MB of memory. Its level goes through a gain node, because iOS
-   ignores audio.volume. */
+   Nothing downloads or plays until the radio on the sill (or the hidden
+   header button) is pressed. The song streams through an audio element,
+   because a decoded copy of all of it would hold about 80 MB of memory. Its
+   level goes through a gain node, because iOS ignores audio.volume. An
+   analyser ahead of the gain, so it hears the song at full level whatever
+   the volume, gives the radio's speakers a beat to thump to.
+   window.figgMusic is the radio's handle on all this. */
 (() => {
   const btn = document.getElementById('music');
   const vol = document.getElementById('volume');
-  let ctx, gain, audio, loading = false, playing = false;
+  let ctx, gain, analyser, bins, audio, loading = false, playing = false, smoothBeat = 0;
 
   // The chosen level is a per-visitor nicety, so browser storage is fine.
   try { const v = localStorage.getItem('figg-volume'); if (v !== null) vol.value = v; } catch {}
   const level = () => Math.pow(Number(vol.value), 2); // feels linear to the ear
-  vol.addEventListener('input', () => {
+  function volumeChanged() {
     try { localStorage.setItem('figg-volume', vol.value); } catch {}
     if (ctx && playing) fade(level(), 0.05);
-  });
+  }
+  vol.addEventListener('input', volumeChanged);
 
   function setUp() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1146,12 +1318,17 @@ tick();
     audio.loop = true; // the file fades in and out, so the wrap is clean
     gain = ctx.createGain();
     gain.gain.value = 0;
-    ctx.createMediaElementSource(audio).connect(gain).connect(ctx.destination);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    bins = new Uint8Array(analyser.frequencyBinCount);
+    ctx.createMediaElementSource(audio).connect(analyser).connect(gain).connect(ctx.destination);
   }
 
   function show(on) {
     btn.setAttribute('aria-pressed', String(on));
     btn.title = on ? 'Pause the music' : 'Play some office music';
+    window.dispatchEvent(new Event('figg-music'));
   }
 
   function fade(to, secs) {
@@ -1161,14 +1338,14 @@ tick();
     gain.gain.linearRampToValueAtTime(to, now + secs);
   }
 
-  btn.addEventListener('click', async () => {
+  async function toggle() {
     if (loading) return;
     playing = !playing;
     show(playing);
     try {
       if (!audio) setUp();
       if (playing) {
-        // The icon pulses until enough of the song has arrived to start.
+        // The radio's dial blinks until enough of the song has arrived to start.
         loading = true;
         btn.setAttribute('aria-busy', 'true');
         if (audio.error) audio.load(); // try again after a failed download
@@ -1187,7 +1364,30 @@ tick();
       loading = false;
       btn.removeAttribute('aria-busy');
     }
-  });
+  }
+  btn.addEventListener('click', toggle);
+
+  window.figgMusic = {
+    toggle,
+    get playing() { return playing; },
+    get loading() { return loading; },
+    volume: () => Number(vol.value),
+    nudge(d) {
+      vol.value = String(Math.min(1, Math.max(0, Number(vol.value) + d)));
+      volumeChanged();
+    },
+    /* Bass energy, 0 to 1, with a fast attack and a slow release so the
+       speaker cones kick on the beat and settle between beats. */
+    beat() {
+      if (!analyser || !playing) return (smoothBeat *= 0.9);
+      analyser.getByteFrequencyData(bins);
+      let sum = 0;
+      for (let i = 1; i < 6; i++) sum += bins[i];
+      const v = Math.min(1, Math.max(0, sum / (5 * 255) - 0.35) / 0.55); // ignore the steady floor
+      smoothBeat = v > smoothBeat ? v : smoothBeat * 0.88;
+      return smoothBeat;
+    }
+  };
 })();
 </script>
 </body>
