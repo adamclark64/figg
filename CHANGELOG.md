@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/adamclark64/figg/compare/v0.6.0...v0.7.0) (2026-11-12)
+
+
+### Features
+
+* first public release ([1a241ed](https://github.com/adamclark64/figg/commit/1a241ed04fab257013259bdaccb6a0a0364b50ca))
+
+
+### Bug Fixes
+
+* **ui:** make the fig newton the default loader again ([#4](https://github.com/adamclark64/figg/issues/4)) ([73f570c](https://github.com/adamclark64/figg/commit/73f570c1964bc229153a81713ccb6e338cb80d03))
+
 ## 0.6.0
 
 
