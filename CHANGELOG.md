@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/adamclark64/figg/compare/v0.6.0...v0.7.0) (2026-11-12)
+
+
+### Features
+
+* **feedback:** report a bug with no setup, and paste screenshots ([#7](https://github.com/adamclark64/figg/issues/7)) ([453480d](https://github.com/adamclark64/figg/commit/453480ded1382a1f59ffe38a434c8fc38dd72388))
+* first public release ([1a241ed](https://github.com/adamclark64/figg/commit/1a241ed04fab257013259bdaccb6a0a0364b50ca))
+
+
+### Bug Fixes
+
+* **export:** keep a stored secret when the keychain refuses a save ([#10](https://github.com/adamclark64/figg/issues/10)) ([7f3e6fd](https://github.com/adamclark64/figg/commit/7f3e6fd9574a801b7236b5a08980b7ee0b1dd9cf))
+* **ui:** make the fig newton the default loader again ([#4](https://github.com/adamclark64/figg/issues/4)) ([73f570c](https://github.com/adamclark64/figg/commit/73f570c1964bc229153a81713ccb6e338cb80d03))
+
 ## 0.6.0
 
 
