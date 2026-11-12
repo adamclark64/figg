@@ -1,5 +1,6 @@
 import AppKit
 import FiggAudio
+import FiggFeedback
 import FiggWidget
 import SwiftUI
 
@@ -101,6 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `open build/Figg.app --args --probe-audio` runs the capture probe with
     /// figg's own permissions and writes the report to /tmp/figg-probe.txt.
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Screenshots a bug report left for pasting into the browser.
+        ScreenshotHandoff.removeOldFolders(
+            in: ScreenshotHandoff.root(bundleIdentifier: Bundle.main.bundleIdentifier))
         guard CommandLine.arguments.contains("--probe-audio") else { return }
         try? "probe starting\n".write(toFile: "/tmp/figg-probe.txt", atomically: true, encoding: .utf8)
         Task {

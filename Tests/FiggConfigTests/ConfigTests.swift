@@ -44,6 +44,24 @@ import Testing
         #expect(try FiggConfig.parse(c.yaml()) == c)
     }
 
+    @Test func reportingABugNeedsNoSetup() throws {
+        // A default file says nothing about feedback or a relay.
+        #expect(!FiggConfig().yaml().contains("feedback"))
+        #expect(!FiggConfig().yaml().contains("relay"))
+        // A relay set by hand is read, written back as its own section, and
+        // leaves the sections round it in place.
+        var c = try FiggConfig.parse("feedback:\n  bug_report_endpoint: https://relay.example.com/api/bug-report\n")
+        #expect(c.feedback.bugReportEndpoint == "https://relay.example.com/api/bug-report")
+        let yaml = c.yaml()
+        #expect(yaml.contains("\n\nfeedback:\n"))
+        #expect(yaml.contains("\n  bug_report_endpoint: \"https://relay.example.com/api/bug-report\"\n\nappearance:\n"))
+        #expect(try FiggConfig.parse(yaml) == c)
+        // An empty value left in an older file reads as unset and goes.
+        c = try FiggConfig.parse("feedback:\n  bug_report_endpoint: \"\"\n")
+        #expect(c.feedback.bugReportEndpoint.isEmpty)
+        #expect(!c.yaml().contains("feedback"))
+    }
+
     /// Files from before `llm:` kept Bedrock model IDs in a top-level block.
     @Test func legacyModelsBlockMovesToBedrock() throws {
         let c = try FiggConfig.parse("""

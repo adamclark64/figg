@@ -1,5 +1,10 @@
 // Serverless bug-report relay for figg (Vercel Node function, zero dependencies).
 //
+// Optional. Out of the box figg files a report through the reporter's own
+// browser and needs none of this. Host the relay only if you want reports
+// filed for people without a GitHub account, then set
+// feedback.bug_report_endpoint in config.yaml to its URL.
+//
 // The figg app POSTs a JSON report here; this function holds the GitHub token
 // server-side and files an issue in the figg repo. The app NEVER holds a GitHub
 // token (a token embedded in a .app is extractable, and figg's hard rule 2
@@ -170,14 +175,13 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Whitelist-guard `type`: an unknown value must NOT silently become `bug`,
-  // but an empty field defaults to bug.
+  // Unknown or missing `type` falls back to bug.
   const rawType = str(parsed.type ?? "bug", 32);
   const type = ALLOWED_TYPES.includes(rawType) ? rawType : "bug";
 
   const email = str(parsed.email, 200);
   const appVersion = str(parsed.appVersion, 100);
-  // figg sends { macOS, hardware, engine, build }; keep it generic and capped.
+  // figg sends { macOS, hardware, engine, build }; keep it capped.
   const extra =
     parsed.extra && typeof parsed.extra === "object" && !Array.isArray(parsed.extra)
       ? parsed.extra

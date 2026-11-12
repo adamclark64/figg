@@ -94,12 +94,28 @@ macOS permissions, or Bedrock.
   mic + system-audio permissions survive without re-approval.
 - [ ] While the update downloads, a banner shows the 3D fig newton being extruded from its back with a percentage, then hopping beside "Installing the update"; Settings shows the same
 
+## Report a Bug
+- [ ] Help > Report a Bug… opens the window with a "Continue on GitHub" button, no email field and no setup
+- [ ] Copy a screenshot (Shift-Control-Command-4), click in the description and press Command-V: the screenshot is added as a thumbnail and nothing is typed. With text on the clipboard, Command-V types the text
+- [ ] Copy an image file in Finder and press Command-V: it is added. Copy a PDF: nothing is added
+- [ ] With three screenshots attached, a fourth paste shows "Attach at most 3 screenshots." With two attached, pasting three copied image files adds one and shows the same line
+- [ ] Switch to a Russian keyboard layout and press Command-V with a screenshot copied: it is added
+- [ ] Continue on GitHub with no screenshots: the browser opens a new issue with the title, text and context filled in, and the window closes
+- [ ] Continue on GitHub with one screenshot: the window shows "Finish on GitHub"; Command-V in the issue text attaches the screenshot. With two or three, the same paste attaches them all, and Show in Finder reveals the files
+- [ ] After Done, Report a Bug… opens an empty form again, not "Finish on GitHub"
+- [ ] Continue on GitHub with a description of about 5,000 characters: the issue holds the start of it and a note, and the window stays on "Finish on GitHub". Select all in the issue text and paste: the whole report replaces it, context included. With screenshots too, Copy Screenshots and a second paste under "Screenshots" attach them
+- [ ] In Safari, right-click a picture and choose Copy Image, then press Command-V in the report: it is added as a screenshot, not typed as text
+- [ ] Copy an image file from a folder figg has no access to and press Command-V: the window says the image could not be read, and no file name is typed
+- [ ] A description with "C++" in its first line arrives on GitHub with both plus signs, in the title and the text
+- [ ] Signed in to GitHub with an account that is not a collaborator on the repo, the link opens the form (not a "not found" page), and the submitted issue carries the `user-report`, `macos` and type labels
+- [ ] Quit and reopen figg after a report with screenshots: the `figg-report-…` folder is gone from the temporary folder (`echo $TMPDIR`)
+
 ## Loading states
 - [ ] By default every loader below is the fig newton, and a default config.yaml has no `loader` line
 - [ ] Add `loader: fig` under `appearance:` in config.yaml and switch back to figg: every loader is the low-poly fig turning on the spot, the same colours each time; change a setting in the app and the `loader` line is still in the file. Take the line out again for the items below
 - [ ] With `loader: newton` in config.yaml (left from 0.6.0), the loaders are the fig newton, and the line goes the next time figg writes the file
 - [ ] Stop a recording: the status chip shows a small hopping 3D fig newton with "Finishing transcript…", then "Writing notes…", and the Enhanced tab shows a large 3D fig newton over the same words, never "Enhance now"
-- [ ] On a first run, the sidebar shows a small 3D fig newton beside "Loading speech model…"; sending a bug report shows one beside "Sending your report…"
+- [ ] On a first run, the sidebar shows a small 3D fig newton beside "Loading speech model…"; sending a bug report through a relay shows one beside "Sending your report…"
 - [ ] Before the first notes text arrives, the Enhanced tab shows a large 3D fig newton hopping over "Writing notes…", not "Enhance now"; every other hop shows the jam; while notes stream, a small one hops where Edit goes
 - [ ] Ask figg, a quick action and the pre-meeting brief each show the 3D loader until text arrives
 - [ ] Check the loaders in the fig and system themes, light and dark: the cookie is the same golden colour each time, has no box or background behind it, a loading chip is the same height as the chips beside it and its cookie stays inside the capsule at the top of the hop, and nothing moves when a loader appears, hops or goes
