@@ -222,6 +222,43 @@ func only(_ signal: [Float], _ range: Range<Double>) -> [Float] {
         #expect(try store.transcript(meetingId: meeting.id).isEmpty)
     }
 
+    /// A mic chunk at 0 s queued now, and the system chunk from `systemOffset`
+    /// written `after` later. FakeTranscriber's one kept line is at 1 to 2 s.
+    func runLate(systemOffset: Double, after: Duration) async throws -> [TranscriptLine] {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let paths = FiggPaths(base: base)
+        let store = try Store.inMemory()
+        let meeting = Meeting()
+        try store.save(meeting)
+        let pending = paths.pendingDir(meeting.id)
+        try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
+        let call = babble(seconds: 13, seed: 25)
+        let micURL = pending.appendingPathComponent(AudioChunk.fileName(stream: .mic, offset: 0))
+        try writeChunk(Array(heard(call, delay: 0, gain: 1.2).prefix(160_000)), to: micURL)
+
+        let queue = TranscriptionQueue(store: store, paths: paths, transcriber: FakeTranscriber(), keepAudio: { false }, onLines: { _ in })
+        await queue.enqueue(AudioChunk(url: micURL, stream: .mic, offset: 0), meetingId: meeting.id)
+        try await Task.sleep(for: after)
+        let skip = Int(systemOffset * 16_000)
+        try writeChunk(Array(call[skip..<(skip + 160_000)]), to: pending.appendingPathComponent(AudioChunk.fileName(stream: .system, offset: systemOffset)))
+        await queue.drain()
+        return try store.transcript(meetingId: meeting.id)
+    }
+
+    @Test func waitsSecondsForASystemStreamThatStartedLate() async throws {
+        // The system tap started 0.5 s after the mic, so its chunk finishes
+        // 2.5 s after the mic's (as on a real call).
+        #expect(try await runLate(systemOffset: 0.5, after: .milliseconds(2_500)).isEmpty)
+    }
+
+    @Test func doesNotJudgeMicAudioTheSystemDoesNotCover() async throws {
+        // System audio only from 2.4 s: the line at 1 to 2 s has nothing to
+        // compare with, so it stays (the final pass decides after Stop).
+        let lines = try await runLate(systemOffset: 2.4, after: .milliseconds(100))
+        #expect(lines.map(\.speaker) == [.me])
+    }
+
     @Test func settingOffKeepsLiveEcho() async throws {
         let call = babble(seconds: 10, seed: 23)
         let lines = try await run(mic: heard(call, delay: -960, gain: 1.2), system: call, on: false)

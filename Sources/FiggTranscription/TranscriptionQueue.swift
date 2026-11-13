@@ -25,6 +25,14 @@ public actor TranscriptionQueue {
     /// Last speaker-to-mic delay found per meeting, for chunks too quiet on
     /// the call side to find their own.
     private var liveDelay: [String: EchoDetector.Delay] = [:]
+    /// Per meeting, where the system audio ended when a wait for it last
+    /// timed out. Until a newer system chunk appears the live check stops
+    /// waiting, so a system stream that died cannot stall the queue.
+    private var systemStalledAt: [String: Double] = [:]
+    /// Longest wait for the system audio that covers a mic chunk. The two
+    /// streams start at different moments (the system tap once took 2.5 s),
+    /// so the system chunk for the same stretch can finish seconds later.
+    static let systemWait: Duration = .seconds(12)
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init(
@@ -106,27 +114,40 @@ public actor TranscriptionQueue {
 
     /// Which parts of a live mic chunk were the call coming out of the
     /// speakers, judged against the system chunks recorded at the same time.
-    /// Nil when there is no system audio for that stretch; the final pass
-    /// catches those lines after Stop.
+    /// Only the stretch the system audio covers is judged: a mic frame with
+    /// nothing to compare against says nothing either way. Nil when there is
+    /// no system audio for the chunk; the final pass catches those lines
+    /// after Stop.
     private func liveEchoMap(mic: [Float], chunk: AudioChunk, meetingId: String) async -> EchoDetector.Map? {
-        let end = chunk.offset + Double(mic.count) / Double(StreamAudio.sampleRate)
+        let rate = Double(StreamAudio.sampleRate)
+        let end = chunk.offset + Double(mic.count) / rate
         var system = systemAudio(meetingId: meetingId, from: chunk.offset, to: end)
-        // The system chunk for the same 10 s is written a moment after the
-        // mic's. Wait up to a second for it, but only when this meeting has
-        // system audio at all (or this is its first chunk, before any is on
-        // disk), so a mic-only meeting does not stall.
-        for _ in 0..<4 {
-            guard system.any || chunk.offset < 1, (system.audio?.end ?? 0) < end - 0.5 else { break }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: Self.systemWait)
+        // Wait while this meeting has system audio (or this is its first
+        // chunk, before any is on disk) and it does not reach the chunk's end.
+        while (system.any || chunk.offset < 1), (system.audio?.end ?? 0) < end - 0.5 {
+            let reached = system.audio?.end ?? 0
+            if let stalled = systemStalledAt[meetingId], reached <= stalled { break }
+            if clock.now >= deadline {
+                systemStalledAt[meetingId] = reached
+                break
+            }
             try? await Task.sleep(for: .milliseconds(250))
             system = systemAudio(meetingId: meetingId, from: chunk.offset, to: end)
         }
         guard let audio = system.audio, audio.hasSpeech else { return nil }
-        let micAudio = StreamAudio(offset: chunk.offset, samples: mic, hasSpeech: true)
-        let reference = audio.aligned(to: micAudio)
-        let found = EchoDetector.estimateDelay(mic: mic, reference: reference)
+
+        // The part of the mic chunk the system audio covers.
+        let from = max(0, Int(((audio.offset - chunk.offset) * rate).rounded()))
+        let to = min(mic.count, Int(((audio.end - chunk.offset) * rate).rounded()))
+        guard from < to else { return nil }
+        let covered = StreamAudio(offset: chunk.offset + Double(from) / rate, samples: Array(mic[from..<to]), hasSpeech: true)
+        let reference = audio.aligned(to: covered)
+        let found = EchoDetector.estimateDelay(mic: covered.samples, reference: reference)
         if let found { liveDelay[meetingId] = found }
         guard let delay = found ?? liveDelay[meetingId] else { return nil }
-        return EchoDetector.map(mic: mic, reference: reference, offset: chunk.offset, delay: delay)
+        return EchoDetector.map(mic: covered.samples, reference: reference, offset: covered.offset, delay: delay)
     }
 
     /// The system audio on disk (pending or done) that can overlap a span,
