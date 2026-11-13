@@ -497,7 +497,8 @@ When both checks pass, figg is set up. Tell the human:
 
 - figg offers to record by itself when a meeting app starts using the mic.
 - Headphones give the cleanest transcript; on laptop speakers the mic also
-  hears the other side.
+  hears the other side. figg removes most of that echo after Stop ("Remove
+  speaker echo from the mic" in Settings).
 - Which provider is active, and, if it uses a free model, the warning from
   rule 6 once more.
 

@@ -27,7 +27,7 @@ public enum EchoFilter {
         return lines.filter { $0.speaker != .me || !isEcho($0, system: system) }
     }
 
-    static func isEcho(_ mic: TranscriptLine, system: [TranscriptLine]) -> Bool {
+    static func isEcho(_ mic: TranscriptLine, system: [TranscriptLine], window: Double = EchoFilter.window, minShared: Double = EchoFilter.minShared) -> Bool {
         let micWords = words(mic.text)
         guard !micWords.isEmpty else { return false }
         let nearby = system
@@ -37,6 +37,18 @@ public enum EchoFilter {
         let systemWords = nearby.flatMap { words($0.text) }
         let shared = Double(commonSubsequence(micWords, systemWords)) / Double(micWords.count)
         return shared >= (micWords.count < shortLine ? 1 : minShared)
+    }
+
+    /// Share of mic lines (0 to 1) that look like a copy of the call audio,
+    /// for measuring how much echo a transcript still has. Looser than the
+    /// filter (half the words, 3 s of slack), so the near misses it lets
+    /// through still count.
+    public static func duplicateRate(_ lines: [TranscriptLine]) -> Double {
+        let mic = lines.filter { $0.speaker == .me }
+        guard !mic.isEmpty else { return 0 }
+        let system = lines.filter { $0.speaker == .them }
+        let copies = mic.filter { isEcho($0, system: system, window: 3, minShared: 0.5) }
+        return Double(copies.count) / Double(mic.count)
     }
 
     /// Lowercased words with punctuation stripped, so "Okay," matches "okay".

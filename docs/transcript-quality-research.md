@@ -3,8 +3,12 @@
 Research spike for [issue 17](https://github.com/adamclark64/figg/issues/17).
 What we saw: a "Me" line followed by a "Them" line with the same words,
 nearly every time someone on the call talks. Automatic speaker detection
-("People in the room: Auto") also gets rooms wrong. No code has changed yet;
-this doc gives the causes and a plan in order of payoff.
+("People in the room: Auto") also gets rooms wrong. This doc gives the
+causes and a plan in order of payoff.
+
+**Status:** steps 1 and 2 are built (the `--echo` bench and echo
+cancellation in the final pass, on by default) but not yet measured on a
+real call. Steps 3 to 6 are still to do.
 
 ## What causes it
 

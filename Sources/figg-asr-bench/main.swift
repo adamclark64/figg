@@ -8,6 +8,7 @@ import Foundation
 // 10 s chunks the app uses. Reports word error rate and speed.
 //   swift run -c release figg-asr-bench               # synthetic speech via `say`
 //   swift run -c release figg-asr-bench file.wav "reference text"
+//   swift run -c release figg-asr-bench --echo [meeting folder]  (see EchoBench.swift)
 setvbuf(stdout, nil, _IONBF, 0)
 
 let script = """
@@ -33,6 +34,11 @@ func load16k(_ url: URL) throws -> [Float] {
     try run("/usr/bin/afconvert", ["-f", "WAVE", "-d", "LEF32@16000", "-c", "1", url.path, tmp.path])
     defer { try? FileManager.default.removeItem(at: tmp) }
     return try AudioChunk.readMono(tmp)
+}
+
+if let i = CommandLine.arguments.firstIndex(of: "--echo") {
+    try await runEchoBench(Array(CommandLine.arguments[(i + 1)...]))
+    exit(0)
 }
 
 // --diarize: three voices take turns, as if three people shared one mic.

@@ -92,11 +92,14 @@ final class AppModel: ObservableObject {
             transcriber = ParakeetTranscriber()
         }
         let keepAudio = settings.keepAudio
+        let echoCancellation = settings.echoCancellation
         queue = TranscriptionQueue(
             store: store,
             paths: paths,
             transcriber: transcriber,
             separator: t.separateSpeakers ? FluidSpeakerSeparator() : nil,
+            echoCanceller: LocalVqeEchoCanceller(),
+            cancelEcho: { echoCancellation.value },
             keepAudio: { keepAudio.value },
             onLines: { [weak self] _ in
                 Task { @MainActor in self?.transcriptVersion += 1 }

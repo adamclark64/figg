@@ -25,6 +25,8 @@ macOS permissions, or Bedrock.
 | Headphones: "Them" lines appear within ~15 s | [ ] | [ ] | [ ] |
 | Headphones: your speech appears as "Me" | [ ] | [ ] | [ ] |
 | Laptop speakers: note how much "Them" is duplicated as "Me" | [ ] | [ ] | [ ] |
+| Laptop speakers, after Stop: "Them" speech no longer repeated as "Me" | [ ] | [ ] | [ ] |
+| Laptop speakers, Keep audio on: `figg-asr-bench --echo <meeting folder>` duplicates after echo cancellation | [ ] | [ ] | [ ] |
 
 - [ ] ⌃⌥⌘R starts and stops recording from another app
 - [ ] Menu bar icon turns red while recording; "Copy consent message" copies text

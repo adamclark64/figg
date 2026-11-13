@@ -118,6 +118,10 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var engine = "parakeet"
         /// Tell apart several people on one stream (in the room, or on the call).
         public var separateSpeakers = true
+        /// Take the call audio that the mic hears from the speakers back out
+        /// of the mic before the final pass, using the system audio as the
+        /// reference. Stops remote speech showing up twice (as "Me" too).
+        public var echoCancellation = true
         /// WhisperKit model name; only used when engine is "whisper".
         public var model = "large-v3-v20240930_turbo"
         /// Spoken language code, or empty to let Whisper detect it.
@@ -125,6 +129,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey {
             case engine, model, language
             case separateSpeakers = "separate_speakers"
+            case echoCancellation = "echo_cancellation"
         }
     }
 
@@ -326,6 +331,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Label different people on the same stream: "Me", "Guest 1"... in the room,
           # "Them 1", "Them 2"... on the call. Runs once, after you press Stop.
           separate_speakers: \(transcription.separateSpeakers)
+          # Without headphones the mic also hears the call. After Stop, remove that
+          # echo from the mic (on this Mac) so the other side isn't transcribed as "Me".
+          echo_cancellation: \(transcription.echoCancellation)
           # WhisperKit model name, used only when engine is "whisper".
           model: \(q(transcription.model))
           # Spoken language code for Whisper; "" lets it detect. Parakeet detects automatically.
@@ -472,6 +480,7 @@ extension FiggConfig.Transcription {
         let d = Self()
         engine = try c.decodeIfPresent(String.self, forKey: .engine) ?? d.engine
         separateSpeakers = try c.decodeIfPresent(Bool.self, forKey: .separateSpeakers) ?? d.separateSpeakers
+        echoCancellation = try c.decodeIfPresent(Bool.self, forKey: .echoCancellation) ?? d.echoCancellation
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? d.model
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? d.language
     }

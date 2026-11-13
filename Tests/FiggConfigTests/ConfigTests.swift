@@ -34,6 +34,7 @@ import Testing
         c.transcription.engine = "whisper"
         c.detection.enabled = false
         c.transcription.separateSpeakers = false
+        c.transcription.echoCancellation = false
         c.detection.ignoreApps = ["com.example.app"]
         c.appearance.theme = "system"
         c.appearance.loader = "fig"

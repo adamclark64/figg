@@ -79,6 +79,27 @@ struct EchoTranscriber: Transcriber {
     }
 }
 
+@Suite struct DuplicateRateTests {
+    func line(_ speaker: Speaker, _ start: Double, _ text: String) -> TranscriptLine {
+        TranscriptLine(meetingId: "m", speaker: speaker, start: start, end: start + 3, text: text)
+    }
+
+    @Test func countsNearMissesTheFilterKeeps() {
+        let lines = [
+            line(.them, 10, "So the plan is to ship the beta on Friday."),
+            // Heard through the room: only 5 of 8 words survive, so the filter keeps it.
+            line(.me, 10.2, "Also the plan is shipping a beta Friday."),
+            line(.me, 30, "I think that works for us."),
+        ]
+        #expect(EchoFilter.removeEchoes(from: lines).count == 3)
+        #expect(EchoFilter.duplicateRate(lines) == 0.5)
+    }
+
+    @Test func noMicLinesMeansNoDuplicates() {
+        #expect(EchoFilter.duplicateRate([line(.them, 0, "Hello there everyone.")]) == 0)
+    }
+}
+
 @Suite struct FinalPassEchoTests {
     @Test func finalPassKeepsOnlyTheSystemCopy() async throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

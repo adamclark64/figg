@@ -28,6 +28,7 @@ final class AppSettings: ObservableObject {
 
     /// Read from the transcription queue's background task.
     nonisolated let keepAudio = AtomicFlag()
+    nonisolated let echoCancellation = AtomicFlag()
 
     init(configURL: URL = FiggConfig.defaultURL) {
         self.configURL = configURL
@@ -51,6 +52,7 @@ final class AppSettings: ObservableObject {
             loadError = "\(configURL.path) could not be read, so figg is using defaults: \(error)"
         }
         keepAudio.value = config.recording.keepAudio
+        echoCancellation.value = config.transcription.echoCancellation
         loadLLMKeys()
     }
 
@@ -76,6 +78,7 @@ final class AppSettings: ObservableObject {
 
     private func save() {
         keepAudio.value = config.recording.keepAudio
+        echoCancellation.value = config.transcription.echoCancellation
         guard loadError == nil else { return }
         do {
             try config.save(to: configURL)

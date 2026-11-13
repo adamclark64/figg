@@ -15,6 +15,8 @@ public actor TranscriptionQueue {
     private let paths: FiggPaths
     private let transcriber: Transcriber
     private let separator: SpeakerSeparator?
+    private let echoCanceller: EchoCanceller?
+    private let cancelEcho: @Sendable () -> Bool
     private let keepAudio: @Sendable () -> Bool
     private let onLines: @Sendable ([TranscriptLine]) -> Void
 
@@ -27,6 +29,8 @@ public actor TranscriptionQueue {
         paths: FiggPaths,
         transcriber: Transcriber,
         separator: SpeakerSeparator? = nil,
+        echoCanceller: EchoCanceller? = nil,
+        cancelEcho: @escaping @Sendable () -> Bool = { true },
         keepAudio: @escaping @Sendable () -> Bool,
         onLines: @escaping @Sendable ([TranscriptLine]) -> Void
     ) {
@@ -34,6 +38,8 @@ public actor TranscriptionQueue {
         self.paths = paths
         self.transcriber = transcriber
         self.separator = separator
+        self.echoCanceller = echoCanceller
+        self.cancelEcho = cancelEcho
         self.keepAudio = keepAudio
         self.onLines = onLines
     }
@@ -128,21 +134,21 @@ public actor TranscriptionQueue {
         let chunks = AudioChunk.list(in: done)
         guard !chunks.isEmpty, !fm.fileExists(atPath: finalMarker(meetingId).path) else { return }
 
+        var audio: [AudioStream: StreamAudio] = [:]
+        for stream in AudioStream.allCases {
+            audio[stream] = try StreamAudio.assemble(chunks.filter { $0.stream == stream })
+        }
+        if let mic = audio[.mic], let system = audio[.system] {
+            audio[.mic] = await removeEcho(from: mic, reference: system)
+        }
+
         var lines: [TranscriptLine] = []
         for stream in AudioStream.allCases {
-            let mine = chunks.filter { $0.stream == stream }
-            guard let first = mine.first else { continue }
-            var samples: [Float] = []
-            var anySpeech = false
-            for chunk in mine {
-                let s = try chunk.samples()
-                if !SilenceGate.isSilent(s) { anySpeech = true }
-                samples += s
-            }
             // A stream that never had speech would only produce hallucinations.
-            guard anySpeech else { continue }
+            guard let recorded = audio[stream], recorded.hasSpeech else { continue }
+            let samples = recorded.samples
             let segments = try await transcriber.transcribe(samples: samples)
-            let whole = AudioChunk(url: first.url, stream: stream, offset: first.offset)
+            let whole = AudioChunk(url: done, stream: stream, offset: recorded.offset)
             var streamLines = Self.lines(from: segments, chunk: whole, meetingId: meetingId)
             // Who spoke when, so several people on one stream get their own
             // labels. Optional: on failure the default Me/Them labels stay.
@@ -151,20 +157,39 @@ public actor TranscriptionQueue {
                     let count = stream == .mic ? roomSpeakers : nil
                     // One person in the room: nothing to separate on the mic.
                     let turns = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
-                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset)
+                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: recorded.offset)
                 } catch {
                     NSLog("figg: speaker separation failed: \(error)")
                 }
             }
             lines += streamLines
         }
-        // Without headphones the mic also hears the call; keep only the
-        // system-audio copy of those lines.
+        // Whatever echo the canceller left (or all of it, when it is off or
+        // failed): keep only the system-audio copy of those lines.
         lines = EchoFilter.removeEchoes(from: lines)
         lines.sort { $0.start < $1.start }
         let stored = try store.replaceTranscript(meetingId: meetingId, with: lines)
         onLines(stored)
         fm.createFile(atPath: finalMarker(meetingId).path, contents: nil)
         if !keepAudio() { try? fm.removeItem(at: done) }
+    }
+
+    /// Takes the speakers' sound out of the mic before it is transcribed and
+    /// diarized, so remote speech is neither doubled as "Me" nor counted as
+    /// people in the room. Returns the mic unchanged when echo cancellation
+    /// is off, when there was nothing on the call to echo, or on failure
+    /// (the word-based `EchoFilter` still runs afterwards).
+    func removeEcho(from mic: StreamAudio, reference system: StreamAudio) async -> StreamAudio {
+        guard let echoCanceller, cancelEcho(), mic.hasSpeech, system.hasSpeech else { return mic }
+        do {
+            var clean = mic
+            clean.samples = try await echoCanceller.cancel(mic: mic.samples, reference: system.aligned(to: mic))
+            // A mic that only ever heard the call is now quiet: skip it.
+            clean.hasSpeech = StreamAudio.hasSpeech(clean.samples)
+            return clean
+        } catch {
+            NSLog("figg: echo cancellation failed, using the raw mic: \(error)")
+            return mic
+        }
     }
 }

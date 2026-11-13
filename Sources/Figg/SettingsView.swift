@@ -147,7 +147,8 @@ struct RecordingSettings: View {
             TextField("Language", text: $settings.config.transcription.language)
             Text("Engine and model changes take effect after restarting figg. Language applies to Whisper (empty = detect); Parakeet detects it. Smaller models (e.g. `small.en`) are faster on older Macs.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Use headphones: on laptop speakers your mic also hears the other side, so some of their speech can show up as \"Me\".")
+            Toggle("Remove speaker echo from the mic", isOn: $settings.config.transcription.echoCancellation)
+            Text("On laptop speakers your mic also hears the other side. After Stop, figg takes that echo back out of the mic on this Mac, so their speech isn't also shown as \"Me\". Headphones still give the cleanest transcript.")
                 .font(.caption).foregroundStyle(.secondary)
             Section("Updates") {
                 Toggle("Check for updates at launch", isOn: $settings.config.updates.autoCheck)

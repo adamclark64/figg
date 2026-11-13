@@ -86,6 +86,12 @@ Do not quit or relaunch figg while the user may be recording.
 `swift run -c release figg-asr-bench --diarize` checks speaker separation on a
 three-voice conversation (`BENCH_SPEAKERS=3` to give the count).
 
+`swift run -c release figg-asr-bench --echo [meeting folder]` measures how
+much call audio comes back as "Me" lines, before and after echo
+cancellation. With no folder it builds a synthetic call; give it
+`~/Library/Application Support/figg/meetings/<id>` for a real one recorded
+with Keep audio on.
+
 `swift run -c release figg-asr-bench` compares Parakeet and Whisper on the
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
 changing engines or chunking.
@@ -161,9 +167,13 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).
-- Mic picks up speaker audio when not on headphones. The final pass drops
-  mic lines that echo a system-audio line, but live lines stay doubled until
-  Stop, and the echo still reaches the mic diarizer.
+- Mic picks up speaker audio when not on headphones. On Stop, the final pass
+  removes that echo from the mic with FluidAudio's LocalVQE (beta), using the
+  system audio as the reference (`transcription.echo_cancellation`), and then
+  drops mic lines whose words still repeat a system-audio line. Live lines
+  stay doubled until Stop. LocalVQE has not been measured on a real call
+  yet: run `figg-asr-bench --echo <meeting folder>` on one.
+  See `docs/transcript-quality-research.md` for the plan.
 - OpenRouter has unit tests only; no live call has been made yet, and free
   models vary a lot in note quality.
 - Speaker labels are automatic and "Me" is assumed to be the most talkative
