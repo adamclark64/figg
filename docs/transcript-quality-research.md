@@ -6,9 +6,10 @@ nearly every time someone on the call talks. Automatic speaker detection
 ("People in the room: Auto") also gets rooms wrong. This doc gives the
 causes and a plan in order of payoff.
 
-**Status:** steps 1 and 2 are built (the `--echo` bench and echo
-cancellation in the final pass, on by default) but not yet measured on a
-real call. Steps 3 to 6 are still to do.
+**Status:** steps 1 to 3 are built (the `--echo` bench, echo cancellation
+in the final pass, and the echo detector live and after Stop), all on by
+default, and measured on one real call (below). Steps 4 to 6 are still to
+do.
 
 **First measurement** (`figg-asr-bench --echo`, synthetic call: two `say`
 voices, the remote one mixed into the mic at 40 ms and a third of the
@@ -35,6 +36,8 @@ The meeting apps cancel this echo only in the audio they *send*. figg taps
 the raw mic, before any of that, so it gets the echo in full.
 
 What figg does about it today (`Sources/FiggTranscription/EchoFilter.swift`):
+
+(This section describes figg before steps 2 and 3; see "Measurements".)
 
 - **Live lines are never filtered.** The doubling stays until Stop.
 - **After Stop the filter matches words, not sound.** A mic line is dropped
@@ -110,14 +113,95 @@ without punctuation becomes one line with one name.
 
 Steps 2 and 3 should fix the duplicates. Steps 4 and 5 fix "Auto".
 
+## Measurements
+
+`swift run -c release figg-asr-bench --echo [meeting folder]`. With a folder
+it also replays the chunks through `TranscriptionQueue` to count live lines.
+
+### First real call: LocalVQE removed nothing
+
+A 54 s YouTube news clip (two speakers) on MacBook speakers, no headphones,
+nobody in the room talking. With steps 1 and 2 only:
+
+| | Mic lines | Duplicates (before / after word filter) | Voices on the mic |
+|---|---|---|---|
+| Raw mic | 11 | 100% / 0% | 2 |
+| Echo cancelled | 11 | 100% / 0% | 2 |
+
+The saved transcript was right only because the word filter caught every
+copy: loud speakers make the mic's copy nearly word for word. Live, every
+line showed twice.
+
+The cause was alignment, not the model. The mic's copy of the call came
+**55 ms before** the system samples it echoed on meeting time (the two
+streams start up separately and their chunk offsets are off by that much),
+and the echo was 2.9 dB *louder* than the system audio. A canceller can't
+remove an echo that arrives before its reference. Moving the reference
+earlier by hand: 40 ms left all 11 lines; 60, 70, 100 and 200 ms removed all
+of them. So LocalVQE works once the reference is 4 to 144 ms ahead of the
+echo.
+
+(A first attempt recorded no system audio at all: the System Audio
+Recording prompt appeared mid-recording, and the tap set up before the grant
+never delivered buffers. figg's 30 s silence warning only counts buffers
+that arrive, so it said nothing. Relaunching fixed it.)
+
+### Step 3: `EchoDetector`
+
+`Sources/FiggTranscription/EchoDetector.swift`, pure functions over two
+sample arrays:
+
+- `estimateDelay` correlates the mic's and the system's loudness (5 ms
+  frames, in dB, ±1 s) over the frames where the call is sounding. Scoring
+  only those frames matters: people take turns, so over a whole recording the
+  mic is loudest when the call is quiet, and a plain correlation came out
+  negative on the synthetic call even at the right delay. Echo scored 0.85 to
+  0.94; headphones 0.05; the cut-off is 0.3.
+- `map` marks 20 ms mic frames quiet, echo or speech: echo when the mic is
+  no more than 2x (+6 dB) as loud as the speakers' sound would make it, using
+  the median mic/system ratio as the speakers' gain and a 100 ms room tail.
+  A person talking over the call makes the mic clearly louder.
+- A line is echo when 70% of its sounding frames are. Live, each mic chunk is
+  checked against the system chunks recorded with it (waiting up to 1 s for
+  one written just after it); after Stop the map of the raw mic is a second
+  check in `EchoFilter`, and its delay places LocalVQE's reference 50 ms
+  ahead of the echo.
+
+### Results with step 3
+
+| Case | Delay found | Live "Me" copies | After Stop: echo "Me" lines | Near-end WER of kept Me lines |
+|---|---|---|---|---|
+| Real call (news clip) | -55 ms, 0.85 | 10 → 0 (replay) | 11 → 0 (LocalVQE alone) | (nobody spoke) |
+| Synthetic, laptop speakers | +40 ms, 0.94 | 5 of 8 mic lines dropped, all echo | 0 | 0% |
+| Synthetic, loud echo, offsets 100 ms off, talking over | -60 ms, 0.89 | 5 of 9 dropped | 0 | 6.1% (the reply that overlapped lost "Tuesday works") |
+| Synthetic, headphones | none (0.05) | nothing dropped | 0 | 0% |
+
+Delay search and frame map took about 10 ms for the 54 s call; LocalVQE 3 to
+4 s including model load.
+
+Still open:
+
+- **Your own speech.** The real call had nobody talking in the room. Record
+  one where you talk, including over the other side, and check the kept Me
+  lines.
+- **"Voices found: 2" on the cleaned real mic** even though it transcribes to
+  nothing: the diarizer still finds two speakers in what LocalVQE leaves. It
+  doesn't show (no mic lines means no Guest labels), but may matter for
+  step 5.
+- **Drift.** One delay is used for the whole recording. Check a long meeting;
+  if the streams drift, estimate per window.
+- Headphones, Bluetooth and AirPods for real, and the first-chunk race in the
+  live check on a slow Mac.
+
 ## Risks
 
 - LocalVQE is beta, and FluidAudio says it hasn't been run inside real call
-  pipelines. Step 1's measurement is what tells us whether it helps.
-- Lining the streams up: the mic and system streams start at different
-  times, and the speaker-to-mic path adds delay. The model handles a delay
-  window, but our offsets need to be right to within that window. If the
-  streams drift apart over a long meeting, run it in windows that re-align.
+  pipelines. On the one real call it removed all the echo once the
+  reference was lined up.
+- Lining the streams up: the chunk offsets were 55 ms wrong on the real
+  call, enough to make LocalVQE useless; `EchoDetector` now measures the
+  delay from the audio. If the streams drift apart over a long meeting,
+  estimate it per window.
 - Bluetooth headsets switch to a low-quality call mode, and AirPods route
   differently. With real headphones there's no echo, so the cancellation
   should leave the mic unchanged. That needs checking.
