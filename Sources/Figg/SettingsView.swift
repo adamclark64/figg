@@ -148,7 +148,7 @@ struct RecordingSettings: View {
             Text("Engine and model changes take effect after restarting figg. Language applies to Whisper (empty = detect); Parakeet detects it. Smaller models (e.g. `small.en`) are faster on older Macs.")
                 .font(.caption).foregroundStyle(.secondary)
             Toggle("Remove speaker echo from the mic", isOn: $settings.config.transcription.echoCancellation)
-            Text("On laptop speakers your mic also hears the other side. After Stop, figg takes that echo back out of the mic on this Mac, so their speech isn't also shown as \"Me\". Headphones still give the cleanest transcript.")
+            Text("On laptop speakers your mic also hears the other side. figg compares the mic with the call audio on this Mac and leaves out the lines that are only that echo, live and again after Stop, so their speech isn't also shown as \"Me\". Headphones still give the cleanest transcript.")
                 .font(.caption).foregroundStyle(.secondary)
             Section("Updates") {
                 Toggle("Check for updates at launch", isOn: $settings.config.updates.autoCheck)

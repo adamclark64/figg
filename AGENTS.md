@@ -88,9 +88,11 @@ three-voice conversation (`BENCH_SPEAKERS=3` to give the count).
 
 `swift run -c release figg-asr-bench --echo [meeting folder]` measures how
 much call audio comes back as "Me" lines, before and after echo
-cancellation. With no folder it builds a synthetic call; give it
+cancellation, and the speaker-to-mic delay `EchoDetector` finds. With no
+folder it builds three synthetic calls (laptop speakers, loud speakers with
+wrong offsets, headphones); give it
 `~/Library/Application Support/figg/meetings/<id>` for a real one recorded
-with Keep audio on.
+with Keep audio on, and it also replays the chunks to count live lines.
 
 `swift run -c release figg-asr-bench` compares Parakeet and Whisper on the
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
@@ -167,13 +169,19 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).
-- Mic picks up speaker audio when not on headphones. On Stop, the final pass
-  removes that echo from the mic with FluidAudio's LocalVQE (beta), using the
-  system audio as the reference (`transcription.echo_cancellation`), and then
-  drops mic lines whose words still repeat a system-audio line. Live lines
-  stay doubled until Stop. LocalVQE has not been measured on a real call
-  yet: run `figg-asr-bench --echo <meeting folder>` on one.
-  See `docs/transcript-quality-research.md` for the plan.
+- Mic picks up speaker audio when not on headphones. `EchoDetector` finds
+  where the call audio sits in the mic (the stream offsets alone were 55 ms
+  off on a real call) and marks which mic frames are echo. Live mic lines
+  that are mostly echo are dropped as they come in; on Stop, LocalVQE (beta)
+  removes the echo using the system audio, moved to just ahead of the echo,
+  as the reference, and `EchoFilter` drops mic lines whose words or sound
+  still repeat the call. All behind `transcription.echo_cancellation`.
+  Measured on one real call (a news clip on laptop speakers, nobody in the
+  room talking): 10 live "Me" copies down to 0, 11 to 0 after Stop. Not yet
+  measured: a real call where you talk too (your own speech surviving),
+  headphones, Bluetooth, or a long meeting where the streams might drift.
+  Run `figg-asr-bench --echo <meeting folder>` on one recorded with Keep
+  audio on. See `docs/transcript-quality-research.md`.
 - OpenRouter has unit tests only; no live call has been made yet, and free
   models vary a lot in note quality.
 - Speaker labels are automatic and "Me" is assumed to be the most talkative

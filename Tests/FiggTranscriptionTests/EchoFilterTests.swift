@@ -116,7 +116,8 @@ struct EchoTranscriber: Transcriber {
         let queue = TranscriptionQueue(store: store, paths: paths, transcriber: EchoTranscriber(), keepAudio: { false }, onLines: { _ in })
         await queue.enqueuePending(meetingId: meeting.id)
         await queue.drain()
-        #expect(try store.transcript(meetingId: meeting.id).count == 2)   // live lines still doubled
+        // The live sound check already drops the mic copy.
+        #expect(try store.transcript(meetingId: meeting.id).map(\.speaker) == [.them])
 
         try await queue.finalPass(meetingId: meeting.id)
         let lines = try store.transcript(meetingId: meeting.id)

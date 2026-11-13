@@ -22,6 +22,9 @@ public actor TranscriptionQueue {
 
     private var queue: [(meetingId: String, chunk: AudioChunk)] = []
     private var running = false
+    /// Last speaker-to-mic delay found per meeting, for chunks too quiet on
+    /// the call side to find their own.
+    private var liveDelay: [String: EchoDetector.Delay] = [:]
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init(
@@ -84,7 +87,11 @@ public actor TranscriptionQueue {
             let samples = try chunk.samples()
             if !SilenceGate.isSilent(samples) {
                 let segments = try await transcriber.transcribe(samples: samples)
-                let lines = Self.lines(from: segments, chunk: chunk, meetingId: meetingId)
+                var lines = Self.lines(from: segments, chunk: chunk, meetingId: meetingId)
+                if chunk.stream == .mic, !lines.isEmpty, cancelEcho(),
+                   let echo = await liveEchoMap(mic: samples, chunk: chunk, meetingId: meetingId) {
+                    lines.removeAll { echo.isEcho(start: $0.start, end: $0.end) }
+                }
                 if !lines.isEmpty {
                     let stored = try store.append(lines)
                     onLines(stored)
@@ -95,6 +102,42 @@ public actor TranscriptionQueue {
             // Leave the file in pending/ so recovery can retry it later.
             NSLog("figg: transcription failed for \(chunk.url.lastPathComponent): \(error)")
         }
+    }
+
+    /// Which parts of a live mic chunk were the call coming out of the
+    /// speakers, judged against the system chunks recorded at the same time.
+    /// Nil when there is no system audio for that stretch; the final pass
+    /// catches those lines after Stop.
+    private func liveEchoMap(mic: [Float], chunk: AudioChunk, meetingId: String) async -> EchoDetector.Map? {
+        let end = chunk.offset + Double(mic.count) / Double(StreamAudio.sampleRate)
+        var system = systemAudio(meetingId: meetingId, from: chunk.offset, to: end)
+        // The system chunk for the same 10 s is written a moment after the
+        // mic's. Wait up to a second for it, but only when this meeting has
+        // system audio at all (or this is its first chunk, before any is on
+        // disk), so a mic-only meeting does not stall.
+        for _ in 0..<4 {
+            guard system.any || chunk.offset < 1, (system.audio?.end ?? 0) < end - 0.5 else { break }
+            try? await Task.sleep(for: .milliseconds(250))
+            system = systemAudio(meetingId: meetingId, from: chunk.offset, to: end)
+        }
+        guard let audio = system.audio, audio.hasSpeech else { return nil }
+        let micAudio = StreamAudio(offset: chunk.offset, samples: mic, hasSpeech: true)
+        let reference = audio.aligned(to: micAudio)
+        let found = EchoDetector.estimateDelay(mic: mic, reference: reference)
+        if let found { liveDelay[meetingId] = found }
+        guard let delay = found ?? liveDelay[meetingId] else { return nil }
+        return EchoDetector.map(mic: mic, reference: reference, offset: chunk.offset, delay: delay)
+    }
+
+    /// The system audio on disk (pending or done) that can overlap a span,
+    /// and whether the meeting has any system chunks at all.
+    private func systemAudio(meetingId: String, from start: Double, to end: Double) -> (audio: StreamAudio?, any: Bool) {
+        let all = (AudioChunk.list(in: paths.pendingDir(meetingId)) + AudioChunk.list(in: paths.doneDir(meetingId)))
+            .filter { $0.stream == .system }
+        // System chunks are 10 s too: one starting up to 12 s before the
+        // span can still overlap it.
+        let near = all.filter { $0.offset > start - 12 && $0.offset < end + 1 }.sorted { $0.offset < $1.offset }
+        return ((try? StreamAudio.assemble(near)) ?? nil, !all.isEmpty)
     }
 
     static func lines(from segments: [TranscriptSegment], chunk: AudioChunk, meetingId: String) -> [TranscriptLine] {
@@ -138,8 +181,17 @@ public actor TranscriptionQueue {
         for stream in AudioStream.allCases {
             audio[stream] = try StreamAudio.assemble(chunks.filter { $0.stream == stream })
         }
-        if let mic = audio[.mic], let system = audio[.system] {
-            audio[.mic] = await removeEcho(from: mic, reference: system)
+        // Where the call audio sits in the raw mic, for the canceller's
+        // reference and for EchoFilter's sound check afterwards.
+        var echoMap: EchoDetector.Map?
+        if let mic = audio[.mic], let system = audio[.system], cancelEcho(), mic.hasSpeech, system.hasSpeech {
+            let reference = system.aligned(to: mic)
+            let map = EchoDetector.map(mic: mic.samples, reference: reference, offset: mic.offset)
+            echoMap = map
+            if let delay = map.delay {
+                NSLog("figg: speaker echo found %.0f ms after the system audio (confidence %.2f)", delay.seconds * 1000, delay.confidence)
+            }
+            audio[.mic] = await removeEcho(from: mic, reference: reference, delay: map.delay)
         }
 
         var lines: [TranscriptLine] = []
@@ -166,7 +218,7 @@ public actor TranscriptionQueue {
         }
         // Whatever echo the canceller left (or all of it, when it is off or
         // failed): keep only the system-audio copy of those lines.
-        lines = EchoFilter.removeEchoes(from: lines)
+        lines = EchoFilter.removeEchoes(from: lines, echo: echoMap)
         lines.sort { $0.start < $1.start }
         let stored = try store.replaceTranscript(meetingId: meetingId, with: lines)
         onLines(stored)
@@ -179,11 +231,17 @@ public actor TranscriptionQueue {
     /// people in the room. Returns the mic unchanged when echo cancellation
     /// is off, when there was nothing on the call to echo, or on failure
     /// (the word-based `EchoFilter` still runs afterwards).
-    func removeEcho(from mic: StreamAudio, reference system: StreamAudio) async -> StreamAudio {
-        guard let echoCanceller, cancelEcho(), mic.hasSpeech, system.hasSpeech else { return mic }
+    /// - Parameters:
+    ///   - reference: the system audio on the mic's timeline.
+    ///   - delay: where the echo really sits, if `EchoDetector` found it. The
+    ///     reference is moved to just ahead of the echo, since the stream
+    ///     offsets can put it after the echo, where nothing gets cancelled.
+    func removeEcho(from mic: StreamAudio, reference: [Float], delay: EchoDetector.Delay?) async -> StreamAudio {
+        guard let echoCanceller else { return mic }
         do {
             var clean = mic
-            clean.samples = try await echoCanceller.cancel(mic: mic.samples, reference: system.aligned(to: mic))
+            let reference = delay.map { EchoDetector.shift(reference, for: $0) } ?? reference
+            clean.samples = try await echoCanceller.cancel(mic: mic.samples, reference: reference)
             // A mic that only ever heard the call is now quiet: skip it.
             clean.hasSpeech = StreamAudio.hasSpeech(clean.samples)
             return clean

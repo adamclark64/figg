@@ -9,6 +9,10 @@ import Foundation
 /// mic copy goes. A mic line counts as an echo only when nearly all its words
 /// appear, in order, in system-audio lines at the same moment; real speech
 /// over the top of someone (different words) is kept.
+///
+/// Words alone miss echoes the mic heard differently ("ship it Friday" vs
+/// "shipping Friday"), so with an `EchoDetector.Map` a mic line also goes
+/// when its sound was mostly the speakers', whatever the words.
 public enum EchoFilter {
     /// Seconds of slack around a mic line when looking for its system copy.
     /// Speaker-to-mic latency is tens of ms, but the two streams are
@@ -21,10 +25,16 @@ public enum EchoFilter {
     /// since a short real reply can easily share a word with the other side.
     static let shortLine = 3
 
-    public static func removeEchoes(from lines: [TranscriptLine]) -> [TranscriptLine] {
+    /// - Parameter echo: which parts of the raw mic were speaker sound;
+    ///   nil checks words only.
+    public static func removeEchoes(from lines: [TranscriptLine], echo: EchoDetector.Map? = nil) -> [TranscriptLine] {
         let system = lines.filter { $0.speaker == .them }
-        guard !system.isEmpty else { return lines }
-        return lines.filter { $0.speaker != .me || !isEcho($0, system: system) }
+        guard !system.isEmpty || echo != nil else { return lines }
+        return lines.filter { line in
+            guard line.speaker == .me else { return true }
+            if let echo, echo.isEcho(start: line.start, end: line.end) { return false }
+            return !isEcho(line, system: system)
+        }
     }
 
     static func isEcho(_ mic: TranscriptLine, system: [TranscriptLine], window: Double = EchoFilter.window, minShared: Double = EchoFilter.minShared) -> Bool {

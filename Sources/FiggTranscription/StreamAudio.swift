@@ -44,6 +44,9 @@ public struct StreamAudio: Sendable, Equatable {
         return StreamAudio(offset: first.offset, samples: samples, hasSpeech: anySpeech)
     }
 
+    /// Meeting time just after the last sample.
+    public var end: Double { offset + Double(samples.count) / Double(Self.sampleRate) }
+
     /// This stream's samples moved onto `other`'s timeline: sample `i` of the
     /// result is what this stream had at the moment of `other.samples[i]`.
     /// Silence where this stream has no audio. Same length as `other`.

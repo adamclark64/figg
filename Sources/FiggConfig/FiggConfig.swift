@@ -331,8 +331,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Label different people on the same stream: "Me", "Guest 1"... in the room,
           # "Them 1", "Them 2"... on the call. Runs once, after you press Stop.
           separate_speakers: \(transcription.separateSpeakers)
-          # Without headphones the mic also hears the call. After Stop, remove that
-          # echo from the mic (on this Mac) so the other side isn't transcribed as "Me".
+          # Without headphones the mic also hears the call. Leave out mic lines that are
+          # only that echo (live), and remove it from the mic after Stop, all on this
+          # Mac, so the other side isn't transcribed as "Me".
           echo_cancellation: \(transcription.echoCancellation)
           # WhisperKit model name, used only when engine is "whisper".
           model: \(q(transcription.model))
