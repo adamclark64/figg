@@ -295,3 +295,40 @@ func only(_ signal: [Float], _ range: Range<Double>) -> [Float] {
         #expect(refPeak < micPeak)
     }
 }
+
+@Suite struct EchoVoiceTests {
+    func line(_ start: Double, _ end: Double, _ text: String) -> TranscriptLine {
+        TranscriptLine(meetingId: "m", speaker: .me, start: start, end: end, text: text)
+    }
+
+    /// 0 to 10 s you, 10 to 30 s the speakers.
+    let map = EchoDetector.Map(
+        offset: 0,
+        frames: [EchoDetector.Frame](repeating: .speech, count: 500) + [EchoDetector.Frame](repeating: .echo, count: 1_000),
+        delay: .init(samples: 80, confidence: 0.9))
+    let turns = [SpeakerTurn(start: 0, end: 10, speaker: "A"), SpeakerTurn(start: 10, end: 30, speaker: "B")]
+
+    @Test func theSpeakersAreNotAPersonInTheRoom() {
+        #expect(SpeakerLabels.echoVoices(turns, echo: map, offset: 0) == ["B"])
+        let lines = [line(1, 4, "This is me."), line(12, 16, "If you think that")]
+        // Without the echo map the speakers outtalk you and become "Me".
+        #expect(SpeakerLabels.apply(turns, to: lines, stream: .mic, offset: 0).map(\.displaySpeaker) == ["Guest 1", "Me"])
+        // With it, their line goes and you are the only person: plain "Me".
+        let out = SpeakerLabels.apply(turns, to: lines, stream: .mic, offset: 0, echo: map)
+        #expect(out.map(\.text) == ["This is me."])
+        #expect(out.map(\.displaySpeaker) == ["Me"])
+    }
+
+    @Test func callAudioIsNeverTreatedAsEcho() {
+        let lines = [TranscriptLine(meetingId: "m", speaker: .them, start: 12, end: 16, text: "Hello")]
+        #expect(SpeakerLabels.apply(turns, to: lines, stream: .system, offset: 0, echo: map).count == 1)
+    }
+
+    @Test func levelKeptByTheCanceller() {
+        let raw = [Float](repeating: 0.1, count: 32_000)
+        #expect(EchoDetector.levelKept(raw: raw, cleaned: [Float](repeating: 0, count: 32_000), offset: 0, start: 0.5, end: 1.5) == 0)
+        #expect(EchoDetector.levelKept(raw: raw, cleaned: raw, offset: 0, start: 0.5, end: 1.5) == 1)
+        #expect(EchoDetector.levelKept(raw: [Float](repeating: 0, count: 32_000), cleaned: raw, offset: 0, start: 0, end: 1) == nil)
+        #expect(EchoDetector.levelKept(raw: raw, cleaned: raw, offset: 10, start: 0, end: 1) == nil)
+    }
+}

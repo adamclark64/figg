@@ -101,14 +101,39 @@ public enum SpeakerLabels {
     }
 
     /// Sets `speakerLabel` on each line from the stream's diarization.
-    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double) -> [TranscriptLine] {
-        guard let names = labels(for: turns, stream: stream) else { return lines }
+    /// - Parameter echo: for the mic, which parts of it were the call heard
+    ///   through the speakers. A mic "voice" that is mostly that echo is the
+    ///   speakers, not a person: it is left out when choosing "Me" (it can
+    ///   outtalk you on a long call) and its lines are dropped.
+    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double, echo: EchoDetector.Map? = nil) -> [TranscriptLine] {
+        let speakers = stream == .mic ? echo.map { echoVoices(turns, echo: $0, offset: offset) } ?? [] : []
+        var lines = lines
+        if !speakers.isEmpty {
+            lines.removeAll { line in speaker(for: line, turns: turns, offset: offset).map(speakers.contains) ?? false }
+        }
+        let people = turns.filter { !speakers.contains($0.speaker) }
+        guard let names = labels(for: people, stream: stream) else { return lines }
         return lines.map { line in
             var line = line
-            if let id = speaker(for: line, turns: turns, offset: offset), let name = names[id] {
+            if let id = speaker(for: line, turns: people, offset: offset), let name = names[id] {
                 line.speakerLabel = name
             }
             return line
         }
+    }
+
+    /// Mic voices whose sounding time is at least `EchoDetector.echoLineShare`
+    /// echo: the diarizer heard the speakers as a person.
+    public static func echoVoices(_ turns: [SpeakerTurn], echo: EchoDetector.Map, offset: Double) -> Set<String> {
+        var echoTime: [String: Double] = [:], soundTime: [String: Double] = [:]
+        for t in turns {
+            guard let share = echo.echoShare(start: t.start + offset, end: t.end + offset) else { continue }
+            let length = max(0, t.end - t.start)
+            echoTime[t.speaker, default: 0] += share * length
+            soundTime[t.speaker, default: 0] += length
+        }
+        return Set(soundTime.compactMap { id, time in
+            time > 0 && echoTime[id, default: 0] / time >= EchoDetector.echoLineShare ? id : nil
+        })
     }
 }

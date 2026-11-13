@@ -155,6 +155,26 @@ public enum EchoDetector {
         return dot / Float(a.count)
     }
 
+    /// Below this share of the raw mic's level left after echo
+    /// cancellation, a mic line is what the canceller left of an echo.
+    /// Measured: 0.00 for a leftover echo line on a real call, 0.66 and up
+    /// for speech, including talking over the call.
+    public static let residualLevel: Float = 0.1
+
+    /// The cleaned mic's level over a line divided by the raw mic's (0 to
+    /// about 1); nil when the raw mic was silent there or the span is empty.
+    /// - Parameters:
+    ///   - raw, cleaned: the mic before and after cancellation, same length.
+    ///   - offset: meeting time of sample 0.
+    public static func levelKept(raw: [Float], cleaned: [Float], offset: Double, start: Double, end: Double) -> Float? {
+        let i = max(0, Int(((start - offset) * Double(sampleRate)).rounded()))
+        let j = min(raw.count, cleaned.count, Int(((end - offset) * Double(sampleRate)).rounded()))
+        guard i < j else { return nil }
+        let before = SilenceGate.rms(Array(raw[i..<j]))
+        guard before >= quietRMS else { return nil }
+        return SilenceGate.rms(Array(cleaned[i..<j])) / before
+    }
+
     /// `reference` moved so that each sound sits `lead` samples ahead of its
     /// copy in the mic, the way an echo canceller expects. Same length.
     public static func shift(_ reference: [Float], for delay: Delay, lead: Int = referenceLead) -> [Float] {

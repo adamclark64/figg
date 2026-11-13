@@ -205,6 +205,8 @@ public actor TranscriptionQueue {
         // Where the call audio sits in the raw mic, for the canceller's
         // reference and for EchoFilter's sound check afterwards.
         var echoMap: EchoDetector.Map?
+        /// The mic before cancellation, to see how much of each line it kept.
+        var rawMic: StreamAudio?
         if let mic = audio[.mic], let system = audio[.system], cancelEcho(), mic.hasSpeech, system.hasSpeech {
             let reference = system.aligned(to: mic)
             let map = EchoDetector.map(mic: mic.samples, reference: reference, offset: mic.offset)
@@ -213,6 +215,7 @@ public actor TranscriptionQueue {
                 NSLog("figg: speaker echo found %.0f ms after the system audio (confidence %.2f)", delay.seconds * 1000, delay.confidence)
             }
             audio[.mic] = await removeEcho(from: mic, reference: reference, delay: map.delay)
+            rawMic = mic
         }
 
         var lines: [TranscriptLine] = []
@@ -223,6 +226,14 @@ public actor TranscriptionQueue {
             let segments = try await transcriber.transcribe(samples: samples)
             let whole = AudioChunk(url: done, stream: stream, offset: recorded.offset)
             var streamLines = Self.lines(from: segments, chunk: whole, meetingId: meetingId)
+            // Words the transcriber still found in what the canceller left of
+            // an echo: the mic there is now near silent.
+            if stream == .mic, let rawMic {
+                streamLines.removeAll { line in
+                    EchoDetector.levelKept(raw: rawMic.samples, cleaned: samples, offset: rawMic.offset, start: line.start, end: line.end)
+                        .map { $0 < EchoDetector.residualLevel } ?? false
+                }
+            }
             // Who spoke when, so several people on one stream get their own
             // labels. Optional: on failure the default Me/Them labels stay.
             if let separator {
@@ -230,7 +241,7 @@ public actor TranscriptionQueue {
                     let count = stream == .mic ? roomSpeakers : nil
                     // One person in the room: nothing to separate on the mic.
                     let turns = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
-                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: recorded.offset)
+                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: recorded.offset, echo: echoMap)
                 } catch {
                     NSLog("figg: speaker separation failed: \(error)")
                 }
