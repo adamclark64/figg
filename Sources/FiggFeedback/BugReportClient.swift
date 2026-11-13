@@ -12,10 +12,36 @@ public enum BugReportResult: Equatable, Sendable {
     case failed(message: String, offerBrowserFallback: Bool)
 }
 
-/// POSTs a report to a hosted relay (relay/api/bug-report.js), for people
-/// who run one and set `feedback.bug_report_endpoint`. Without it the report
-/// goes through the browser (`GitHubIssueURL`). The app holds no GitHub
-/// token either way (hard rule 2); a relay holds it server-side.
+/// Where Report a Bug sends a report, from `feedback.bug_report_endpoint`.
+/// Empty (the default) is figg's hosted relay, so reporting needs no GitHub
+/// account. A URL is a relay someone hosts themself. "browser" opens the
+/// report as a GitHub issue in the browser instead (`GitHubIssueURL`).
+public enum BugReportRelay {
+    /// figg's own relay: relay/ in the repo, deployed as the Vercel project
+    /// `figg-relay`. Not a secret; the GitHub token lives on the relay.
+    public static let hostedEndpoint = URL(string: "https://figg-relay.vercel.app/api/bug-report")!
+
+    /// The setting that turns the relay off and files through the browser.
+    public static let browserSetting = "browser"
+
+    /// The relay to POST to, or nil to file the report in the browser. A
+    /// value that is not a usable http(s) URL falls back to the hosted
+    /// relay, so a typo never stops a report going out.
+    public static func endpoint(forSetting raw: String) -> URL? {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return hostedEndpoint }
+        if value.lowercased() == browserSetting { return nil }
+        guard let url = URL(string: value),
+              let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
+              url.host?.isEmpty == false
+        else { return hostedEndpoint }
+        return url
+    }
+}
+
+/// POSTs a report to a relay (relay/api/bug-report.js), figg's hosted one
+/// unless `feedback.bug_report_endpoint` names another. The app holds no
+/// GitHub token (hard rule 2); the relay holds it server-side.
 public struct BugReportClient: Sendable {
     public let endpoint: URL
     let http: any HTTPClient
@@ -56,8 +82,18 @@ public struct BugReportClient: Sendable {
 
         guard (200..<300).contains(response.statusCode) else {
             return .failed(message: BugReportErrorMessage.message(for: reply?.error),
-                           offerBrowserFallback: response.statusCode >= 500 || response.statusCode == 429)
+                           offerBrowserFallback: Self.relayAtFault(status: response.statusCode, code: reply?.error))
         }
         return .filed(number: reply?.number, url: reply?.url.flatMap(URL.init(string:)))
+    }
+
+    /// True when the browser would still work: a server error, a rate
+    /// limit, or a 4xx that did not come from the relay's own checks (no
+    /// error code, as when the deployment is missing and Vercel answers
+    /// 404). A 4xx the relay explains is about the report itself, and the
+    /// browser would not fix it.
+    static func relayAtFault(status: Int, code: String?) -> Bool {
+        if status >= 500 || status == 429 { return true }
+        return code == nil
     }
 }

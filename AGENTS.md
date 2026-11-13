@@ -133,23 +133,27 @@ check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
 
 ## Bug reports
 
-"Report a Bug…" (menu bar menu or Help menu) needs no setup. It opens the
-report as a prefilled GitHub issue in the browser, where the reporter reads
-it and submits it from their own GitHub account. A link cannot hold a
+"Report a Bug…" (menu bar menu or Help menu) needs no setup. It posts the
+report to figg's hosted relay (`relay/`, the Vercel project `figg-relay`,
+`BugReportRelay.hostedEndpoint`), which holds a GitHub token server-side
+and files the issue, so the reporter needs no GitHub account. The app never
+holds a GitHub token. An optional reporter email is included and is public.
+`feedback.bug_report_endpoint` in config.yaml (set by hand) names another
+relay, or `browser` to skip the relay.
+
+The browser path is the fallback: it is offered when the relay cannot be
+reached, answers with a server error or rate limit, or is missing, and it
+is what `browser` picks. It opens the report as a prefilled GitHub issue
+that the reporter submits from their own account. A link cannot hold a
 picture, so screenshots (added, dropped, or pasted with Command-V) are
 copied to the clipboard to paste into the issue (`ScreenshotHandoff`). A
 text too long for a link is cut; the whole report then goes on the
 clipboard to paste over the form, and the screenshots follow in a second
 paste. The issue templates in `.github/ISSUE_TEMPLATE/`
 label the issue. The link names a template by its file name, so renaming a
-template breaks Report a Bug in every installed copy.
-
-`relay/` is an optional Vercel function for anyone who would rather have
-reports filed without a GitHub account: it holds a GitHub token server-side
-and the app posts to it when `feedback.bug_report_endpoint` is set by hand
-in config.yaml. There is no hosted relay, and the app never holds a GitHub
-token either way. With a relay, an optional reporter email is included and
-is public.
+template breaks the fallback in every installed copy. Renaming or deleting
+the `figg-relay` Vercel project, or moving its URL, sends every installed
+copy to the fallback.
 
 Reports are public issues. They carry only user text, user-chosen
 screenshots and app/OS/engine versions; never audio, transcripts, notes,
@@ -180,7 +184,8 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   real call.
 - Report a Bug's Command-V paste and its browser handoff have unit tests
   and a scratch-window check of the key handling, but have not been tried
-  in the running app or against GitHub's issue form in each browser.
+  in the running app or against GitHub's issue form in each browser. A
+  report through the hosted relay has not been sent from the running app.
 - No Developer ID yet, so no notarized `.dmg`.
 - Updates are signed by the release job and the app refuses any other DMG
   (`docs/release-signing.md`), but the key is a GitHub Actions secret:

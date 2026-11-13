@@ -1,9 +1,10 @@
 // Serverless bug-report relay for figg (Vercel Node function, zero dependencies).
 //
-// Optional. Out of the box figg files a report through the reporter's own
-// browser and needs none of this. Host the relay only if you want reports
-// filed for people without a GitHub account, then set
-// feedback.bug_report_endpoint in config.yaml to its URL.
+// figg's Report a Bug posts here by default: this folder is deployed as the
+// Vercel project `figg-relay`, at https://figg-relay.vercel.app/api/bug-report
+// (BugReportRelay.hostedEndpoint in the app). Moving that URL sends every
+// installed copy to the browser fallback. To run your own, deploy this folder
+// and set feedback.bug_report_endpoint in config.yaml to its URL.
 //
 // The figg app POSTs a JSON report here; this function holds the GitHub token
 // server-side and files an issue in the figg repo. The app NEVER holds a GitHub
@@ -17,7 +18,8 @@
 // Optional env:
 //   GITHUB_BUG_REPORT_REPO    target "owner/repo" (default adamclark64/figg)
 //   GITHUB_BUG_REPORT_BRANCH  branch for screenshot commits (default bug-report-assets;
-//                             an orphan branch, so screenshots never trigger builds)
+//                             an orphan branch, so screenshots never trigger builds).
+//                             It must exist before the first screenshot is sent.
 
 const GITHUB_API = "https://api.github.com";
 const MAX_IMAGES = 3; // Vercel body limit ~4.5MB; base64 inflates ~33%.
