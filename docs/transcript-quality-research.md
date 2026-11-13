@@ -194,6 +194,22 @@ buffer's length. Replaying this call with its system chunks re-stamped that
 way: delay -5 ms (0.88), live "Me" copies 30 to 0, final-pass echo lines 22
 to 0.
 
+### Third real call: the live check judged before the system audio arrived
+
+Build 22, with the first-buffer timing. Offsets were now right (echo 4 ms
+after the system audio) and the final pass removed every copy, but live
+lines still doubled. The system tap started 2.2 s after the mic, so each
+system chunk finished 2.2 s after the mic chunk it overlaps; the live check
+waited only 1 s and then counted mic frames with no system audio beside
+them as room speech.
+
+Fix: the live check judges only the part of a mic chunk the system audio
+covers, and waits up to 12 s for that audio (after one timeout it stops
+waiting until a newer system chunk appears, so a dead system stream cannot
+stall the queue). `BENCH_REALTIME=1` replays a meeting's chunks at the
+moments the recorder finished them; on this call it gives the 5 live "Me"
+copies seen in the app with the old code and 0 with the fix.
+
 Still open:
 
 - **Your own speech.** The real call had nobody talking in the room. Record
