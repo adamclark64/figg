@@ -183,7 +183,9 @@ func replayLive(_ folder: URL) async throws {
     let source = FileManager.default.fileExists(atPath: done.path) ? done : folder
     let asr = ParakeetTranscriber()
     try await asr.prepare()
-    print("== live lines, chunk by chunk")
+    // BENCH_REALTIME=1 replays at recording speed (slow, but faithful).
+    let realtime = ProcessInfo.processInfo.environment["BENCH_REALTIME"] != nil
+    print("== live lines, chunk by chunk\(realtime ? ", in real time" : "")")
     for on in [false, true] {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent("figg-echo-live-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: base) }
@@ -193,11 +195,26 @@ func replayLive(_ folder: URL) async throws {
         try store.save(meeting)
         let pending = paths.pendingDir(meeting.id)
         try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
-        for chunk in AudioChunk.list(in: source) {
-            try FileManager.default.copyItem(at: chunk.url, to: pending.appendingPathComponent(chunk.url.lastPathComponent))
-        }
         let queue = TranscriptionQueue(store: store, paths: paths, transcriber: asr, cancelEcho: { on }, keepAudio: { false }, onLines: { _ in })
-        await queue.enqueuePending(meetingId: meeting.id)
+        if realtime {
+            // Each chunk appears when the recorder would have finished it,
+            // so the live check sees system chunks arrive late, as in the app.
+            let arrivals = try AudioChunk.list(in: source).map { chunk in
+                (chunk, chunk.offset + Double(try chunk.samples().count) / 16_000)
+            }.sorted { $0.1 < $1.1 }
+            let started = ContinuousClock.now
+            for (chunk, at) in arrivals {
+                try await Task.sleep(until: started.advanced(by: .milliseconds(Int(at * 1000))), clock: .continuous)
+                let url = pending.appendingPathComponent(chunk.url.lastPathComponent)
+                try FileManager.default.copyItem(at: chunk.url, to: url)
+                await queue.enqueue(AudioChunk(url: url, stream: chunk.stream, offset: chunk.offset), meetingId: meeting.id)
+            }
+        } else {
+            for chunk in AudioChunk.list(in: source) {
+                try FileManager.default.copyItem(at: chunk.url, to: pending.appendingPathComponent(chunk.url.lastPathComponent))
+            }
+            await queue.enqueuePending(meetingId: meeting.id)
+        }
         await queue.drain()
         let lines = try store.transcript(meetingId: meeting.id)
         print(String(format: "echo check %@: %d Me, %d Them, duplicates %.0f%%",

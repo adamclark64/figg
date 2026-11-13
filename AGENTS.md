@@ -92,7 +92,8 @@ cancellation, and the speaker-to-mic delay `EchoDetector` finds. With no
 folder it builds three synthetic calls (laptop speakers, loud speakers with
 wrong offsets, headphones); give it
 `~/Library/Application Support/figg/meetings/<id>` for a real one recorded
-with Keep audio on, and it also replays the chunks to count live lines.
+with Keep audio on, and it also replays the chunks to count live lines
+(`BENCH_REALTIME=1` replays them at recording speed, as the app sees them).
 
 `swift run -c release figg-asr-bench` compares Parakeet and Whisper on the
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
