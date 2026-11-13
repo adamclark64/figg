@@ -109,6 +109,7 @@ func runEchoBench(_ args: [String]) async throws {
     if let folder = args.first {
         try await runEchoCase(try recordedEchoCase(URL(fileURLWithPath: folder)))
         try await replayLive(URL(fileURLWithPath: folder))
+        try await replayFinalPass(URL(fileURLWithPath: folder))
     } else {
         for call in SyntheticCall.allCases {
             print("##### synthetic: \(call.title)")
@@ -141,6 +142,8 @@ func runEchoCase(_ input: EchoCase) async throws {
                  Double(frames.filter { $0 == .speech }.count) * 100 / Double(max(1, frames.count)),
                  Double(frames.filter { $0 == .quiet }.count) * 100 / Double(max(1, frames.count))))
 
+    meterCheck(input, echoMap)
+
     let cancelStarted = Date()
     let shifted = echoMap.delay.map { EchoDetector.shift(reference, for: $0) } ?? reference
     let cleaned = try await LocalVqeEchoCanceller().cancel(mic: input.mic.samples, reference: shifted)
@@ -169,7 +172,11 @@ func runEchoCase(_ input: EchoCase) async throws {
             let labels = SpeakerLabels.labels(for: turns, stream: .mic)
             print("voices found on the mic: \(labels?.count ?? (turns.isEmpty ? 0 : 1))")
         }
-        for line in kept where line.speaker == .me { print(String(format: "   %6.1fs Me: %@", line.start, line.text)) }
+        for line in kept where line.speaker == .me {
+            let i = max(0, Int((line.start - input.mic.offset) * 16_000)), j = min(mic.count, Int((line.end - input.mic.offset) * 16_000))
+            let kept = i < j ? SilenceGate.rms(Array(cleaned[i..<j])) / max(1e-6, SilenceGate.rms(Array(input.mic.samples[i..<j]))) : -1
+            print(String(format: "   %6.1fs Me (echo share %.2f, level kept by canceller %.2f): %@", line.start, echoMap.echoShare(start: line.start, end: line.end) ?? -1, kept, line.text))
+        }
         print("")
     }
     print(String(format: "echo cancellation took %.1f s (incl. model load)\n", cancelSeconds))
@@ -222,4 +229,84 @@ func replayLive(_ folder: URL) async throws {
                      EchoFilter.duplicateRate(lines) * 100))
         if on { for line in lines where line.speaker == .me { print(String(format: "   %6.1fs Me: %@", line.start, line.text)) } }
     }
+}
+
+/// Runs the app's final pass (Parakeet, speaker separation, echo
+/// cancellation) on a copy of a recording and prints the transcript as it
+/// would be saved, labels included.
+func replayFinalPass(_ folder: URL) async throws {
+    let done = folder.appendingPathComponent("done")
+    let source = FileManager.default.fileExists(atPath: done.path) ? done : folder
+    let base = FileManager.default.temporaryDirectory.appendingPathComponent("figg-echo-final-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: base) }
+    let paths = FiggPaths(base: base)
+    let store = try Store.inMemory()
+    let meeting = Meeting()
+    try store.save(meeting)
+    let target = paths.doneDir(meeting.id)
+    try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+    for chunk in AudioChunk.list(in: source) {
+        try FileManager.default.copyItem(at: chunk.url, to: target.appendingPathComponent(chunk.url.lastPathComponent))
+    }
+    let asr = ParakeetTranscriber()
+    try await asr.prepare()
+    let queue = TranscriptionQueue(store: store, paths: paths, transcriber: asr, separator: FluidSpeakerSeparator(),
+                                   echoCanceller: LocalVqeEchoCanceller(), keepAudio: { false }, onLines: { _ in })
+    try await queue.finalPass(meetingId: meeting.id)
+    print("\n== final pass, as saved")
+    for line in try store.transcript(meetingId: meeting.id) {
+        print(String(format: "   %6.1fs %@: %@", line.start, line.displaySpeaker, line.text))
+    }
+}
+
+/// Feeds a recording through `LevelMeter` as the app does (system audio in
+/// 10 ms buffers, the mic in 100 ms, on meeting time) and compares the
+/// "Me" bars it draws with what `EchoDetector` says each moment was.
+func meterCheck(_ input: EchoCase, _ echoMap: EchoDetector.Map) {
+    let gated = meterBars(input, withSystem: true)
+    let plain = meterBars(input, withSystem: false)
+    var echoBars = 0, echoHidden = 0, speechBars = 0, speechHidden = 0
+    for k in 0..<min(gated.count, plain.count) where plain[k] > 0 {
+        let from = input.mic.offset + Double(k) * 0.05
+        guard let share = echoMap.echoShare(start: from, end: from + 0.05) else { continue }
+        let hidden = gated[k] == 0
+        if share >= 0.5 { echoBars += 1; if hidden { echoHidden += 1 } } else {
+            speechBars += 1
+            if hidden { speechHidden += 1 }
+        }
+    }
+    print(String(format: "\"Me\" meter: %d of %d echo bars flattened (%.0f%%), %d of %d speech bars flattened (%.0f%%)\n",
+                 echoHidden, echoBars, Double(echoHidden) * 100 / Double(max(1, echoBars)),
+                 speechHidden, speechBars, Double(speechHidden) * 100 / Double(max(1, speechBars))))
+}
+
+/// The "Me" bars, one per 50 ms of the mic; `withSystem` false draws them
+/// with no echo check, for comparison.
+func meterBars(_ input: EchoCase, withSystem: Bool) -> [Float] {
+    final class Clock: @unchecked Sendable { var seconds = 0.0 }
+    let clock = Clock()
+    let meter = LevelMeter(capacity: 100_000, windowSamples: 800, now: { clock.seconds })
+    meter.activate(.mic)
+    if withSystem { meter.activate(.system) }
+    let start = min(input.mic.offset, input.system.offset)
+    let end = max(input.mic.end, input.system.end)
+    var micFed = 0, systemFed = 0
+    var t = start
+    while t < end + 0.5 {
+        t += 0.01
+        clock.seconds = t
+        let systemUpTo = max(0, min(input.system.samples.count, Int(((t - input.system.offset) * 16_000).rounded(.down))))
+        if systemUpTo - systemFed >= 160 {
+            meter.record(.system, samples: Array(input.system.samples[systemFed..<systemUpTo]))
+            systemFed = systemUpTo
+        } else {
+            meter.record(.system, samples: [])   // time passes: held bars are released
+        }
+        let micUpTo = max(0, min(input.mic.samples.count, Int(((t - input.mic.offset) * 16_000).rounded(.down))))
+        if micUpTo - micFed >= 1_600 || (micUpTo == input.mic.samples.count && micUpTo > micFed) {
+            meter.record(.mic, samples: Array(input.mic.samples[micFed..<micUpTo]))
+            micFed = micUpTo
+        }
+    }
+    return Array(meter.snapshot()[.mic]!.suffix(input.mic.samples.count / 800))
 }
