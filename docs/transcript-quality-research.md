@@ -10,6 +10,18 @@ causes and a plan in order of payoff.
 cancellation in the final pass, on by default) but not yet measured on a
 real call. Steps 3 to 6 are still to do.
 
+**First measurement** (`figg-asr-bench --echo`, synthetic call: two `say`
+voices, the remote one mixed into the mic at 40 ms and a third of the
+volume, plus one reflection; MacBook Air M4):
+
+| | Mic lines | Duplicates before word filter | Mic WER | Voices on the mic |
+|---|---|---|---|---|
+| Raw mic | 9 | 56% | 130% | 2 |
+| Echo cancelled | 3 | 0% | 0% | 1 |
+
+Cancellation took 4.5 s for 26 s of audio, including the model load. A
+real call is still to be measured.
+
 ## What causes it
 
 ### 1. The mic hears the speakers
