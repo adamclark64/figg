@@ -179,6 +179,21 @@ sample arrays:
 Delay search and frame map took about 10 ms for the 54 s call; LocalVQE 3 to
 4 s including model load.
 
+### Second real call: the system stream was stamped 2.5 s early
+
+The same kind of clip, 2 minutes, on build 20 (step 3 in place). The live
+transcript still doubled every line, and the detector reported no echo.
+The echo was there, steady through the call, at **+2.53 s**: outside the
+detector's ±1 s search. The system stream was 2.6 s shorter than the mic but
+its first chunk was named 0.2 s. `ChunkWriter` took each stream's start from
+when capture was requested, and this time the system audio tap took about
+2.5 s to deliver its first buffer.
+
+Fix: each stream's start is now the arrival of its first buffer minus that
+buffer's length. Replaying this call with its system chunks re-stamped that
+way: delay -5 ms (0.88), live "Me" copies 30 to 0, final-pass echo lines 22
+to 0.
+
 Still open:
 
 - **Your own speech.** The real call had nobody talking in the room. Record
