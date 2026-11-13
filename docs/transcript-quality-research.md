@@ -210,11 +210,43 @@ stall the queue). `BENCH_REALTIME=1` replays a meeting's chunks at the
 moments the recorder finished them; on this call it gives the 5 live "Me"
 copies seen in the app with the old code and 0 with the fix.
 
+### Fourth real call: your speech kept, but labelled "Guest 1"
+
+Build 25. You talked first ("This is me. I'm talking and I'm about to start
+a YouTube."), then played a clip. Live: 1 "Me" line (yours) instead of 15.
+After Stop your lines were kept, but:
+
+- **You were "Guest 1".** The diarizer still found two voices on the cleaned
+  mic: you, and what LocalVQE left of the clip. The clip talked longer, so it
+  took "Me". Now `SpeakerLabels.apply` gets the echo map: a mic voice whose
+  sounding time is at least 70% echo is the speakers, is left out when
+  choosing "Me", and its lines are dropped.
+- **One garbled echo line survived** ("If you think that, and that's
+  election to be true.", echo share 0.60, under the 0.7 line cut-off). Its
+  words were LocalVQE's leftovers: the canceller kept 0.00 of the raw mic's
+  level there, against 0.95 to 1.00 for your own lines and 0.66 to 0.73 for
+  synthetic speech over the call. After Stop, a mic line now goes when the
+  canceller kept under 10% of its level (`EchoDetector.levelKept`). Lowering
+  the share cut-off instead would have dropped real speech: two genuine
+  synthetic lines scored 0.54 and 0.57.
+
+The bench now replays the app's final pass on a recording and prints the
+transcript as saved; on this call it gives your two lines as "Me" and no
+echo lines.
+
+**The "Me" waveform** in the strip and the pill moved for the clip too. While
+system audio runs, `LevelMeter` now holds each mic bar 0.25 s until the
+system bars from the same moment are in, and `EchoGate` draws it flat when
+the mic's loudness has been following the call (correlation 0.5 or more over
+the last 10 s) and the bar is no more than 2x the predicted echo. Fed the
+real calls as the app delivers them: 95% and 91% of echo bars flattened, and
+none of your speech; synthetic laptop 82% of echo, 0% of speech; headphones
+0%.
+
 Still open:
 
-- **Your own speech.** The real call had nobody talking in the room. Record
-  one where you talk, including over the other side, and check the kept Me
-  lines.
+- **Your own speech over the call.** On the fourth call you talked before
+  the clip, not over it. Record one where you talk over the other side.
 - **"Voices found: 2" on the cleaned real mic** even though it transcribes to
   nothing: the diarizer still finds two speakers in what LocalVQE leaves. It
   doesn't show (no mic lines means no Guest labels), but may matter for

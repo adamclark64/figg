@@ -178,7 +178,10 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   as the reference, and `EchoFilter` drops mic lines whose words or sound
   still repeat the call. All behind `transcription.echo_cancellation`.
   Measured on one real call (a news clip on laptop speakers, nobody in the
-  room talking): 10 live "Me" copies down to 0, 11 to 0 after Stop. Not yet
+  room talking): 10 live "Me" copies down to 0, 11 to 0 after Stop. After
+  Stop a mic line also goes when the canceller left under 10% of its level.
+  The live "Me" waveform (`LevelMeter`, `EchoGate`) is drawn flat while the
+  mic only follows the call. Not yet
   measured: a real call where you talk too (your own speech surviving),
   headphones, Bluetooth, or a long meeting where the streams might drift.
   Run `figg-asr-bench --echo <meeting folder>` on one recorded with Keep
@@ -186,7 +189,8 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 - OpenRouter has unit tests only; no live call has been made yet, and free
   models vary a lot in note quality.
 - Speaker labels are automatic and "Me" is assumed to be the most talkative
-  person on the mic. With the calendar on, attendee names are prompt hints
+  person on the mic. A mic "voice" that is mostly speaker echo is left out
+  of that choice and its lines are dropped. With the calendar on, attendee names are prompt hints
   and a transcript context menu renames speakers by hand; figg never maps
   voices to names itself.
 - If System Audio Recording permission is missing, macOS delivers silence
