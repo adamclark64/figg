@@ -92,7 +92,7 @@ public final class Recorder: @unchecked Sendable {
             stream: stream,
             dir: dir,
             chunkSeconds: chunkSeconds,
-            streamStartOffset: Date().timeIntervalSince(startedAt),
+            recordingStarted: startedAt,
             levels: levels,
             onChunk: onChunk)
     }
