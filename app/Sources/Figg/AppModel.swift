@@ -75,6 +75,9 @@ final class AppModel: ObservableObject {
     let updates = UpdateManager()
     /// Set when the user chose Update during a recording; installed on stop.
     private var pendingUpdate: ReleaseInfo?
+    private var updateSchedule = UpdateSchedule()
+    private var updateTimer: Timer?
+    private var wakeObserver: NSObjectProtocol?
     /// Injectable for tests; EventKit in the app.
     var makeCalendar: () -> any CalendarProvider = { EventKitCalendar() }
     private var calendar: (any CalendarProvider)?
@@ -133,6 +136,16 @@ final class AppModel: ObservableObject {
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
             await self?.autoCheckForUpdates()
+        }
+        // figg stays open for days, so look again every so often and after
+        // the Mac wakes. Each is a no-op until the schedule says it is due.
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.autoCheckForUpdates() }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in await self?.autoCheckForUpdates(after: UpdateSchedule.wakeInterval) }
         }
     }
 
@@ -561,10 +574,22 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Launch-time check: silent unless a newer release exists.
-    func autoCheckForUpdates() async {
+    /// Automatic check, at launch and then on `updateSchedule`: silent unless
+    /// a release newer than any already offered exists. That one replaces the
+    /// old offer's banner, so its button and its text name the same version.
+    func autoCheckForUpdates(after interval: TimeInterval = UpdateSchedule.interval) async {
         guard settings.config.updates.autoCheck else { return }
-        guard let release = await updates.check(quietly: true) else { return }
+        let now = Date()
+        guard updateSchedule.isDue(at: now, after: interval) else { return }
+        updateSchedule.checked(at: now)
+        guard let release = await updates.check(quietly: true),
+              updateSchedule.shouldOffer(release.version) else { return }
+        // Already agreed to update after this recording: take the newer one.
+        if pendingUpdate != nil {
+            pendingUpdate = release
+            return
+        }
+        banners.removeAll { $0.action == .installUpdate }
         banners.append(Banner(kind: .info,
                               text: "figg v\(release.version) is available.",
                               action: .installUpdate))
