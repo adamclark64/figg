@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/adamclark64/figg/compare/v0.10.0...v0.11.0) (2026-11-14)
+
+
+### Features
+
+* **update:** check for updates every few hours and after wake ([#29](https://github.com/adamclark64/figg/issues/29)) ([3d2030c](https://github.com/adamclark64/figg/commit/3d2030cab05115590aac84e1b5ec565d2c03f65d))
+
 ## [0.10.0](https://github.com/adamclark64/figg/compare/v0.9.0...v0.10.0) (2026-11-14)
 
 
