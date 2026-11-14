@@ -27,16 +27,21 @@ import Testing
 
     @Test func offersEachVersionOnce() {
         var s = UpdateSchedule()
-        #expect(s.shouldOffer("0.9.0"))
-        #expect(!s.shouldOffer("0.9.0"))
+        let first = s.shouldOffer("0.9.0")
+        let again = s.shouldOffer("0.9.0")
+        #expect(first)
+        #expect(!again)
         #expect(s.offered == "0.9.0")
     }
 
     @Test func offersANewerReleaseThatAppearsLater() {
         var s = UpdateSchedule()
-        #expect(s.shouldOffer("0.9.0"))
-        #expect(s.shouldOffer("0.10.0"))
-        #expect(!s.shouldOffer("0.9.0"))
+        let old = s.shouldOffer("0.9.0")
+        let newer = s.shouldOffer("0.10.0")
+        let older = s.shouldOffer("0.9.0")
+        #expect(old)
+        #expect(newer)
+        #expect(!older)
         #expect(s.offered == "0.10.0")
     }
 }
