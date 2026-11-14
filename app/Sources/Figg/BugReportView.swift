@@ -8,9 +8,11 @@ import UniformTypeIdentifiers
 /// menu. Thin view over FiggFeedback (hard rule 5): payloads, validation,
 /// downscaling, the paste rule and the issue link live in the library.
 ///
-/// With no setup the report opens as a GitHub issue in the browser, and any
-/// screenshots are put on the clipboard to paste into it. If a relay is set
-/// (`feedback.bug_report_endpoint`), the report is sent there instead.
+/// With no setup the report goes to figg's hosted relay, which files the
+/// issue, so no GitHub account is needed. `feedback.bug_report_endpoint`
+/// can name another relay, or say "browser" to open the report as a GitHub
+/// issue in the browser with screenshots on the clipboard. The browser is
+/// also offered when the relay cannot be reached.
 ///
 /// Privacy: nothing is auto-attached beyond app version, build, macOS
 /// version, hardware model and the transcriber engine name. Screenshots are
@@ -50,10 +52,9 @@ struct BugReportView: View {
         let thumbnail: NSImage?
     }
 
+    /// The relay to send to, or nil to file in the browser.
     private var endpointURL: URL? {
-        let raw = settings.config.feedback.bugReportEndpoint.trimmingCharacters(in: .whitespaces)
-        guard !raw.isEmpty, let url = URL(string: raw), url.host != nil else { return nil }
-        return url
+        BugReportRelay.endpoint(forSetting: settings.config.feedback.bugReportEndpoint)
     }
 
     private var canSend: Bool {
@@ -230,7 +231,7 @@ struct BugReportView: View {
     /// as a public issue, so the reporter is told.
     private var destinationNote: String {
         guard endpointURL == nil else {
-            return "Your report is filed as a public issue on GitHub."
+            return "Your report is filed as a public issue on GitHub. You don't need a GitHub account."
         }
         let base = "Your report opens as a public GitHub issue in your browser, where you can read it before you submit. You need a GitHub account."
         return attachments.isEmpty

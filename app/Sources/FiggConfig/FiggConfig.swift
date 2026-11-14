@@ -188,12 +188,14 @@ public struct FiggConfig: Codable, Equatable, Sendable {
 
     public struct Feedback: Codable, Equatable, Sendable {
         public init() {}
-        /// URL of a hosted bug-report relay (relay/ in the repo, deployed on
-        /// Vercel), for people who run one. Not a secret: the relay holds the
-        /// GitHub token server-side. Empty is the default and needs no setup:
-        /// Report a Bug opens the report as a GitHub issue in the browser.
-        /// Like the loader, this is a hidden option: the section is only
-        /// written to config.yaml once someone has set it by hand.
+        /// Where Report a Bug sends reports. Empty is the default and needs no
+        /// setup: figg's hosted relay files the issue. A URL is a relay you
+        /// host yourself (api/ in the repo, deployed on Vercel); "browser"
+        /// opens the report as a GitHub issue in your browser instead. Not a
+        /// secret: a relay holds its GitHub token server-side. Resolved by
+        /// `BugReportRelay.endpoint(forSetting:)`. Like the loader, this is a
+        /// hidden option: the section is only written to config.yaml once
+        /// someone has set it by hand.
         public var bugReportEndpoint = ""
         enum CodingKeys: String, CodingKey {
             case bugReportEndpoint = "bug_report_endpoint"
@@ -255,14 +257,15 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         // stays a hidden option.
         let loaderLine = appearance.loader == Appearance().loader ? "" : "\n  loader: \(q(appearance.loader))"
         // Reporting a bug needs no setup, so the feedback section is left out
-        // unless someone has pointed figg at a relay of their own.
+        // unless someone has set it by hand.
         let feedbackSection = feedback.bugReportEndpoint.isEmpty ? "" : """
 
             feedback:
-              # A bug-report relay you host (relay/ in the repo), e.g.
-              # https://<your-relay>.vercel.app/api/bug-report (not a secret; the
-              # GitHub token lives on the relay). Without this section, Report a
-              # Bug opens the report as a GitHub issue in your browser.
+              # Where Report a Bug sends reports: a relay you host (api/ in the
+              # repo), e.g. https://<your-relay>.vercel.app/v1/bug-report (not a
+              # secret; the GitHub token lives on the relay), or "browser" to
+              # open the report as a GitHub issue in your browser. Without this
+              # section, figg's own relay files the issue.
               bug_report_endpoint: \(q(feedback.bugReportEndpoint))
 
             """

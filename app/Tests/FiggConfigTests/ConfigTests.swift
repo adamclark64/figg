@@ -56,6 +56,10 @@ import Testing
         #expect(yaml.contains("\n\nfeedback:\n"))
         #expect(yaml.contains("\n  bug_report_endpoint: \"https://relay.example.com/api/bug-report\"\n\nappearance:\n"))
         #expect(try FiggConfig.parse(yaml) == c)
+        // "browser" (no relay) is kept like any other value.
+        c = try FiggConfig.parse("feedback:\n  bug_report_endpoint: browser\n")
+        #expect(c.feedback.bugReportEndpoint == "browser")
+        #expect(try FiggConfig.parse(c.yaml()) == c)
         // An empty value left in an older file reads as unset and goes.
         c = try FiggConfig.parse("feedback:\n  bug_report_endpoint: \"\"\n")
         #expect(c.feedback.bugReportEndpoint.isEmpty)

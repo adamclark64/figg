@@ -479,6 +479,16 @@ final class FakeClipboardWriter: ClipboardWriting {
                                   offerBrowserFallback: true))
     }
 
+    @Test func missingRelayDeploymentOffersTheBrowserFallback() async {
+        // Vercel's own 404 for a deployment that is gone: no relay error code.
+        let http = FakeHTTP()
+        http.status = 404
+        http.body = "The deployment could not be found on Vercel."
+        let result = await BugReportClient(endpoint: endpoint, http: http).send(samplePayload())
+        #expect(result == .failed(message: "Something went wrong filing the report. Please try again.",
+                                  offerBrowserFallback: true))
+    }
+
     @Test func invalidPayloadNeverReachesTheNetwork() async {
         let http = FakeHTTP()
         var p = samplePayload()
@@ -486,6 +496,30 @@ final class FakeClipboardWriter: ClipboardWriting {
         let result = await BugReportClient(endpoint: endpoint, http: http).send(p)
         #expect(result == .failed(message: "Please describe the issue.", offerBrowserFallback: false))
         #expect(http.sent.isEmpty)
+    }
+}
+
+@Suite struct RelayEndpointTests {
+    @Test func unsetUsesTheHostedRelay() {
+        #expect(BugReportRelay.endpoint(forSetting: "") == BugReportRelay.hostedEndpoint)
+        #expect(BugReportRelay.endpoint(forSetting: "  \n") == BugReportRelay.hostedEndpoint)
+        #expect(BugReportRelay.hostedEndpoint.absoluteString == "https://figg-api.vercel.app/v1/bug-report")
+    }
+
+    @Test func aRelayOfYourOwnIsUsed() {
+        #expect(BugReportRelay.endpoint(forSetting: " https://relay.example.com/api/bug-report ") == endpoint)
+        #expect(BugReportRelay.endpoint(forSetting: "http://localhost:3000/api/bug-report")
+            == URL(string: "http://localhost:3000/api/bug-report"))
+    }
+
+    @Test func browserTurnsTheRelayOff() {
+        #expect(BugReportRelay.endpoint(forSetting: "browser") == nil)
+        #expect(BugReportRelay.endpoint(forSetting: " Browser ") == nil)
+    }
+
+    @Test(arguments: ["not a url", "relay.example.com/api", "ftp://relay.example.com/x", "https://"])
+    func aTypoStillReachesTheHostedRelay(setting: String) {
+        #expect(BugReportRelay.endpoint(forSetting: setting) == BugReportRelay.hostedEndpoint)
     }
 }
 

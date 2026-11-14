@@ -22,17 +22,18 @@ figg is a personal project with no bounty.
   keeps running the version it has.
 - A bug report carries only what you type, the screenshots you add, the
   app version and build, the macOS version, the Mac's model, and the name
-  of the transcription engine. It is a public GitHub issue, and you read it
-  in your browser before you submit it. (If you point figg at a relay you
-  host, the report goes to the relay with no preview, along with an email
-  address if you give one.)
+  of the transcription engine, plus an email address if you give one. It
+  is sent to figg's API (`api/`), which files it as a public GitHub issue
+  straight away, with no preview. Set `feedback.bug_report_endpoint:
+  browser` in config.yaml to read the issue in your browser and submit it
+  yourself instead.
 
 A way to break any of these is a security problem worth reporting.
 
 ## Known limits
 
 - Releases are not signed with a Developer ID and are not notarized.
-  `scripts/bundle.sh` signs a build with a certificate you create on your
+  `app/scripts/bundle.sh` signs a build with a certificate you create on your
   own Mac (`docs/local-signing.md`).
 - The in-app updater only installs a DMG that is signed with figg's
   release key, so the download store and its write token cannot change
@@ -43,14 +44,14 @@ A way to break any of these is a security problem worth reporting.
   they have updated once. Details in `docs/release-signing.md`. If you
   would rather not rely on that, build from source and do not install
   updates from inside the app.
-- `relay/` is an optional function for people who host their own bug-report
-  endpoint. It accepts reports from anyone who knows its address and files
-  them with your token, so give that token access to one repository only,
-  ideally one made for the purpose, and expect spam.
+- The bug-report endpoint in `api/` accepts reports from anyone and files
+  them with the GitHub token it holds; the rate limit only blunts bursts.
+  That token has access to this one repository only, and spam is expected.
+  If you host your own copy, give its token the same narrow access.
 
 ## For contributors
 
-Changes to `.github/`, `scripts/`, `site/`, `relay/`, `README.md` and
+Changes to `.github/`, `app/scripts/`, `site/`, `api/`, `README.md` and
 `docs/agent-setup.md` deserve a slower read than the rest: workflows hold
 the release token and the key that signs updates, and the setup guide is written to be followed by coding
 agents on other people's machines. The reasons behind the issue digest's

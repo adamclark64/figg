@@ -1,0 +1,18 @@
+{
+  "name": "figg-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "figg's HTTP API: Vercel functions with no runtime dependencies, deployed as its own Vercel project (root directory: api).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'test/**/*.test.ts'"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  }
+}

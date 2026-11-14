@@ -27,6 +27,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: release
+    defaults:
+      run:
+        # The Swift app, its resources and the release scripts live in app/.
+        working-directory: app
     env:
       # Never interpolate the input into a script; read it from the environment.
       TAG: ${{ inputs.tag }}

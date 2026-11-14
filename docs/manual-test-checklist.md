@@ -4,7 +4,7 @@ Run before cutting a release. Unit tests cannot cover real audio hardware,
 macOS permissions, or Bedrock.
 
 ## First run
-- [ ] `open build/Figg.app` launches; sidebar offers "Download speech model"
+- [ ] `open app/build/Figg.app` launches; sidebar offers "Download speech model"
 - [ ] Download completes; the sidebar notice disappears
 - [ ] `~/.config/figg/config.yaml` is created with comments
 - [ ] Settings > AI: profile picker shows the profiles from config.yaml (default selected); models show Haiku 5.5
@@ -13,8 +13,8 @@ macOS permissions, or Bedrock.
 - [ ] Break the YAML (e.g. `aws: [`): warning banner, defaults used, file not overwritten
 
 ## Permissions
-- [ ] `scripts/bundle.sh` ends with `signed with 'figg Local Signing'` (else permissions reset each build)
-- [ ] `open build/Figg.app --args --probe-audio` with a sound playing: /tmp/figg-probe.txt shows non-zero system peak
+- [ ] `app/scripts/bundle.sh` ends with `signed with 'figg Local Signing'` (else permissions reset each build)
+- [ ] `open app/build/Figg.app --args --probe-audio` with a sound playing: /tmp/figg-probe.txt shows non-zero system peak
 - [ ] First Record prompts for Microphone, then System Audio Recording
 - [ ] Deny Microphone: recording still starts with system audio, orange banner shown
 - [ ] Re-enable in System Settings, restart figg, both streams work
@@ -97,7 +97,10 @@ macOS permissions, or Bedrock.
 - [ ] While the update downloads, a banner shows the 3D fig newton being extruded from its back with a percentage, then hopping beside "Installing the update"; Settings shows the same
 
 ## Report a Bug
-- [ ] Help > Report a Bug… opens the window with a "Continue on GitHub" button, no email field and no setup
+- [ ] Help > Report a Bug… opens the window with a "Send Report" button, an optional email field and no setup
+- [ ] Send Report with one screenshot: the window says "Report sent" with the issue number, and the issue on GitHub has the text, context and a link to the screenshot
+- [ ] With Wi-Fi off, Send Report says it couldn't reach the server and offers "Continue on GitHub instead"
+- [ ] With `feedback: bug_report_endpoint: browser` in config.yaml, the window shows "Continue on GitHub" and no email field; the checks below run in this mode
 - [ ] Copy a screenshot (Shift-Control-Command-4), click in the description and press Command-V: the screenshot is added as a thumbnail and nothing is typed. With text on the clipboard, Command-V types the text
 - [ ] Copy an image file in Finder and press Command-V: it is added. Copy a PDF: nothing is added
 - [ ] With three screenshots attached, a fourth paste shows "Attach at most 3 screenshots." With two attached, pasting three copied image files adds one and shows the same line

@@ -3,7 +3,7 @@
 macOS remembers privacy permissions (Microphone, System Audio Recording) per
 app *identity*. An ad-hoc signed build's identity is the hash of that exact
 build, so every rebuild looks like a new app and loses its permissions.
-Signing with a stable certificate fixes that. `scripts/bundle.sh` uses a
+Signing with a stable certificate fixes that. `app/scripts/bundle.sh` uses a
 certificate named **figg Local Signing** automatically when it exists. This
 is only for building figg yourself.
 
@@ -25,7 +25,7 @@ security find-identity -p codesigning | grep "figg Local Signing"
 ## Then
 
 ```bash
-scripts/bundle.sh
+app/scripts/bundle.sh
 ```
 
 The output should end with `signed with 'figg Local Signing'`. Grant figg its
