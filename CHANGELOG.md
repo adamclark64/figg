@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0](https://github.com/adamclark64/figg/compare/v0.9.0...v0.10.0) (2026-11-14)
+
+
+### Features
+
+* **api:** send bug reports through figg's own API ([#23](https://github.com/adamclark64/figg/issues/23)) ([dbe438e](https://github.com/adamclark64/figg/commit/dbe438e90bb8af9cd60254447e97fbc66795e476))
+* **site:** make the agent setup line a single link ([4d7f167](https://github.com/adamclark64/figg/commit/4d7f1679d3a807df271d3a036eacad9926c2a5a7))
+* **site:** play the office music from a radio on the window sill ([#19](https://github.com/adamclark64/figg/issues/19)) ([5f72ee2](https://github.com/adamclark64/figg/commit/5f72ee28156f9ef10f2fff14a8812f4969c40de9))
+* **transcription:** name speakers on zoom calls from zoom's window ([#28](https://github.com/adamclark64/figg/issues/28)) ([081120d](https://github.com/adamclark64/figg/commit/081120d98e40cf81ec3a5d828ba7d182debf7c41))
+
 ## [0.9.0](https://github.com/adamclark64/figg/compare/v0.8.0...v0.9.0) (2026-11-12)
 
 
