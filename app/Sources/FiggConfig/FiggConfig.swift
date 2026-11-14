@@ -118,6 +118,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var engine = "parakeet"
         /// Tell apart several people on one stream (in the room, or on the call).
         public var separateSpeakers = true
+        /// Put the names the meeting app shows (Zoom desktop) on the call's
+        /// speakers, read from its window through Accessibility.
+        public var meetingAppNames = true
         /// WhisperKit model name; only used when engine is "whisper".
         public var model = "large-v3-v20240930_turbo"
         /// Spoken language code, or empty to let Whisper detect it.
@@ -125,6 +128,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey {
             case engine, model, language
             case separateSpeakers = "separate_speakers"
+            case meetingAppNames = "meeting_app_names"
         }
     }
 
@@ -329,6 +333,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Label different people on the same stream: "Me", "Guest 1"... in the room,
           # "Them 1", "Them 2"... on the call. Runs once, after you press Stop.
           separate_speakers: \(transcription.separateSpeakers)
+          # On Zoom calls (desktop app), name the other speakers from Zoom's own window
+          # instead of "Them 1", "Them 2". Needs Accessibility permission; read on this Mac only.
+          meeting_app_names: \(transcription.meetingAppNames)
           # WhisperKit model name, used only when engine is "whisper".
           model: \(q(transcription.model))
           # Spoken language code for Whisper; "" lets it detect. Parakeet detects automatically.
@@ -475,6 +482,7 @@ extension FiggConfig.Transcription {
         let d = Self()
         engine = try c.decodeIfPresent(String.self, forKey: .engine) ?? d.engine
         separateSpeakers = try c.decodeIfPresent(Bool.self, forKey: .separateSpeakers) ?? d.separateSpeakers
+        meetingAppNames = try c.decodeIfPresent(Bool.self, forKey: .meetingAppNames) ?? d.meetingAppNames
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? d.model
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? d.language
     }

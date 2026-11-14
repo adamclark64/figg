@@ -135,6 +135,7 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 | Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
+| Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
@@ -186,8 +187,17 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   models vary a lot in note quality.
 - Speaker labels are automatic and "Me" is assumed to be the most talkative
   person on the mic. With the calendar on, attendee names are prompt hints
-  and a transcript context menu renames speakers by hand; figg never maps
-  voices to names itself.
+  and a transcript context menu renames speakers by hand.
+- On Zoom desktop calls (`transcription.meeting_app_names`, needs
+  Accessibility), `ZoomReader` reads Zoom's video tiles twice a second:
+  names, mute state, and Speaker view's big tile as the active speaker.
+  The timeline goes to `meetings/<id>/speakers.json`; after Stop a call
+  voice takes the Zoom name shown for at least 60% of its talk time. Tile
+  labels and the big tile were seen on Zoom 7.1.9, but the names have not
+  been checked end to end on a real call with other people yet, nor how
+  late Zoom's tile follows the speaker. Gallery view has no speaking cue,
+  so there it only works when one other person is unmuted. Zoom in the
+  browser, Meet, Teams and Slack are not read.
 - If System Audio Recording permission is missing, macOS delivers silence
   rather than an error; figg only warns after 30 s of exact silence.
 - Live lines come from 10 s chunks and can be rough at the cuts; the final

@@ -199,7 +199,7 @@ struct BannerStack: View {
     }
 
     func label(_ a: Banner.Action) -> String {
-        switch a { case .ssoLogin: "Sign in to AWS"; case .retryEnhance: "Retry"; case .openPrivacySettings: "Open Settings"; case .installUpdate: "Update now" }
+        switch a { case .ssoLogin: "Sign in to AWS"; case .retryEnhance: "Retry"; case .openPrivacySettings: "Open Settings"; case .installUpdate: "Update now"; case .allowAccessibility: "Allow" }
     }
 }
 
