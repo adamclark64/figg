@@ -25,7 +25,7 @@ final class UpdateManager: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    /// Returns the newer release, if any. quietly=true (launch auto-check)
+    /// Returns the newer release, if any. quietly=true (the automatic checks)
     /// stays silent on failure; the Settings button passes false and shows
     /// the outcome either way.
     @discardableResult
@@ -40,6 +40,9 @@ final class UpdateManager: ObservableObject {
             phase = quietly ? .idle : .failed("This build has no version, so updates are disabled.")
             return nil
         }
+        // A quiet re-check must not take away an update already on offer:
+        // the banner's button installs whatever this phase holds.
+        let previous = phase
         phase = .checking
         do {
             let release = try await UpdateChecker().latest()
@@ -49,7 +52,9 @@ final class UpdateManager: ObservableObject {
             }
             phase = quietly ? .idle : .upToDate
         } catch {
-            phase = quietly ? .idle : .failed(error.localizedDescription)
+            if quietly, case .available = previous { phase = previous } else {
+                phase = quietly ? .idle : .failed(error.localizedDescription)
+            }
         }
         return nil
     }

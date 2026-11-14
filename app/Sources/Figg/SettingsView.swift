@@ -153,7 +153,7 @@ struct RecordingSettings: View {
             Toggle("Name speakers on Zoom calls", isOn: $settings.config.transcription.meetingAppNames)
             MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames)
             Section("Updates") {
-                Toggle("Check for updates at launch", isOn: $settings.config.updates.autoCheck)
+                Toggle("Check for updates automatically", isOn: $settings.config.updates.autoCheck)
                 HStack {
                     Button("Check for Updates…") { Task { await model.updates.check(quietly: false) } }
                     UpdateStatusView(updates: model.updates, install: model.installUpdate)

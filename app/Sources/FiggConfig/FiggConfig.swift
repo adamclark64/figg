@@ -219,8 +219,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
 
     public struct Updates: Codable, Equatable, Sendable {
         public init() {}
-        /// Once per launch, ask figg's download site (anonymously) whether a
-        /// newer release exists. Only a version check; nothing is sent.
+        /// At launch, every few hours and after the Mac wakes, ask figg's
+        /// download site (anonymously) whether a newer release exists. Only a
+        /// version check; nothing is sent.
         public var autoCheck = true
         enum CodingKeys: String, CodingKey { case autoCheck = "auto_check" }
     }
@@ -375,7 +376,8 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           theme: \(q(appearance.theme))\(loaderLine)
 
         updates:
-          # Once per launch, check figg's download site for a newer release
+          # At launch, every few hours and after the Mac wakes, check figg's
+          # download site for a newer release
           # (anonymous; nothing about you or your meetings is sent). Update
           # from Settings.
           auto_check: \(updates.autoCheck)
