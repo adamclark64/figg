@@ -5,6 +5,7 @@ import FiggCalendar
 import FiggConfig
 import FiggExport
 import FiggLLM
+import FiggMeetingApps
 import FiggNotes
 import FiggStore
 import FiggTranscription
@@ -14,7 +15,7 @@ import SwiftUI
 
 struct Banner: Identifiable, Equatable {
     enum Kind { case info, warning, error }
-    enum Action: Equatable { case ssoLogin, retryEnhance(String), openPrivacySettings, installUpdate }
+    enum Action: Equatable { case ssoLogin, retryEnhance(String), openPrivacySettings, installUpdate, allowAccessibility }
 
     let id = UUID()
     var kind: Kind
@@ -57,6 +58,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var transcriptVersion = 0
 
     private var recorder: Recorder?
+    /// Reads Zoom's window for speaker names during a recording.
+    private var speakerWatcher: SpeakerWatcher?
+    private nonisolated let liveSpeakers = SpeakerWatcherSlot()
+    /// The Accessibility hint is shown once per launch.
+    private var askedForAccessibility = false
     private let transcriber: any Transcriber
     private(set) var queue: TranscriptionQueue!
     private var credentialProviders: [String: AWSCLICredentialsProvider] = [:]
@@ -98,6 +104,7 @@ final class AppModel: ObservableObject {
             transcriber: transcriber,
             separator: t.separateSpeakers ? FluidSpeakerSeparator() : nil,
             keepAudio: { keepAudio.value },
+            liveName: { [liveSpeakers] id, start, end in liveSpeakers.name(meetingId: id, start: start, end: end) },
             onLines: { [weak self] _ in
                 Task { @MainActor in self?.transcriptVersion += 1 }
             })
@@ -346,6 +353,7 @@ final class AppModel: ObservableObject {
             return
         }
         self.recorder = recorder
+        startSpeakerNames(meetingId: id, recorder: recorder)
         recordingId = id
         recordingStarted = Date()
         selection = .meeting(id)
@@ -354,6 +362,28 @@ final class AppModel: ObservableObject {
     }
 
     private var silenceWatch = SilenceWatch()
+
+    /// Watches Zoom for who is speaking, when the setting is on. Without
+    /// Accessibility it says once, while a Zoom meeting is open, how to
+    /// turn names on, and otherwise records as before.
+    private func startSpeakerNames(meetingId id: String, recorder: Recorder) {
+        guard settings.config.transcription.meetingAppNames else { return }
+        let zoomOpen = !NSRunningApplication.runningApplications(withBundleIdentifier: ZoomReader.bundleID).isEmpty
+        guard AccessibilityAccess.isGranted else {
+            if zoomOpen, !askedForAccessibility {
+                askedForAccessibility = true
+                banners.append(Banner(kind: .info, text: "figg can put Zoom's names on the people talking, instead of \"Them 1\", \"Them 2\". It needs Accessibility permission to read Zoom's window; nothing leaves this Mac.", action: .allowAccessibility))
+            }
+            return
+        }
+        let watcher = SpeakerWatcher(
+            meetingId: id, app: "zoom", reader: ZoomReader(),
+            file: paths.meetingDir(id).appendingPathComponent(SpeakerTimeline.fileName),
+            clock: { [recorder] in recorder.elapsed })
+        watcher.start()
+        speakerWatcher = watcher
+        liveSpeakers.set(watcher)
+    }
 
     private func checkSystemSilence(peak: Float) {
         guard silenceWatch.record(peak: peak) else { return }
@@ -367,6 +397,9 @@ final class AppModel: ObservableObject {
         guard let id = recordingId, let recorder else { return }
         recorder.stop()
         self.recorder = nil
+        speakerWatcher?.stop()
+        speakerWatcher = nil
+        liveSpeakers.set(nil)
         recordingId = nil
         recordingStarted = nil
         try? store.update(meetingId: id) {
@@ -522,6 +555,9 @@ final class AppModel: ObservableObject {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         case .installUpdate:
             installUpdate()
+        case .allowAccessibility:
+            AccessibilityAccess.request()
+            AccessibilityAccess.openSettings()
         }
     }
 

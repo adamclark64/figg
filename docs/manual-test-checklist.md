@@ -35,6 +35,14 @@ macOS permissions, or Bedrock.
 - [ ] Call with 2+ remote people: lines show Them 1 / Them 2
 - [ ] Solo call: plain Me / Them
 
+## Zoom speaker names
+- [ ] First Zoom recording without Accessibility: one info banner with **Allow**; Allow shows macOS's prompt and opens Privacy & Security > Accessibility
+- [ ] Settings shows "Accessibility: allowed" after granting it and coming back to figg
+- [ ] Zoom call, Speaker view, 2+ remote people taking turns: after Stop their lines show their Zoom names, not Them 1 / Them 2
+- [ ] Same call: `meetings/<id>/speakers.json` lists the participants and speaking spans
+- [ ] Gallery view with two others unmuted: lines fall back to Them 1 / Them 2 (no wrong names)
+- [ ] Zoom quits mid-call: recording carries on, earlier names stay
+
 ## Meeting detection
 - [ ] Join a Zoom/Teams/Meet call: "X is using your microphone" card appears within ~5 s, top-right, without taking focus
 - [ ] "Not now": no second prompt during the same call

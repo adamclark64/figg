@@ -21,11 +21,12 @@ let package = Package(
             dependencies: [.product(name: "GRDB", package: "GRDB.swift")]
         ),
         .target(name: "FiggAudio"),
+        .target(name: "FiggMeetingApps"),
         .target(name: "FiggConfig", dependencies: [.product(name: "Yams", package: "Yams")]),
         .target(
             name: "FiggTranscription",
             dependencies: [
-                "FiggStore", "FiggAudio",
+                "FiggStore", "FiggAudio", "FiggMeetingApps",
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ]
@@ -42,11 +43,12 @@ let package = Package(
             dependencies: [
                 "FiggStore", "FiggAudio", "FiggTranscription",
                 "FiggLLM", "FiggNotes", "FiggExport", "FiggConfig", "FiggCalendar", "FiggUpdate", "FiggFeedback",
-                "FiggWidget",
+                "FiggWidget", "FiggMeetingApps",
             ]
         ),
         .executableTarget(name: "figg-audio-probe", dependencies: ["FiggAudio"]),
         .executableTarget(name: "figg-asr-bench", dependencies: ["FiggTranscription", "FiggStore", "FiggAudio"]),
+        .testTarget(name: "FiggMeetingAppsTests", dependencies: ["FiggMeetingApps"]),
         .testTarget(name: "FiggStoreTests", dependencies: ["FiggStore"]),
         .testTarget(name: "FiggLLMTests", dependencies: ["FiggLLM"]),
         .testTarget(name: "FiggConfigTests", dependencies: ["FiggConfig"]),
@@ -58,7 +60,7 @@ let package = Package(
         .testTarget(name: "FiggUpdateTests", dependencies: ["FiggUpdate", "FiggExport"]),
         .testTarget(
             name: "FiggTranscriptionTests",
-            dependencies: ["FiggTranscription", "FiggStore", "FiggAudio", .product(name: "FluidAudio", package: "FluidAudio")],
+            dependencies: ["FiggTranscription", "FiggStore", "FiggAudio", "FiggMeetingApps", .product(name: "FluidAudio", package: "FluidAudio")],
             resources: [.copy("Fixtures")]
         ),
     ],

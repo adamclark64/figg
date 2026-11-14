@@ -1,4 +1,5 @@
 import FiggAudio
+import FiggMeetingApps
 import FiggStore
 import Foundation
 
@@ -16,6 +17,8 @@ public actor TranscriptionQueue {
     private let transcriber: Transcriber
     private let separator: SpeakerSeparator?
     private let keepAudio: @Sendable () -> Bool
+    /// Who the meeting app shows speaking over a stretch of a live meeting, if anyone.
+    private let liveName: @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String?
     private let onLines: @Sendable ([TranscriptLine]) -> Void
 
     private var queue: [(meetingId: String, chunk: AudioChunk)] = []
@@ -28,6 +31,7 @@ public actor TranscriptionQueue {
         transcriber: Transcriber,
         separator: SpeakerSeparator? = nil,
         keepAudio: @escaping @Sendable () -> Bool,
+        liveName: @escaping @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String? = { _, _, _ in nil },
         onLines: @escaping @Sendable ([TranscriptLine]) -> Void
     ) {
         self.store = store
@@ -35,6 +39,7 @@ public actor TranscriptionQueue {
         self.transcriber = transcriber
         self.separator = separator
         self.keepAudio = keepAudio
+        self.liveName = liveName
         self.onLines = onLines
     }
 
@@ -78,7 +83,10 @@ public actor TranscriptionQueue {
             let samples = try chunk.samples()
             if !SilenceGate.isSilent(samples) {
                 let segments = try await transcriber.transcribe(samples: samples)
-                let lines = Self.lines(from: segments, chunk: chunk, meetingId: meetingId)
+                var lines = Self.lines(from: segments, chunk: chunk, meetingId: meetingId)
+                if chunk.stream == .system {
+                    for i in lines.indices { lines[i].speakerLabel = liveName(meetingId, lines[i].start, lines[i].end) }
+                }
                 if !lines.isEmpty {
                     let stored = try store.append(lines)
                     onLines(stored)
@@ -128,6 +136,10 @@ public actor TranscriptionQueue {
         let chunks = AudioChunk.list(in: done)
         guard !chunks.isEmpty, !fm.fileExists(atPath: finalMarker(meetingId).path) else { return }
 
+        // Names the meeting app showed while recording (Zoom), if any.
+        let timeline = SpeakerTimeline.load(from: paths.meetingDir(meetingId).appendingPathComponent(SpeakerTimeline.fileName))
+            .flatMap { $0.spans.isEmpty ? nil : $0 }
+
         var lines: [TranscriptLine] = []
         for stream in AudioStream.allCases {
             let mine = chunks.filter { $0.stream == stream }
@@ -151,11 +163,12 @@ public actor TranscriptionQueue {
                     let count = stream == .mic ? roomSpeakers : nil
                     // One person in the room: nothing to separate on the mic.
                     let turns = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
-                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset)
+                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset, timeline: timeline)
                 } catch {
                     NSLog("figg: speaker separation failed: \(error)")
                 }
             }
+            if stream == .system, let timeline { streamLines = SpeakerLabels.nameLines(streamLines, timeline: timeline) }
             lines += streamLines
         }
         // Without headphones the mic also hears the call; keep only the

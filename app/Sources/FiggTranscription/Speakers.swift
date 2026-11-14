@@ -1,4 +1,5 @@
 import FiggAudio
+import FiggMeetingApps
 import FiggStore
 import FluidAudio
 import Foundation
@@ -101,13 +102,54 @@ public enum SpeakerLabels {
     }
 
     /// Sets `speakerLabel` on each line from the stream's diarization.
-    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double) -> [TranscriptLine] {
-        guard let names = labels(for: turns, stream: stream) else { return lines }
+    /// - Parameter timeline: for the system audio, who the meeting app
+    ///   showed as speaking. A voice that one name covers for most of its
+    ///   talk time gets that name instead of "Them N".
+    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double, timeline: SpeakerTimeline? = nil) -> [TranscriptLine] {
+        var names = labels(for: turns, stream: stream)
+        if stream == .system, let timeline {
+            let named = appNames(for: turns, timeline: timeline, offset: offset)
+            if !named.isEmpty { names = (names ?? [:]).merging(named) { _, app in app } }
+        }
+        guard let names else { return lines }
         return lines.map { line in
             var line = line
             if let id = speaker(for: line, turns: turns, offset: offset), let name = names[id] {
                 line.speakerLabel = name
             }
+            return line
+        }
+    }
+
+    /// Names from the meeting app for diarizer voices: the name shown as
+    /// speaking for at least `SpeakerTimeline.minShare` of a voice's talk
+    /// time. Voices without such a name are left out.
+    public static func appNames(for turns: [SpeakerTurn], timeline: SpeakerTimeline, offset: Double) -> [String: String] {
+        var talk: [String: Double] = [:]
+        var shown: [String: [String: Double]] = [:]
+        for t in turns {
+            talk[t.speaker, default: 0] += max(0, t.end - t.start)
+            for (name, seconds) in timeline.coverage(start: t.start + offset, end: t.end + offset) {
+                shown[t.speaker, default: [:]][name, default: 0] += seconds
+            }
+        }
+        var out: [String: String] = [:]
+        for (id, seconds) in talk where seconds > 0 {
+            if let best = shown[id]?.max(by: { $0.value < $1.value }), best.value / seconds >= SpeakerTimeline.minShare {
+                out[id] = best.key
+            }
+        }
+        return out
+    }
+
+    /// Names system-audio lines that diarization left unlabelled (it was
+    /// off, failed, or heard one voice it could not name), one line at a time.
+    public static func nameLines(_ lines: [TranscriptLine], timeline: SpeakerTimeline) -> [TranscriptLine] {
+        lines.map { line in
+            guard line.speaker == .them, line.speakerLabel == nil,
+                  let name = timeline.name(start: line.start, end: line.end) else { return line }
+            var line = line
+            line.speakerLabel = name
             return line
         }
     }

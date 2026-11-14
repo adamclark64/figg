@@ -1,6 +1,7 @@
 import FiggConfig
 import FiggNotes
 import FiggStore
+import FiggMeetingApps
 import SwiftUI
 
 struct SettingsView: View {
@@ -149,6 +150,8 @@ struct RecordingSettings: View {
                 .font(.caption).foregroundStyle(.secondary)
             Text("Use headphones: on laptop speakers your mic also hears the other side, so some of their speech can show up as \"Me\".")
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("Name speakers on Zoom calls", isOn: $settings.config.transcription.meetingAppNames)
+            MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames)
             Section("Updates") {
                 Toggle("Check for updates at launch", isOn: $settings.config.updates.autoCheck)
                 HStack {
@@ -194,6 +197,35 @@ struct SharingSettings: View {
             TextField("Confluence space key", text: $settings.config.sharing.confluenceSpace)
             TextField("Jira project key", text: $settings.config.sharing.jiraProject)
             Text("Email and API token are stored in your macOS Keychain, not in config.yaml.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Whether figg can read Zoom's window, with a way to allow it.
+private struct MeetingAppNamesStatus: View {
+    let enabled: Bool
+    @State private var granted = AccessibilityAccess.isGranted
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("In the Zoom desktop app, figg reads who Zoom shows as talking and uses their Zoom names instead of \"Them 1\", \"Them 2\". Works best in Speaker view. It needs Accessibility permission to read Zoom's window; only names are read, on this Mac.")
+                .font(.caption).foregroundStyle(.secondary)
+            if enabled {
+                HStack {
+                    Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet")
+                        .font(.caption)
+                    if !granted {
+                        Button("Allow…") {
+                            AccessibilityAccess.request()
+                            AccessibilityAccess.openSettings()
+                        }
+                    }
+                }
+            }
+        }
+        // Pick up a grant made in System Settings while this window was open.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            granted = AccessibilityAccess.isGranted
         }
     }
 }
