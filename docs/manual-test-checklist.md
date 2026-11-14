@@ -4,7 +4,7 @@ Run before cutting a release. Unit tests cannot cover real audio hardware,
 macOS permissions, or Bedrock.
 
 ## First run
-- [ ] `open build/Figg.app` launches; sidebar offers "Download speech model"
+- [ ] `open app/build/Figg.app` launches; sidebar offers "Download speech model"
 - [ ] Download completes; the sidebar notice disappears
 - [ ] `~/.config/figg/config.yaml` is created with comments
 - [ ] Settings > AI: profile picker shows the profiles from config.yaml (default selected); models show Haiku 5.5
@@ -13,8 +13,8 @@ macOS permissions, or Bedrock.
 - [ ] Break the YAML (e.g. `aws: [`): warning banner, defaults used, file not overwritten
 
 ## Permissions
-- [ ] `scripts/bundle.sh` ends with `signed with 'figg Local Signing'` (else permissions reset each build)
-- [ ] `open build/Figg.app --args --probe-audio` with a sound playing: /tmp/figg-probe.txt shows non-zero system peak
+- [ ] `app/scripts/bundle.sh` ends with `signed with 'figg Local Signing'` (else permissions reset each build)
+- [ ] `open app/build/Figg.app --args --probe-audio` with a sound playing: /tmp/figg-probe.txt shows non-zero system peak
 - [ ] First Record prompts for Microphone, then System Audio Recording
 - [ ] Deny Microphone: recording still starts with system audio, orange banner shown
 - [ ] Re-enable in System Settings, restart figg, both streams work

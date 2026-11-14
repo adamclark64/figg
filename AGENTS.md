@@ -23,8 +23,21 @@ Recorder (FiggAudio) → 10 s chunk files in meetings/<id>/pending/
   → Formatters / AtlassianClient (FiggExport)
 ```
 
-`Sources/Figg` is the app: `AppModel` owns the pipeline and all state;
+`app/Sources/Figg` is the app: `AppModel` owns the pipeline and all state;
 views are thin.
+
+## Layout
+
+| Folder | What | Deployed as |
+|---|---|---|
+| `app/` | The macOS app: Swift package (`Package.swift`, `Sources/`, `Tests/`), `Resources/` and the build and release `scripts/` | DMG, by `.github/workflows/release-please.yml` |
+| `api/` | figg's HTTP API: Vercel functions, no runtime dependencies | Vercel project `figg-api` (root `api`) |
+| `site/` | The website, with `README.md` and `docs/` rendered into `/docs` | Vercel project `figg` (root `site`) |
+| `docs/` | Docs for all three | Published by `site/build.mjs` |
+
+Swift commands take `--package-path app` from the repo root (or run them
+in `app/`). The `app/scripts/` scripts find their own folder, so run them
+from anywhere.
 
 ## Hard rules
 
@@ -38,7 +51,7 @@ views are thin.
 3. **No sampling params to Claude.** Do not add `temperature`, `top_p` or
    `top_k` to `BedrockProvider.body`; current Claude models reject them.
    `OpenAICompatibleProvider.body` follows the same rule.
-4. **Build the .app with `scripts/bundle.sh` (xcodebuild), not `swift build`.**
+4. **Build the .app with `app/scripts/bundle.sh` (xcodebuild), not `swift build`.**
    Resource bundle lookup crashes otherwise. Sign with the "figg Local
    Signing" cert (`docs/local-signing.md`) or macOS drops the
    mic/system-audio permissions on every rebuild.
@@ -52,49 +65,49 @@ views are thin.
 ## Commands
 
 ```bash
-swift build
+swift build --package-path app
 ```
 
 ```bash
-swift test
+swift test --package-path app
 ```
 
 ```bash
-scripts/bundle.sh && open build/Figg.app
+app/scripts/bundle.sh && open app/build/Figg.app
 ```
 
-`FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --filter LiveBedrockTests` makes
+`FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --package-path app --filter LiveBedrockTests` makes
 two real (tiny) Bedrock calls; needs working credentials for that profile
 (for an SSO profile, `aws sso login --profile <name>`).
 
-`FIGG_LIVE=1 FIGG_OPENROUTER_KEY=<key> swift test --filter LiveOpenRouterTests`
+`FIGG_LIVE=1 FIGG_OPENROUTER_KEY=<key> swift test --package-path app --filter LiveOpenRouterTests`
 makes one real call to OpenRouter's free router.
 
 `cd site && npm install && npm run dev` builds the website into `site/dist`
 and serves it on http://localhost:4173. The docs pages are the repo's own
 Markdown: change the `.md` file, never the built HTML.
 
-`swift run figg-audio-probe` records 6 s and prints per-stream levels; all-zero
+`swift run --package-path app figg-audio-probe` records 6 s and prints per-stream levels; all-zero
 system audio means the System Audio Recording permission is missing.
 Run it inside the app, with figg's own permissions, via
-`open build/Figg.app --args --probe-audio` (report in /tmp/figg-probe.txt).
+`open app/build/Figg.app --args --probe-audio` (report in /tmp/figg-probe.txt).
 Do not quit or relaunch figg while the user may be recording.
 
-`swift run figg-audio-probe --mic-users` lists apps holding the mic right now
+`swift run --package-path app figg-audio-probe --mic-users` lists apps holding the mic right now
 (what meeting detection sees).
 
-`swift run -c release figg-asr-bench --diarize` checks speaker separation on a
+`swift run --package-path app -c release figg-asr-bench --diarize` checks speaker separation on a
 three-voice conversation (`BENCH_SPEAKERS=3` to give the count).
 
-`swift run -c release figg-asr-bench` compares Parakeet and Whisper on the
+`swift run --package-path app -c release figg-asr-bench` compares Parakeet and Whisper on the
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
 changing engines or chunking.
 
 Always read audio with `AudioChunk.readMono`, never a single
 `AVAudioFile.read`.
 
-`FIGG_WER=1 swift test --filter wordErrorRate` runs the transcription accuracy
-check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
+`FIGG_WER=1 swift test --package-path app --filter wordErrorRate` runs the transcription accuracy
+check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 (none recorded yet; it needs the model download).
 
 ## Conventions
@@ -112,29 +125,29 @@ check against WAV/TXT pairs in `Tests/FiggTranscriptionTests/Fixtures/`
 
 | Task | File |
 |---|---|
-| Recording, permissions | `Sources/FiggAudio/Recorder.swift`, `SystemAudioCapture.swift` |
-| Speech-to-text, final pass | `Sources/FiggTranscription/` (`TranscriptionQueue.finalPass`) |
-| Schema, search | `Sources/FiggStore/Store.swift` (migrations in `migrator`) |
-| Prompts | `Sources/FiggNotes/Enhancer.swift`, `NotesChat.swift` |
-| Bedrock, SigV4 | `Sources/FiggLLM/` |
-| Other model providers (OpenRouter...) | `Sources/FiggLLM/OpenAICompatibleProvider.swift`, `FiggConfig.LLM` |
-| Slack/Confluence/Jira | `Sources/FiggExport/` |
-| Meeting lifecycle, crash recovery | `Sources/Figg/AppModel.swift` |
-| Meeting auto-detect | `Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `Sources/Figg/MeetingWatcher.swift` |
-| Floating recording widget | `Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `Sources/FiggWidget/` (show/hide rule, placement) |
-| Calendar (titles, attendees, brief) | `Sources/FiggCalendar/`, `Sources/FiggNotes/Brief.swift` |
-| Note templates, quick actions | `Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
-| Settings / config.yaml | `Sources/FiggConfig/FiggConfig.swift`, `Sources/Figg/AppSettings.swift` |
-| In-app updates | `Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `Sources/Figg/UpdateManager.swift`, `scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
-| Bug reporter | `Sources/FiggFeedback/`, `Sources/Figg/BugReportView.swift`, `relay/api/bug-report.js` |
-| Colours, fonts, theme | `Sources/Figg/Theme.swift` |
+| Recording, permissions | `app/Sources/FiggAudio/Recorder.swift`, `SystemAudioCapture.swift` |
+| Speech-to-text, final pass | `app/Sources/FiggTranscription/` (`TranscriptionQueue.finalPass`) |
+| Schema, search | `app/Sources/FiggStore/Store.swift` (migrations in `migrator`) |
+| Prompts | `app/Sources/FiggNotes/Enhancer.swift`, `NotesChat.swift` |
+| Bedrock, SigV4 | `app/Sources/FiggLLM/` |
+| Other model providers (OpenRouter...) | `app/Sources/FiggLLM/OpenAICompatibleProvider.swift`, `FiggConfig.LLM` |
+| Slack/Confluence/Jira | `app/Sources/FiggExport/` |
+| Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
+| Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
+| Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
+| Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
+| Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
+| Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
+| In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `app/Sources/Figg/UpdateManager.swift`, `app/scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
+| Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/bug-report.js` |
+| Colours, fonts, theme | `app/Sources/Figg/Theme.swift` |
 | Website: landing page, docs pages | `site/index.html` (the 3D landing page), `site/build.mjs` (renders README and `docs/` Markdown into `/docs` pages; its `SOURCES` list decides what is published), `site/docs-template.html` (the frame around a docs page) |
-| Loading states (fig newton loader) | `Sources/Figg/FigLoader.swift` (the views), `FigNewtonScene.swift` (the fig newton, the default), `FigScene.swift` (the spinning fig, set with `appearance.loader: fig`), `Loader3D.swift`, `Sources/FiggWidget/LoaderStyle.swift` and `NewtonMotion.swift` (timing) |
+| Loading states (fig newton loader) | `app/Sources/Figg/FigLoader.swift` (the views), `FigNewtonScene.swift` (the fig newton, the default), `FigScene.swift` (the spinning fig, set with `appearance.loader: fig`), `Loader3D.swift`, `app/Sources/FiggWidget/LoaderStyle.swift` and `NewtonMotion.swift` (timing) |
 
 ## Bug reports
 
 "Report a Bug…" (menu bar menu or Help menu) needs no setup. It posts the
-report to figg's hosted relay (`relay/`, the Vercel project `figg-relay`,
+report to figg's hosted relay (`api/`, the Vercel project `figg-relay`,
 `BugReportRelay.hostedEndpoint`), which holds a GitHub token server-side
 and files the issue, so the reporter needs no GitHub account. The app never
 holds a GitHub token. An optional reporter email is included and is public.

@@ -137,18 +137,18 @@ build may ask the human for their login keychain password; they choose
 **Always Allow**.
 
 ```bash
-scripts/bundle.sh
+app/scripts/bundle.sh
 ```
 
-Build with `scripts/bundle.sh`, not `swift build`: a `swift build` binary
+Build with `app/scripts/bundle.sh`, not `swift build`: a `swift build` binary
 crashes on resource lookup.
 
 **Check:** the last line of output reads
-`Built build/Figg.app (<version> build <n>, signed with 'figg Local Signing')`.
+`Built app/build/Figg.app (<version> build <n>, signed with 'figg Local Signing')`.
 If it says `signed with '-'`, the certificate was not found; go back to
 `docs/local-signing.md`.
 
-The app path for the rest of this guide is `build/Figg.app`.
+The app path for the rest of this guide is `app/build/Figg.app`.
 
 ## 3. First launch
 
@@ -345,7 +345,7 @@ From a source checkout there is also an end-to-end check, which makes two
 tiny real Bedrock calls (Haiku and Sonnet) through figg's own client:
 
 ```bash
-FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --filter LiveBedrockTests
+FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --package-path app --filter LiveBedrockTests
 ```
 
 ### Path B: OpenRouter

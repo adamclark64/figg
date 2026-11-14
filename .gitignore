@@ -5,14 +5,18 @@ build/
 xcuserdata/
 .DS_Store
 .env*
-Resources/*-preview.png
+app/Resources/*-preview.png
 
 # Website build (site/build.mjs)
 site/dist/
 site/node_modules/
 
-# Release tooling (scripts/package.json)
-scripts/node_modules/
+# Release tooling (app/scripts/package.json)
+app/scripts/node_modules/
+
+# API (api/, its own Vercel project)
+api/node_modules/
+api/.vercel/
 
 # Local agent context and examples
 .claude/

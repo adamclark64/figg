@@ -11,7 +11,7 @@ do when the key has to change.
   private key and writes the signature (base64) into `latest.json` as
   `signature`, next to `version`, `dmg_url` and `size`.
 - The app carries the public half in `UpdateVerifier.releaseKeys`
-  (`Sources/FiggUpdate/UpdateVerifier.swift`). After downloading, and before
+  (`app/Sources/FiggUpdate/UpdateVerifier.swift`). After downloading, and before
   the DMG is mounted, `UpdateInstaller` checks the signature over the file
   it downloaded. No signature, an unreadable one, or one from another key
   all end the same way: nothing is installed, the running copy is left as
@@ -67,7 +67,7 @@ Node 20 or later.
 2. Make the key pair:
 
    ```bash
-   node scripts/make-update-key.mjs OWNER/REPO
+   node app/scripts/make-update-key.mjs OWNER/REPO
    ```
 
    The private half goes straight into the environment secret. It is not
@@ -76,7 +76,7 @@ Node 20 or later.
 3. Add the printed public key to `UpdateVerifier.releaseKeys` and merge
    that before the next release.
 
-`scripts/publish-dmg-blob.mjs` refuses to publish when the secret is
+`app/scripts/publish-dmg-blob.mjs` refuses to publish when the secret is
 missing, or when its public half is not in `releaseKeys`. Either mistake
 fails the release job loudly instead of publishing an update that every
 installed copy would refuse.
@@ -99,7 +99,7 @@ to sign the release that introduces the new one:
 1. Make the new key under a second name. The old secret is not touched:
 
    ```bash
-   node scripts/make-update-key.mjs OWNER/REPO FIGG_UPDATE_SIGNING_KEY_2
+   node app/scripts/make-update-key.mjs OWNER/REPO FIGG_UPDATE_SIGNING_KEY_2
    ```
 
 2. Add the printed public key to `releaseKeys`, after the old one, and

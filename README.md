@@ -97,7 +97,7 @@ typed in Settings > AI, kept in the Keychain.
 ## Check Bedrock access
 
 ```bash
-FIGG_LIVE=1 swift test --filter LiveBedrockTests
+FIGG_LIVE=1 swift test --package-path app --filter LiveBedrockTests
 ```
 
 This sends two tiny prompts (Haiku and Sonnet) through figg's own Bedrock
@@ -106,11 +106,11 @@ client using the `default` profile (set `FIGG_PROFILE` to use another).
 ## Build and run
 
 ```bash
-scripts/bundle.sh
+app/scripts/bundle.sh
 ```
 
 ```bash
-open build/Figg.app
+open app/build/Figg.app
 ```
 
 The first time you record, macOS asks for **Microphone** and **System Audio
@@ -120,14 +120,18 @@ is installed the model is already on disk, otherwise figg downloads it once
 Build your own copy with the local signing certificate
 ([docs/local-signing.md](docs/local-signing.md)) so permissions survive rebuilds.
 
+The repository holds three projects: the macOS app in `app/`, figg's
+HTTP API in `api/` and the website in `site/`. The commands here run
+from the repository root.
+
 Development loop:
 
 ```bash
-swift build
+swift build --package-path app
 ```
 
 ```bash
-swift test
+swift test --package-path app
 ```
 
 ## Release a .dmg
@@ -145,8 +149,8 @@ updater, which refuses anything not signed with the release key
 There is no Apple Developer ID yet, so the DMG is ad-hoc signed and not
 notarized: right-click > Open on first launch. When a Developer ID exists, add
 the secrets listed in the workflow header and the same pipeline signs and
-notarizes. [scripts/release.sh](scripts/release.sh) does the signed build
-locally; [scripts/dmg.sh](scripts/dmg.sh) is the shared packaging step.
+notarizes. [app/scripts/release.sh](app/scripts/release.sh) does the signed build
+locally; [app/scripts/dmg.sh](app/scripts/dmg.sh) is the shared packaging step.
 
 ## Docs
 

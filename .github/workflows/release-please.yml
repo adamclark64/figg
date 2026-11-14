@@ -42,6 +42,10 @@ jobs:
     runs-on: macos-26
     permissions:
       contents: write
+    defaults:
+      run:
+        # The Swift app, its resources and the release scripts live in app/.
+        working-directory: app
     env:
       TAG: ${{ needs.release-please.outputs.tag_name }}
       # secrets.* is not allowed in step `if` expressions; env is.
@@ -114,6 +118,10 @@ jobs:
     environment: release
     permissions:
       contents: read
+    defaults:
+      run:
+        # The Swift app, its resources and the release scripts live in app/.
+        working-directory: app
     env:
       TAG: ${{ needs.release-please.outputs.tag_name }}
       # secrets.* is not allowed in step `if` expressions; env is.
@@ -140,7 +148,7 @@ jobs:
         # The SDK, not `vercel blob put`: the CLI needs a Vercel login on top
         # of this token and fails without one. If this step ever fails, the
         # "publish dmg to blob" workflow republishes a release by tag.
-        # scripts/package-lock.json pins the SDK and everything under it, and
+        # app/scripts/package-lock.json pins the SDK and everything under it, and
         # no install script runs: this step holds the key and the token that
         # together decide what every installed copy of figg installs.
         run: |
