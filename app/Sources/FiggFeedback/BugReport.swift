@@ -105,7 +105,7 @@ public struct BugReportPayload: Codable, Equatable, Sendable {
 }
 
 /// Maps the relay's error codes to what the sheet shows. Codes come from
-/// relay/api/bug-report.js; unknown codes get the generic line.
+/// api/api/v1/bug-report.ts; unknown codes get the generic line.
 public enum BugReportErrorMessage {
     public static func message(for code: String?) -> String {
         switch code {

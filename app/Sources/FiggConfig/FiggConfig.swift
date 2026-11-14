@@ -190,7 +190,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public init() {}
         /// Where Report a Bug sends reports. Empty is the default and needs no
         /// setup: figg's hosted relay files the issue. A URL is a relay you
-        /// host yourself (relay/ in the repo, deployed on Vercel); "browser"
+        /// host yourself (api/ in the repo, deployed on Vercel); "browser"
         /// opens the report as a GitHub issue in your browser instead. Not a
         /// secret: a relay holds its GitHub token server-side. Resolved by
         /// `BugReportRelay.endpoint(forSetting:)`. Like the loader, this is a
@@ -261,8 +261,8 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         let feedbackSection = feedback.bugReportEndpoint.isEmpty ? "" : """
 
             feedback:
-              # Where Report a Bug sends reports: a relay you host (relay/ in the
-              # repo), e.g. https://<your-relay>.vercel.app/api/bug-report (not a
+              # Where Report a Bug sends reports: a relay you host (api/ in the
+              # repo), e.g. https://<your-relay>.vercel.app/v1/bug-report (not a
               # secret; the GitHub token lives on the relay), or "browser" to
               # open the report as a GitHub issue in your browser. Without this
               # section, figg's own relay files the issue.

@@ -17,9 +17,10 @@ public enum BugReportResult: Equatable, Sendable {
 /// account. A URL is a relay someone hosts themself. "browser" opens the
 /// report as a GitHub issue in the browser instead (`GitHubIssueURL`).
 public enum BugReportRelay {
-    /// figg's own relay: relay/ in the repo, deployed as the Vercel project
-    /// `figg-relay`. Not a secret; the GitHub token lives on the relay.
-    public static let hostedEndpoint = URL(string: "https://figg-relay.vercel.app/api/bug-report")!
+    /// figg's own relay: api/ in the repo, deployed as the Vercel project
+    /// `figg-api`. Every installed copy keeps this URL, so it never moves.
+    /// Not a secret; the GitHub token lives on the relay.
+    public static let hostedEndpoint = URL(string: "https://figg-api.vercel.app/v1/bug-report")!
 
     /// The setting that turns the relay off and files through the browser.
     public static let browserSetting = "browser"
@@ -39,7 +40,7 @@ public enum BugReportRelay {
     }
 }
 
-/// POSTs a report to a relay (relay/api/bug-report.js), figg's hosted one
+/// POSTs a report to a relay (api/api/v1/bug-report.ts), figg's hosted one
 /// unless `feedback.bug_report_endpoint` names another. The app holds no
 /// GitHub token (hard rule 2); the relay holds it server-side.
 public struct BugReportClient: Sendable {

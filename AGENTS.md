@@ -31,7 +31,7 @@ views are thin.
 | Folder | What | Deployed as |
 |---|---|---|
 | `app/` | The macOS app: Swift package (`Package.swift`, `Sources/`, `Tests/`), `Resources/` and the build and release `scripts/` | DMG, by `.github/workflows/release-please.yml` |
-| `api/` | figg's HTTP API: Vercel functions, no runtime dependencies | Vercel project `figg-api` (root `api`) |
+| `api/` | figg's HTTP API: TypeScript Vercel functions, no runtime dependencies | Vercel project `figg-api` (root `api`) |
 | `site/` | The website, with `README.md` and `docs/` rendered into `/docs` | Vercel project `figg` (root `site`) |
 | `docs/` | Docs for all three | Published by `site/build.mjs` |
 
@@ -139,7 +139,8 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
 | In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `app/Sources/Figg/UpdateManager.swift`, `app/scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
-| Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/bug-report.js` |
+| Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/v1/bug-report.ts` |
+| HTTP API (figg-api.vercel.app) | `api/` (see `api/README.md`) |
 | Colours, fonts, theme | `app/Sources/Figg/Theme.swift` |
 | Website: landing page, docs pages | `site/index.html` (the 3D landing page), `site/build.mjs` (renders README and `docs/` Markdown into `/docs` pages; its `SOURCES` list decides what is published), `site/docs-template.html` (the frame around a docs page) |
 | Loading states (fig newton loader) | `app/Sources/Figg/FigLoader.swift` (the views), `FigNewtonScene.swift` (the fig newton, the default), `FigScene.swift` (the spinning fig, set with `appearance.loader: fig`), `Loader3D.swift`, `app/Sources/FiggWidget/LoaderStyle.swift` and `NewtonMotion.swift` (timing) |
@@ -147,8 +148,8 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 ## Bug reports
 
 "Report a Bug…" (menu bar menu or Help menu) needs no setup. It posts the
-report to figg's hosted relay (`api/`, the Vercel project `figg-relay`,
-`BugReportRelay.hostedEndpoint`), which holds a GitHub token server-side
+report to figg's API (`POST /v1/bug-report` in `api/`, the Vercel project
+`figg-api`, `BugReportRelay.hostedEndpoint`), which holds a GitHub token server-side
 and files the issue, so the reporter needs no GitHub account. The app never
 holds a GitHub token. An optional reporter email is included and is public.
 `feedback.bug_report_endpoint` in config.yaml (set by hand) names another
@@ -165,8 +166,8 @@ clipboard to paste over the form, and the screenshots follow in a second
 paste. The issue templates in `.github/ISSUE_TEMPLATE/`
 label the issue. The link names a template by its file name, so renaming a
 template breaks the fallback in every installed copy. Renaming or deleting
-the `figg-relay` Vercel project, or moving its URL, sends every installed
-copy to the fallback.
+the `figg-api` Vercel project, or moving `/v1/bug-report`, sends every
+installed copy to the fallback.
 
 Reports are public issues. They carry only user text, user-chosen
 screenshots and app/OS/engine versions; never audio, transcripts, notes,
@@ -198,7 +199,8 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 - Report a Bug's Command-V paste and its browser handoff have unit tests
   and a scratch-window check of the key handling, but have not been tried
   in the running app or against GitHub's issue form in each browser. A
-  report through the hosted relay has not been sent from the running app.
+  report through the hosted API has not been sent from the running app,
+  and `figg-api` is not deployed yet.
 - No Developer ID yet, so no notarized `.dmg`.
 - Updates are signed by the release job and the app refuses any other DMG
   (`docs/release-signing.md`), but the key is a GitHub Actions secret:

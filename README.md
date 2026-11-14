@@ -121,8 +121,8 @@ Build your own copy with the local signing certificate
 ([docs/local-signing.md](docs/local-signing.md)) so permissions survive rebuilds.
 
 The repository holds three projects: the macOS app in `app/`, figg's
-HTTP API in `api/` and the website in `site/`. The commands here run
-from the repository root.
+HTTP API in `api/` (see [api/README.md](api/README.md)) and the website
+in `site/`. The commands here run from the repository root.
 
 Development loop:
 

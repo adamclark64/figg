@@ -503,7 +503,7 @@ final class FakeClipboardWriter: ClipboardWriting {
     @Test func unsetUsesTheHostedRelay() {
         #expect(BugReportRelay.endpoint(forSetting: "") == BugReportRelay.hostedEndpoint)
         #expect(BugReportRelay.endpoint(forSetting: "  \n") == BugReportRelay.hostedEndpoint)
-        #expect(BugReportRelay.hostedEndpoint.absoluteString == "https://figg-relay.vercel.app/api/bug-report")
+        #expect(BugReportRelay.hostedEndpoint.absoluteString == "https://figg-api.vercel.app/v1/bug-report")
     }
 
     @Test func aRelayOfYourOwnIsUsed() {
