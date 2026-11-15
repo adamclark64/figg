@@ -174,3 +174,19 @@ actor CountingTranscriber: Transcriber {
         #expect(segs == [TranscriptSegment(start: 0, end: 4, text: "hi")])
     }
 }
+
+@Suite struct BackgroundWorkTests {
+    @Test func runsAtLowPriorityEvenWhenAwaitedFromAHighOne() async throws {
+        let seen = try await Task(priority: .userInitiated) {
+            try await BackgroundWork.run { Task.currentPriority }
+        }.value
+        #expect(seen == .utility)
+    }
+
+    @Test func passesResultsAndErrorsThrough() async throws {
+        struct Boom: Error {}
+        let answer = try await BackgroundWork.run { 42 }
+        #expect(answer == 42)
+        await #expect(throws: Boom.self) { try await BackgroundWork.run { throw Boom() } }
+    }
+}

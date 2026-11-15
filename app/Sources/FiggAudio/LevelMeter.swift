@@ -17,6 +17,12 @@ public final class LevelMeter: @unchecked Sendable {
     private let lock = NSLock()
     private var bars: [AudioStream: [Float]] = [:]
     private var window: [AudioStream: (sumSquares: Float, count: Int)] = [:]
+    private var changes: UInt64 = 0
+
+    /// Moves whenever `snapshot()` would return something new (a bar was
+    /// pushed or a stream started). Views compare it to skip redrawing
+    /// bars that have not changed.
+    public var version: UInt64 { lock.withLock { changes } }
 
     /// Defaults: 50 ms bars, 3 s of history.
     public init(capacity: Int = 60, windowSamples: Int = 800) {
@@ -27,7 +33,10 @@ public final class LevelMeter: @unchecked Sendable {
     /// Marks a stream as running, so the UI can tell "silent" from "off".
     public func activate(_ stream: AudioStream) {
         lock.withLock {
-            if bars[stream] == nil { bars[stream] = Array(repeating: 0, count: capacity) }
+            if bars[stream] == nil {
+                bars[stream] = Array(repeating: 0, count: capacity)
+                changes &+= 1
+            }
         }
     }
 
@@ -41,6 +50,7 @@ public final class LevelMeter: @unchecked Sendable {
                 count += 1
                 if count == windowSamples {
                     history.append(Self.normalized(rms: (sum / Float(count)).squareRoot()))
+                    changes &+= 1
                     sum = 0
                     count = 0
                 }
@@ -62,5 +72,28 @@ public final class LevelMeter: @unchecked Sendable {
         guard rms > 0 else { return 0 }
         let db = 20 * log10(rms)
         return min(1, max(0, (db + 60) / 60))
+    }
+}
+
+/// Decides when a level meter view redraws: only while it can be seen, and
+/// only when the meter has something new. A meter that redrew 20 times a
+/// second whether or not a bar arrived cost about 8% of a core for the
+/// whole call (issue #27).
+public struct RedrawGate: Sendable {
+    private var shown: (meter: ObjectIdentifier, version: UInt64)?
+
+    public init() {}
+
+    /// - Parameters:
+    ///   - meter: the meter being drawn; a new recording brings a new one.
+    ///   - visible: the window is on screen and not covered.
+    /// - Returns: true when the view should take a new snapshot. Coming back
+    ///   into view after missing changes redraws once.
+    public mutating func shouldRedraw(meter: LevelMeter, visible: Bool) -> Bool {
+        guard visible else { return false }
+        let now = (ObjectIdentifier(meter), meter.version)
+        if let shown, shown.meter == now.0, shown.version == now.1 { return false }
+        shown = now
+        return true
     }
 }

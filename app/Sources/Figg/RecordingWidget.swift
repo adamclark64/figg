@@ -503,31 +503,41 @@ struct WidgetPill: View {
 /// while people talk still points at missing System Audio Recording
 /// permission. Both halves flat means nothing is heard.
 private struct WidgetWaveform: View {
-    let meter: () -> LevelMeter?
     let mic: Color
     let system: Color
     let floor: Color
+    @StateObject private var poller: MeterPoller
+
+    init(meter: @escaping () -> LevelMeter?, mic: Color, system: Color, floor: Color) {
+        self.mic = mic
+        self.system = system
+        self.floor = floor
+        _poller = StateObject(wrappedValue: MeterPoller(meter: meter))
+    }
 
     private static let bars = 7
     /// Meter bars (50 ms each) folded into one drawn bar.
     private static let group = 2
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 20)) { _ in
-            let snapshot = meter()?.snapshot() ?? [:]
-            let up = RecordingWidgetRules.compactLevels(snapshot[.mic] ?? [], count: Self.bars, group: Self.group)
-            let down = RecordingWidgetRules.compactLevels(snapshot[.system] ?? [], count: Self.bars, group: Self.group)
-            Canvas { ctx, size in
-                let step = size.width / CGFloat(Self.bars)
-                let width = max(1, step * 0.6)
-                let half = size.height / 2
-                for i in 0..<Self.bars {
-                    let x = CGFloat(i) * step + (step - width) / 2
-                    draw(&ctx, level: up[i], x: x, width: width, from: half - 0.5, reach: half - 0.5, sign: -1, color: mic)
-                    draw(&ctx, level: down[i], x: x, width: width, from: half + 0.5, reach: half - 0.5, sign: 1, color: system)
-                }
+        let snapshot = poller.snapshot
+        let up = RecordingWidgetRules.compactLevels(snapshot[.mic] ?? [], count: Self.bars, group: Self.group)
+        let down = RecordingWidgetRules.compactLevels(snapshot[.system] ?? [], count: Self.bars, group: Self.group)
+        Canvas { ctx, size in
+            let step = size.width / CGFloat(Self.bars)
+            let width = max(1, step * 0.6)
+            let half = size.height / 2
+            for i in 0..<Self.bars {
+                let x = CGFloat(i) * step + (step - width) / 2
+                draw(&ctx, level: up[i], x: x, width: width, from: half - 0.5, reach: half - 0.5, sign: -1, color: mic)
+                draw(&ctx, level: down[i], x: x, width: width, from: half + 0.5, reach: half - 0.5, sign: 1, color: system)
             }
         }
+        // The panel is ordered out, not torn down, when the pill hides, so
+        // the probe's window check is what stops redraws then.
+        .background(WindowProbe(poller: poller))
+        .onAppear { poller.start() }
+        .onDisappear { poller.stop() }
         .accessibilityElement()
         .accessibilityLabel("Live audio levels")
     }

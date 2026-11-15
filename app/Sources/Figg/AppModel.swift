@@ -499,7 +499,10 @@ final class AppModel: ObservableObject {
         await queue.enqueuePending(meetingId: id)
         await queue.drain()
         do {
-            try await queue.finalPass(meetingId: id, roomSpeakers: meeting(id)?.roomSpeakers)
+            // Low priority: Stop often comes while still on the call, and
+            // this pass is the heaviest work figg does.
+            let queue = self.queue!, room = meeting(id)?.roomSpeakers
+            try await BackgroundWork.run { try await queue.finalPass(meetingId: id, roomSpeakers: room) }
         } catch {
             NSLog("figg: final transcription pass failed for %@: %@", id, String(describing: error))
             banners.append(Banner(kind: .warning, text: "Couldn't re-check the full transcript (\(error.localizedDescription)). The live transcript was kept."))

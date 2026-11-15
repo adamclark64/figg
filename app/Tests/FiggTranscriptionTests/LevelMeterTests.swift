@@ -32,3 +32,35 @@ import Testing
         #expect(meter.snapshot()[.mic] == [0, 0, 0, 0])
     }
 }
+
+@Suite struct LevelMeterRedrawTests {
+    @Test func versionMovesOnlyWhenABarIsPushed() {
+        let meter = LevelMeter(capacity: 4, windowSamples: 10)
+        let start = meter.version
+        meter.activate(.mic)
+        let started = meter.version
+        #expect(started != start)
+        meter.activate(.mic)                                    // already on: no change
+        meter.record(.mic, samples: [Float](repeating: 0.1, count: 9))   // not a full bar yet
+        #expect(meter.version == started)
+        meter.record(.mic, samples: [0.1])                      // completes a bar
+        #expect(meter.version != started)
+        meter.record(.system, samples: [Float](repeating: 0.1, count: 10))  // stream not started
+        #expect(meter.snapshot()[.system] == nil)
+    }
+
+    @Test func redrawsOnlyWhenVisibleAndChanged() {
+        let meter = LevelMeter(capacity: 4, windowSamples: 10)
+        meter.activate(.mic)
+        var gate = RedrawGate()
+        func draw(_ m: LevelMeter, _ visible: Bool) -> Bool { gate.shouldRedraw(meter: m, visible: visible) }
+        #expect(draw(meter, true))     // first draw
+        #expect(!draw(meter, true))    // nothing new
+        meter.record(.mic, samples: [Float](repeating: 0.1, count: 10))
+        #expect(!draw(meter, false))   // hidden: skip
+        #expect(draw(meter, true))     // back in view: catch up once
+        #expect(!draw(meter, true))
+        let next = LevelMeter(capacity: 4, windowSamples: 10)       // a new recording
+        #expect(draw(next, true))
+    }
+}

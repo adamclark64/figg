@@ -2,24 +2,30 @@ import FiggAudio
 import SwiftUI
 
 /// Two small scrolling level meters, "Me" (mic) and "Them" (system audio),
-/// matching the transcript labels. Polls `LevelMeter` on a timeline instead
-/// of publishing through `AppModel`, so only this view redraws.
+/// matching the transcript labels. Fed by a `MeterPoller` instead of
+/// publishing through `AppModel`, so only this view redraws, and only when
+/// a new bar has arrived and the window can be seen.
 ///
 /// Doubles as diagnostics: a flat "Them" row while people are talking means
 /// the System Audio Recording permission is missing, well before the 30 s
 /// silence banner fires.
 struct LiveWaveform: View {
     @Environment(\.theme) private var theme
-    let meter: LevelMeter
+    @StateObject private var poller: MeterPoller
+
+    init(meter: LevelMeter) {
+        _poller = StateObject(wrappedValue: MeterPoller(meter: { meter }))
+    }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 20)) { _ in
-            let snapshot = meter.snapshot()
-            VStack(alignment: .leading, spacing: 2) {
-                row("Me", snapshot[.mic], help: "Your microphone")
-                row("Them", snapshot[.system], help: "Audio playing on this Mac (the call). Flat while people talk means figg lacks System Audio Recording permission.")
-            }
+        let snapshot = poller.snapshot
+        VStack(alignment: .leading, spacing: 2) {
+            row("Me", snapshot[.mic], help: "Your microphone")
+            row("Them", snapshot[.system], help: "Audio playing on this Mac (the call). Flat while people talk means figg lacks System Audio Recording permission.")
         }
+        .background(WindowProbe(poller: poller))
+        .onAppear { poller.start() }
+        .onDisappear { poller.stop() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Live audio levels")
     }
