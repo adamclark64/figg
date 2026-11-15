@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/adamclark64/figg/compare/v0.11.1...v0.12.0) (2026-11-15)
+
+
+### Features
+
+* **update:** add check for updates to the menu bar and app menus ([#38](https://github.com/adamclark64/figg/issues/38)) ([a852855](https://github.com/adamclark64/figg/commit/a852855d992c75fd28fbbdabc385c3a9670622fa))
+
 ## [0.11.1](https://github.com/adamclark64/figg/compare/v0.11.0...v0.11.1) (2026-11-15)
 
 
