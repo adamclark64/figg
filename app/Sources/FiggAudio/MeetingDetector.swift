@@ -8,6 +8,10 @@ import Foundation
 ///   now", the same app is not offered again until it releases the mic.
 /// - End: figg is recording, and the app that held the mic when recording
 ///   began has released it for `endDelay`.
+/// - Paused: neither. A paused recording is still the meeting, so no new
+///   one is offered, and the end is not offered while paused: the meeting
+///   app may let go of the mic during a break. After resuming, the app has
+///   `endDelay` to come back before the end is offered.
 public struct MeetingDetector: Sendable {
     public enum Event: Equatable, Sendable {
         case started(app: String)
@@ -44,7 +48,7 @@ public struct MeetingDetector: Sendable {
     }
 
     /// Feed one sample. Returns at most one event.
-    public mutating func update(apps raw: Set<String>, isRecording: Bool, now: Date = Date()) -> Event? {
+    public mutating func update(apps raw: Set<String>, isRecording: Bool, isPaused: Bool = false, now: Date = Date()) -> Event? {
         let apps = raw.subtracting(ignored)
 
         for app in apps where since[app] == nil { since[app] = now }
@@ -58,6 +62,11 @@ public struct MeetingDetector: Sendable {
                 // Recording started (by prompt or by hand): follow the app holding the mic longest.
                 meetingApp = apps.min { (since[$0] ?? now) < (since[$1] ?? now) }
                 endSent = false
+            }
+            if isPaused {
+                // Counts as seen, so the end delay starts again on resume.
+                if meetingApp != nil { meetingAppLastSeen = now }
+                return nil
             }
             if let app = meetingApp {
                 if apps.contains(app) {

@@ -41,7 +41,31 @@ public final class Recorder: @unchecked Sendable {
             return result
         }
         startedAt = Date()
+        return await startCapture()
+    }
 
+    /// True between `pause()` and `resume()`.
+    public private(set) var isPaused = false
+
+    /// Stops both streams and writes their last partial chunks, so nothing
+    /// is captured while paused (macOS's mic indicator goes off too). The
+    /// clock keeps running: chunks after `resume()` are named by wall-clock
+    /// time, and the final pass sees the jump in their offsets as the pause.
+    public func pause() {
+        guard !isPaused else { return }
+        isPaused = true
+        stopCapture()
+    }
+
+    /// Starts both streams again, as at the start of the recording.
+    public func resume() async -> RecordingStart {
+        guard isPaused else { return RecordingStart(mic: mic != nil, system: system != nil, problems: []) }
+        isPaused = false
+        return await startCapture()
+    }
+
+    private func startCapture() async -> RecordingStart {
+        var result = RecordingStart(mic: false, system: false, problems: [])
         if await MicCapture.requestPermission() {
             let writer = makeWriter(.mic)
             let capture = MicCapture()
@@ -79,6 +103,10 @@ public final class Recorder: @unchecked Sendable {
 
     /// Stops capture and writes the final partial chunks.
     public func stop() {
+        stopCapture()
+    }
+
+    private func stopCapture() {
         mic?.stop()
         if #available(macOS 14.2, *) { (system as? SystemAudioCapture)?.stop() }
         mic = nil

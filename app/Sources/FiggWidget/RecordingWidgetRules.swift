@@ -70,24 +70,26 @@ public enum WidgetPlacement {
 }
 
 /// The pill's screenshot button hands off to macOS's own capture tool, so
-/// the user gets the familiar ⌘⇧4 crosshair and figg never sees the pixels.
+/// the user gets the familiar ⌘⇧4 crosshair. The picture is saved into the
+/// meeting's folder (shown in its notes) and then also put on the clipboard.
 public enum ScreenshotCommand {
     public static let tool = "/usr/sbin/screencapture"
+
     /// `-i`: pick a region with the crosshair (Space switches to picking a
-    /// window, Esc cancels). `-c`: put the picture on the clipboard. No file
-    /// name is passed, so nothing is written to disk.
-    public static let arguments = ["-i", "-c"]
+    /// window, Esc cancels), saved as a PNG at `file`.
+    public static func arguments(saveTo file: URL) -> [String] {
+        ["-i", "-t", "png", file.path]
+    }
 
     public enum Outcome: Equatable, Sendable {
-        case copied
-        /// Esc, or the tool could not run: the clipboard is as it was.
-        case nothingCopied
+        case saved
+        /// Esc, or the tool could not run: no file was written.
+        case nothingSaved
     }
 
     /// The tool's exit status does not say whether the user cancelled, so
-    /// judge by the clipboard: its change count moves only when a picture
-    /// was put on it.
-    public static func outcome(clipboardBefore: Int, clipboardAfter: Int) -> Outcome {
-        clipboardAfter == clipboardBefore ? .nothingCopied : .copied
+    /// judge by the file: it only exists if a picture was taken.
+    public static func outcome(fileExists: Bool) -> Outcome {
+        fileExists ? .saved : .nothingSaved
     }
 }

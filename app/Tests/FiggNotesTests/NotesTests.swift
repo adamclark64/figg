@@ -271,3 +271,17 @@ let models = ModelChoice(notesModel: "notes-model", fastModel: "fast-model")
         #expect(text.count <= 12_100)
     }
 }
+
+@Suite struct OpeningTabTests {
+    @Test func opensOnEnhancedNotesWhenTheyExist() {
+        #expect(OpeningTab.pick(setting: "enhanced", hasEnhanced: true, isRecording: false) == .enhanced)
+        #expect(OpeningTab.pick(setting: "", hasEnhanced: true, isRecording: false) == .enhanced)
+        #expect(OpeningTab.pick(setting: "typo", hasEnhanced: true, isRecording: false) == .enhanced)
+    }
+
+    @Test func fallsBackToMyNotes() {
+        #expect(OpeningTab.pick(setting: "enhanced", hasEnhanced: false, isRecording: false) == .mine)
+        #expect(OpeningTab.pick(setting: "enhanced", hasEnhanced: true, isRecording: true) == .mine)
+        #expect(OpeningTab.pick(setting: "Mine", hasEnhanced: true, isRecording: false) == .mine)
+    }
+}

@@ -12,6 +12,7 @@ struct MeetingView: View {
     @State private var title = ""
     @State private var notes = ""
     @State private var lines: [TranscriptLine] = []
+    @State private var shots: [MeetingScreenshot] = []
     @State private var tab: Tab = .notes
     @State private var showTranscript = true
     @State private var editingEnhanced = false
@@ -30,6 +31,7 @@ struct MeetingView: View {
                 header
                 if isRecording { RecordingStrip(model: model, meetingId: meetingId) }
                 NotesTabs(tab: $tab, hasEnhanced: (streaming ?? meeting?.enhancedNotes) != nil)
+                if !shots.isEmpty { ScreenshotStrip(shots: shots) }
 
                 switch tab {
                 case .notes:
@@ -59,7 +61,7 @@ struct MeetingView: View {
             .background(theme.canvas)
 
             if showTranscript {
-                TranscriptPane(lines: lines, live: isRecording, attendees: meeting?.attendees ?? []) { from, to in
+                TranscriptPane(lines: lines, shots: shots, live: isRecording, attendees: meeting?.attendees ?? []) { from, to in
                     model.renameSpeaker(meetingId, from: from, to: to)
                 }
                 .frame(minWidth: 240, idealWidth: 320, maxWidth: 480)
@@ -96,6 +98,7 @@ struct MeetingView: View {
         }
         .onAppear(perform: load)
         .onChange(of: model.transcriptVersion) { _, _ in lines = model.transcript(meetingId) }
+        .onChange(of: model.screenshotsVersion) { _, _ in shots = model.screenshots(meetingId) }
         .onChange(of: model.meetings) { _, _ in refreshMeeting() }
         .onChange(of: streaming) { _, new in if new != nil { tab = .enhanced } }
         .sheet(isPresented: Binding(
@@ -258,6 +261,12 @@ struct MeetingView: View {
         notes = meeting?.userNotes ?? ""
         templateId = meeting?.template ?? ""
         lines = model.transcript(meetingId)
+        shots = model.screenshots(meetingId)
+        let enhanced = meeting?.enhancedNotes.map { !$0.isEmpty } ?? false
+        switch OpeningTab.pick(setting: model.settings.config.notes.defaultTab, hasEnhanced: enhanced, isRecording: isRecording) {
+        case .mine: tab = .notes
+        case .enhanced: tab = .enhanced
+        }
     }
 
     private func refreshMeeting() {
@@ -362,12 +371,19 @@ struct RecordingStrip: View {
 
     var body: some View {
         HStack {
-            Image(systemName: "record.circle.fill").foregroundStyle(theme.record)
-            Text("Recording. Audio stays on this Mac.").foregroundStyle(theme.ink)
-            if let meter = model.levelMeter {
-                LiveWaveform(meter: meter).padding(.leading, 8)
+            if model.isPaused {
+                Image(systemName: "pause.circle.fill").foregroundStyle(theme.inkMuted)
+                Text("Paused. Nothing is being recorded.").foregroundStyle(theme.ink)
+            } else {
+                Image(systemName: "record.circle.fill").foregroundStyle(theme.record)
+                Text("Recording. Audio stays on this Mac.").foregroundStyle(theme.ink)
+                if let meter = model.levelMeter {
+                    LiveWaveform(meter: meter).padding(.leading, 8)
+                }
             }
             Spacer()
+            Button(model.isPaused ? "Resume" : "Pause") { model.togglePause() }
+                .controlSize(.small)
             Picker("People in the room", selection: $roomSpeakers) {
                 Text("Auto").tag(0)
                 ForEach(1...6, id: \.self) { Text("\($0)").tag($0) }
@@ -456,6 +472,7 @@ struct EnhancedNotesView: View {
 struct TranscriptPane: View {
     @Environment(\.theme) private var theme
     let lines: [TranscriptLine]
+    var shots: [MeetingScreenshot] = []
     let live: Bool
     var attendees: [String] = []
     var onRename: (String, String) -> Void = { _, _ in }
@@ -483,26 +500,41 @@ struct TranscriptPane: View {
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
-                    List(lines) { line in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                Text(line.displaySpeaker).font(.caption.weight(.semibold))
-                                    .foregroundStyle(line.speaker == .me ? theme.accent : theme.ink)
-                                Text(formatTimestamp(line.start)).font(.caption.monospacedDigit())
-                                    .foregroundStyle(theme.inkMuted)
+                    List(TranscriptItem.merge(lines, shots)) { item in
+                        switch item {
+                        case let .line(line):
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Text(line.displaySpeaker).font(.caption.weight(.semibold))
+                                        .foregroundStyle(line.speaker == .me ? theme.accent : theme.ink)
+                                    Text(formatTimestamp(line.start)).font(.caption.monospacedDigit())
+                                        .foregroundStyle(theme.inkMuted)
+                                }
+                                Text(line.text).font(.system(size: 13.5)).foregroundStyle(theme.ink)
+                                    .lineSpacing(2).textSelection(.enabled)
                             }
-                            Text(line.text).font(.system(size: 13.5)).foregroundStyle(theme.ink)
-                                .lineSpacing(2).textSelection(.enabled)
+                            .padding(.vertical, 3)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .id(item.id)
+                            .contextMenu { renameMenu(for: line.displaySpeaker) }
+                        case let .screenshot(shot):
+                            Button { NSWorkspace.shared.open(shot.url) } label: {
+                                Label("Screenshot  \(formatTimestamp(shot.offset))", systemImage: "camera.viewfinder")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(theme.accent)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open this screenshot")
+                            .padding(.vertical, 3)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .id(item.id)
                         }
-                        .padding(.vertical, 3)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .id(line.id)
-                        .contextMenu { renameMenu(for: line.displaySpeaker) }
                     }
                     .scrollContentBackground(.hidden)
                     .onChange(of: lines.count) { _, _ in
-                        if live, let last = lines.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                        if live, let last = TranscriptItem.merge(lines, shots).last { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
             }
@@ -532,6 +564,51 @@ struct TranscriptPane: View {
         Button("Rename \(speaker)…") {
             renameText = speaker
             renaming = speaker
+        }
+    }
+}
+
+/// Screenshots taken from the widget during this meeting, oldest first.
+/// A click opens one in Preview. They stay on this Mac: Enhance, chat and
+/// exports never see them.
+struct ScreenshotStrip: View {
+    @Environment(\.theme) private var theme
+    let shots: [MeetingScreenshot]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(shots) { shot in
+                    Button { NSWorkspace.shared.open(shot.url) } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            thumbnail(shot.url)
+                            Label(formatTimestamp(shot.offset), systemImage: "camera.viewfinder")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(theme.inkMuted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Screenshot at \(formatTimestamp(shot.offset)). Click to open.")
+                    .contextMenu {
+                        Button("Open") { NSWorkspace.shared.open(shot.url) }
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([shot.url]) }
+                    }
+                }
+            }
+        }
+        .frame(height: 104)
+    }
+
+    @ViewBuilder private func thumbnail(_ url: URL) -> some View {
+        if let image = NSImage(contentsOf: url) {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 128, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(theme.line))
+        } else {
+            RoundedRectangle(cornerRadius: 6).fill(theme.surface).frame(width: 128, height: 80)
         }
     }
 }

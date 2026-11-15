@@ -111,6 +111,12 @@ struct AISettings: View {
                 }
                 Text("Shapes the sections Enhance writes. Each meeting can pick its own template in the meeting view.")
                     .font(.caption).foregroundStyle(.secondary)
+                Picker("Open meetings on", selection: $settings.config.notes.defaultTab) {
+                    Text("Enhanced notes").tag("enhanced")
+                    Text("My notes").tag("mine")
+                }
+                Text("With Enhanced notes, a meeting that has no enhanced notes yet, or is recording, still opens on your own notes.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }

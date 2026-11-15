@@ -30,7 +30,7 @@ final class MeetingWatcher {
         guard let model, settings.config.detection.enabled else { return }
         detector.ignored = MeetingDetector.defaultIgnored.union(settings.config.detection.ignoreApps)
         let apps = Set(MicUsage.appsUsingInput().map(MeetingDetector.parentBundleID))
-        switch detector.update(apps: apps, isRecording: model.isRecording) {
+        switch detector.update(apps: apps, isRecording: model.isRecording, isPaused: model.isPaused) {
         case let .started(app)?:
             prompt.show(
                 icon: "waveform",

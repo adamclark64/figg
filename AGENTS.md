@@ -202,6 +202,12 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   rather than an error; figg only warns after 30 s of exact silence.
 - Live lines come from 10 s chunks and can be rough at the cuts; the final
   pass on Stop fixes them.
+- Pause (`Recorder.pause`) stops capture; the final pass finds pauses from
+  jumps in the chunk offsets (`RecordingRuns`), so it needs no record of its
+  own. A pause under half a second is not split. Widget screenshots are
+  saved in `meetings/<id>/screenshots/` and shown in the note and
+  transcript; exports and the model never get them. Neither has been tried
+  on a real call yet.
 - The widget's screenshot button needs Screen Recording permission, which
   without a Developer ID has to be granted again after each update. Whether
   the pill stays out of screen shares on macOS 15 has not been checked on a

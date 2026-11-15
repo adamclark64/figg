@@ -66,3 +66,28 @@ import Testing
         #expect(MeetingDetector.parentBundleID("us.zoom.xos") == "us.zoom.xos")
     }
 }
+
+@Suite struct MeetingDetectorPauseTests {
+    let t0 = Date(timeIntervalSince1970: 1_000)
+    func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
+
+    @Test func noEndOfferWhilePausedAndAFreshDelayAfterResume() {
+        var d = MeetingDetector(startDelay: 3, endDelay: 10)
+        _ = d.update(apps: ["us.zoom.xos"], isRecording: true, now: at(0))
+        // Zoom lets go of the mic during the break: nothing is offered.
+        #expect(d.update(apps: [], isRecording: true, isPaused: true, now: at(5)) == nil)
+        #expect(d.update(apps: [], isRecording: true, isPaused: true, now: at(120)) == nil)
+        // Resumed: Zoom gets the usual delay to come back.
+        #expect(d.update(apps: [], isRecording: true, now: at(125)) == nil)
+        #expect(d.update(apps: ["us.zoom.xos"], isRecording: true, now: at(128)) == nil)
+        #expect(d.update(apps: [], isRecording: true, now: at(135)) == nil)
+        #expect(d.update(apps: [], isRecording: true, now: at(138)) == .ended(app: "us.zoom.xos"))
+    }
+
+    @Test func noNewMeetingOfferedWhilePaused() {
+        var d = MeetingDetector(startDelay: 3)
+        _ = d.update(apps: ["us.zoom.xos"], isRecording: true, now: at(0))
+        #expect(d.update(apps: ["us.zoom.xos", "com.microsoft.teams2"], isRecording: true, isPaused: true, now: at(1)) == nil)
+        #expect(d.update(apps: ["us.zoom.xos", "com.microsoft.teams2"], isRecording: true, isPaused: true, now: at(30)) == nil)
+    }
+}

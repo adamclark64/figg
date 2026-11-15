@@ -55,9 +55,20 @@ macOS permissions, or Bedrock.
 - [ ] Full-screen Zoom/Keynote and a second Space: the pill is there too
 - [ ] Talk: the top half of the waveform moves; play sound on the Mac: the bottom half moves; silence: both flat
 - [ ] Click the fig: figg comes forward on the recording meeting's note
-- [ ] Click the camera: the pill hides and the ⌘⇧4 crosshair appears. Drag a region: the pill returns with a tick, and ⌘V in another app pastes the picture. Esc: the pill returns, the clipboard is unchanged
+- [ ] Click the camera: the pill hides and the ⌘⇧4 crosshair appears. Drag a region: the pill returns with a tick, ⌘V in another app pastes the picture, and the meeting's note shows a thumbnail with the time; the transcript shows a "Screenshot" marker at that time. Esc: the pill returns, nothing is saved
+- [ ] Delete the meeting: its `screenshots/` folder goes with it
 - [ ] First camera click without Screen Recording access: macOS asks, no crosshair; after allowing it, the next click captures other apps' windows (not just the wallpaper)
-- [ ] Hover: Stop and Hide appear; right-click offers the same. Stop writes the notes; Hide keeps recording and the pill returns for the next recording
+- [ ] Hover: Pause, Stop and Hide appear; right-click offers the same. Pause shows a pause sign in place of the waveform and Resume brings it back; Stop writes the notes; Hide keeps recording and the pill returns for the next recording
+
+## Pause
+- [ ] Pause from the toolbar: the strip says "Paused", the menu bar icon becomes a pause sign, macOS's mic indicator goes off. Talk for a while, then Resume and talk again
+- [ ] Stop: nothing said while paused is in the transcript, no line spans the pause, and times after it match the clock
+- [ ] Pause while Zoom is in a call, leave the call: no "stop recording?" prompt while paused
+- [ ] Quit figg while paused and reopen: the meeting is recovered with both halves transcribed
+
+## Opening tab
+- [ ] A meeting with enhanced notes opens on Enhanced; one without opens on My notes; the recording meeting opens on My notes
+- [ ] Settings > AI > Open meetings on: My notes: every meeting opens on My notes
 - [ ] Drag the pill, quit and reopen figg, record again: it is where you left it (`recording.widget_position` in config.yaml)
 - [ ] Settings > Recording: turn the widget off; no pill on the next switch away
 - [ ] Share your screen in a call: note whether the other side sees the pill

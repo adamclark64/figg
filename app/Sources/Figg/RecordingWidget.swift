@@ -6,8 +6,9 @@ import SwiftUI
 
 /// The floating pill shown while figg records and another app is in front:
 /// clicking the fig returns to the note, a small waveform shows both
-/// streams, the camera takes a screenshot to the clipboard, and hovering or
-/// right-clicking offers Stop and Hide.
+/// streams (a pause sign while paused), the camera saves a screenshot into
+/// the meeting's notes, and hovering or right-clicking offers Pause, Stop
+/// and Hide.
 ///
 /// This class only watches state and owns the panel. When the pill shows and
 /// where it sits are decided by `RecordingWidgetRules` and `WidgetPlacement`.
@@ -36,6 +37,7 @@ final class RecordingWidget {
         let center = NotificationCenter.default
         let triggers: [AnyPublisher<Void, Never>] = [
             model.$recordingId.map { _ in }.eraseToAnyPublisher(),
+            model.$isPaused.map { _ in }.eraseToAnyPublisher(),
             settings.$config.map(\.recording.widget).removeDuplicates().map { _ in }.eraseToAnyPublisher(),
             center.publisher(for: NSApplication.didBecomeActiveNotification).map { _ in }.eraseToAnyPublisher(),
             center.publisher(for: NSApplication.didResignActiveNotification).map { _ in }.eraseToAnyPublisher(),
@@ -54,6 +56,7 @@ final class RecordingWidget {
         guard let model else { return }
         // "Hide for this meeting" ends with the meeting.
         if hiddenFor != model.recordingId { hiddenFor = nil }
+        state.paused = model.isPaused
         let show = RecordingWidgetRules.shouldShow(
             enabled: settings.config.recording.widget,
             recordingId: model.recordingId,
@@ -96,15 +99,20 @@ final class RecordingWidget {
         Task { await model?.stopRecording() }
     }
 
+    private func togglePause() {
+        model?.togglePause()
+    }
+
     private func hideForThisMeeting() {
         hiddenFor = model?.recordingId
         refresh()
     }
 
-    /// Brings up the same crosshair as ⌘⇧4 and copies the result. The
-    /// picture goes to the clipboard only: figg does not keep or read it.
+    /// Brings up the same crosshair as ⌘⇧4. The picture is saved with the
+    /// meeting (shown in its notes, at the moment it was taken) and copied
+    /// to the clipboard too.
     private func takeScreenshot() {
-        guard !capturing else { return }
+        guard !capturing, let model else { return }
         // macOS only lets an app with Screen Recording access capture other
         // apps' windows. The first press without it asks (the system dialog
         // offers System Settings) and stops there, so the crosshair does not
@@ -114,30 +122,32 @@ final class RecordingWidget {
         if !CGPreflightScreenCaptureAccess(), !askedForScreenAccess {
             askedForScreenAccess = true
             CGRequestScreenCaptureAccess()
-            model?.banners.append(Banner(
+            model.banners.append(Banner(
                 kind: .warning,
-                text: "To take screenshots from the recording widget, allow figg under System Settings > Privacy & Security > Screen & System Audio Recording, then press the camera again. Screenshots go to your clipboard only.",
+                text: "To take screenshots from the recording widget, allow figg under System Settings > Privacy & Security > Screen & System Audio Recording, then press the camera again. Screenshots are saved in the meeting's notes.",
                 action: .openPrivacySettings))
             return
         }
+        // Named by the moment of the press, not when the region is picked.
+        guard let file = model.newScreenshotURL() else { return }
         capturing = true
         dismiss()
         Task {
-            let outcome = await Self.runScreenshotTool()
+            let outcome = await Self.runScreenshotTool(saveTo: file)
             capturing = false
-            state.justCopied = outcome == .copied
+            if outcome == .saved { model.screenshotSaved(file) }
+            state.justCopied = outcome == .saved
             refresh()
-            guard outcome == .copied else { return }
+            guard outcome == .saved else { return }
             try? await Task.sleep(for: .seconds(1.5))
             state.justCopied = false
         }
     }
 
-    private static func runScreenshotTool() async -> ScreenshotCommand.Outcome {
-        let before = NSPasteboard.general.changeCount
+    private static func runScreenshotTool(saveTo file: URL) async -> ScreenshotCommand.Outcome {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: ScreenshotCommand.tool)
-        process.arguments = ScreenshotCommand.arguments
+        process.arguments = ScreenshotCommand.arguments(saveTo: file)
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
             process.terminationHandler = { _ in done.resume() }
             do {
@@ -148,7 +158,7 @@ final class RecordingWidget {
                 done.resume()
             }
         }
-        return ScreenshotCommand.outcome(clipboardBefore: before, clipboardAfter: NSPasteboard.general.changeCount)
+        return ScreenshotCommand.outcome(fileExists: FileManager.default.fileExists(atPath: file.path))
     }
 
     /// After a drag: pull the pill fully on screen and remember the spot.
@@ -170,6 +180,7 @@ final class RecordingWidget {
             logo: PromptPanel.figLogo,
             onOpen: { [weak self] in self?.openNote() },
             onCapture: { [weak self] in self?.takeScreenshot() },
+            onPause: { [weak self] in self?.togglePause() },
             onStop: { [weak self] in self?.stopRecording() },
             onHide: { [weak self] in self?.hideForThisMeeting() })
         let host = WidgetHostingView(rootView: pill)
@@ -184,6 +195,7 @@ final class RecordingWidget {
             [
                 ("Open Note", { self?.openNote() }),
                 ("Take Screenshot", { self?.takeScreenshot() }),
+                (self?.model?.isPaused == true ? "Resume Recording" : "Pause Recording", { self?.togglePause() }),
                 ("Stop Recording", { self?.stopRecording() }),
                 ("Hide for This Meeting", { self?.hideForThisMeeting() }),
             ]
@@ -221,8 +233,10 @@ final class RecordingWidget {
 final class WidgetState: ObservableObject {
     /// The hover controls (Stop, Hide) are out.
     @Published var expanded = false
-    /// A screenshot just landed on the clipboard; the camera shows a tick.
+    /// A screenshot was just saved; the camera shows a tick.
     @Published var justCopied = false
+    /// The recording is paused: the waveform gives way to a pause sign.
+    @Published var paused = false
 }
 
 /// Sizes shared by the SwiftUI pill and the AppKit view that handles its
@@ -240,7 +254,8 @@ enum WidgetMetrics {
     static let buttonGap: CGFloat = 2
 
     static let restingHeight = padding + logo + gap + waveform.height + gap + button + padding
-    static let expandedHeight = restingHeight + controlsGap + button + buttonGap + button
+    /// Three hover controls: Pause or Resume, Stop, Hide.
+    static let expandedHeight = restingHeight + controlsGap + 3 * button + 2 * buttonGap
 
     /// The panel never changes size: it is as tall as the expanded pill, and
     /// the part below a resting pill is clear and lets clicks through.
@@ -391,6 +406,7 @@ struct WidgetPill: View {
     let logo: NSImage?
     let onOpen: () -> Void
     let onCapture: () -> Void
+    let onPause: () -> Void
     let onStop: () -> Void
     let onHide: () -> Void
 
@@ -401,13 +417,24 @@ struct WidgetPill: View {
         let shape = RoundedRectangle(cornerRadius: M.pillWidth / 2, style: .continuous)
         VStack(spacing: 0) {
             fig(theme)
-            WidgetWaveform(meter: meter, mic: theme.ink, system: theme.accent, floor: theme.inkMuted.opacity(0.45))
-                .frame(width: M.waveform.width, height: M.waveform.height)
-                .padding(.top, M.gap)
+            Group {
+                if state.paused {
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(theme.inkMuted)
+                        .accessibilityLabel("Recording paused")
+                } else {
+                    WidgetWaveform(meter: meter, mic: theme.ink, system: theme.accent, floor: theme.inkMuted.opacity(0.45))
+                }
+            }
+            .frame(width: M.waveform.width, height: M.waveform.height)
+            .padding(.top, M.gap)
             camera(theme)
                 .padding(.top, M.gap)
             if state.expanded {
                 VStack(spacing: M.buttonGap) {
+                    control(state.paused ? "play.fill" : "pause.fill",
+                            state.paused ? "Resume recording" : "Pause recording", theme.ink, theme, action: onPause)
                     control("stop.fill", "Stop recording", theme.record, theme, action: onStop)
                     control("eye.slash", "Hide for this meeting", theme.inkMuted, theme, action: onHide)
                 }
@@ -450,7 +477,8 @@ struct WidgetPill: View {
             .frame(width: M.button, height: M.button)
             .background(theme.surface, in: Circle())
             .accessibilityElement()
-            .accessibilityLabel(state.justCopied ? "Screenshot copied" : "Take a screenshot to the clipboard")
+            .accessibilityLabel(state.justCopied ? "Screenshot saved" : "Take a screenshot into the meeting's notes")
+            .help("Take a screenshot: saved in this meeting's notes and copied to the clipboard")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(.default, onCapture)
     }

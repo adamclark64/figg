@@ -46,6 +46,10 @@ final class AppModel: ObservableObject {
     /// The meeting being recorded, if any.
     @Published private(set) var recordingId: String?
     @Published private(set) var recordingStarted: Date?
+    /// The recording is paused: nothing is captured until it resumes.
+    @Published private(set) var isPaused = false
+    /// Bumped when a widget screenshot is saved, so open views refresh.
+    @Published private(set) var screenshotsVersion = 0
     /// Streaming enhanced text per meeting while Enhance runs.
     @Published var enhancingText: [String: String] = [:]
     /// Latest quick-action output per meeting; nil once dismissed.
@@ -406,10 +410,67 @@ final class AppModel: ObservableObject {
             action: .openPrivacySettings))
     }
 
+    // MARK: Screenshots
+
+    /// Where the widget's next screenshot goes: the recording meeting's
+    /// folder, named by the meeting time it is taken at. nil when not recording.
+    func newScreenshotURL() -> URL? {
+        guard let id = recordingId, let recorder else { return nil }
+        let dir = paths.screenshotsDir(id)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return MeetingScreenshot.newURL(in: dir, offset: recorder.elapsed)
+    }
+
+    /// A screenshot landed in the meeting. It also goes on the clipboard,
+    /// as before, so pasting it straight into a chat still works.
+    func screenshotSaved(_ url: URL) {
+        screenshotsVersion += 1
+        if let image = NSImage(contentsOf: url) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([image])
+        }
+    }
+
+    func screenshots(_ id: String) -> [MeetingScreenshot] {
+        MeetingScreenshot.list(in: paths.screenshotsDir(id))
+    }
+
+    func togglePause() {
+        Task {
+            if isPaused { await resumeRecording() } else { pauseRecording() }
+        }
+    }
+
+    /// Stops capturing without ending the meeting. The meeting stays in
+    /// `recording`, so a crash while paused is recovered like any other;
+    /// the gap in the chunk offsets is what tells the final pass where the
+    /// pause was.
+    func pauseRecording() {
+        guard let recorder, !isPaused else { return }
+        recorder.pause()
+        isPaused = true
+    }
+
+    func resumeRecording() async {
+        guard let recorder, isPaused else { return }
+        let result = await recorder.resume()
+        for problem in result.problems {
+            banners.append(Banner(kind: result.anyStarted ? .warning : .error, text: problem, action: .openPrivacySettings))
+        }
+        guard result.anyStarted else {
+            recorder.pause()  // nothing came back: stay paused rather than pretend
+            return
+        }
+        // The silence warning counts consecutive chunks; start it afresh.
+        silenceWatch = SilenceWatch()
+        isPaused = false
+    }
+
     func stopRecording() async {
         guard let id = recordingId, let recorder else { return }
         recorder.stop()
         self.recorder = nil
+        isPaused = false
         speakerWatcher?.stop()
         speakerWatcher = nil
         liveSpeakers.set(nil)

@@ -145,24 +145,35 @@ public actor TranscriptionQueue {
             let mine = chunks.filter { $0.stream == stream }
             guard let first = mine.first else { continue }
             var samples: [Float] = []
-            var anySpeech = false
+            var sizes: [(offset: Double, samples: Int)] = []
+            var speechAt = Set<Int>()  // sample index where a chunk with speech starts
             for chunk in mine {
                 let s = try chunk.samples()
-                if !SilenceGate.isSilent(s) { anySpeech = true }
+                if !SilenceGate.isSilent(s) { speechAt.insert(samples.count) }
+                sizes.append((chunk.offset, s.count))
                 samples += s
             }
             // A stream that never had speech would only produce hallucinations.
-            guard anySpeech else { continue }
-            let segments = try await transcriber.transcribe(samples: samples)
-            let whole = AudioChunk(url: first.url, stream: stream, offset: first.offset)
-            var streamLines = Self.lines(from: segments, chunk: whole, meetingId: meetingId)
+            guard !speechAt.isEmpty else { continue }
+            // Each stretch between pauses on its own, so no line spans a
+            // pause and its timestamps stay on the wall clock.
+            let runs = RecordingRuns.runs(sizes)
+            var streamLines: [TranscriptLine] = []
+            for run in runs where speechAt.contains(where: { $0 >= run.start && $0 < run.start + run.count }) {
+                let segments = try await transcriber.transcribe(samples: Array(samples[run.start..<(run.start + run.count)]))
+                let whole = AudioChunk(url: first.url, stream: stream, offset: run.offset)
+                streamLines += Self.lines(from: segments, chunk: whole, meetingId: meetingId)
+            }
             // Who spoke when, so several people on one stream get their own
             // labels. Optional: on failure the default Me/Them labels stay.
+            // Separated over the whole stream, so a voice keeps its label
+            // across a pause.
             if let separator {
                 do {
                     let count = stream == .mic ? roomSpeakers : nil
                     // One person in the room: nothing to separate on the mic.
-                    let turns = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
+                    let joined = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
+                    let turns = RecordingRuns.wallClock(joined, runs: runs, base: first.offset)
                     streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset, timeline: timeline)
                 } catch {
                     NSLog("figg: speaker separation failed: \(error)")

@@ -110,6 +110,13 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         /// "standup", "interview", "customer-call", "brainstorm", "planning").
         /// Each meeting can pick its own in the meeting view.
         public var template = "notes"
+        /// Which tab a meeting opens on: "enhanced" (figg's notes, when the
+        /// meeting has them) or "mine" (your own notes, always).
+        public var defaultTab = "enhanced"
+        enum CodingKeys: String, CodingKey {
+            case template
+            case defaultTab = "default_tab"
+        }
     }
 
     public struct Transcription: Codable, Equatable, Sendable {
@@ -326,6 +333,10 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # interview, customer-call, brainstorm or planning. Each meeting can
           # override this in the meeting view.
           template: \(q(notes.template))
+          # Which tab a meeting opens on: "enhanced" shows figg's notes when the
+          # meeting has them (your own notes otherwise, and while recording);
+          # "mine" always opens on your own notes.
+          default_tab: \(q(notes.defaultTab))
 
         transcription:
           # "parakeet" (Nvidia Parakeet TDT v3: fastest and most accurate in testing)
@@ -474,7 +485,9 @@ extension FiggConfig.Models {
 extension FiggConfig.Notes {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        template = try c.decodeIfPresent(String.self, forKey: .template) ?? Self().template
+        let d = Self()
+        template = try c.decodeIfPresent(String.self, forKey: .template) ?? d.template
+        defaultTab = try c.decodeIfPresent(String.self, forKey: .defaultTab) ?? d.defaultTab
     }
 }
 

@@ -1,3 +1,4 @@
+import Foundation
 import CoreGraphics
 import FiggWidget
 import Testing
@@ -87,16 +88,18 @@ import Testing
 }
 
 @Suite struct ScreenshotCommandTests {
-    /// Screenshots go to the clipboard only: interactive, and never a file path.
-    @Test func capturesInteractivelyToTheClipboardAndNeverToDisk() {
+    /// Interactive, saved as a PNG at exactly the path figg chose.
+    @Test func capturesInteractivelyIntoTheMeetingsFile() {
+        let file = URL(fileURLWithPath: "/tmp/meetings/abc/screenshots/shot_0000012345.png")
         #expect(ScreenshotCommand.tool == "/usr/sbin/screencapture")
-        #expect(ScreenshotCommand.arguments.contains("-i"))
-        #expect(ScreenshotCommand.arguments.contains("-c"))
-        #expect(ScreenshotCommand.arguments.allSatisfy { $0.hasPrefix("-") })
+        let args = ScreenshotCommand.arguments(saveTo: file)
+        #expect(args.contains("-i"))
+        #expect(!args.contains("-c"))
+        #expect(args.last == file.path)
     }
 
-    @Test func outcomeFollowsTheClipboard() {
-        #expect(ScreenshotCommand.outcome(clipboardBefore: 7, clipboardAfter: 8) == .copied)
-        #expect(ScreenshotCommand.outcome(clipboardBefore: 7, clipboardAfter: 7) == .nothingCopied)
+    @Test func outcomeFollowsTheFile() {
+        #expect(ScreenshotCommand.outcome(fileExists: true) == .saved)
+        #expect(ScreenshotCommand.outcome(fileExists: false) == .nothingSaved)
     }
 }

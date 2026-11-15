@@ -17,6 +17,13 @@ import Testing
         #expect(c.feedback.bugReportEndpoint.isEmpty)
         #expect(c.recording.widget)
         #expect(c.recording.widgetPosition == nil)
+        #expect(c.notes.defaultTab == "enhanced")
+    }
+
+    @Test func notesSectionWithoutDefaultTabKeepsTheDefault() throws {
+        let c = try FiggConfig.parse("notes:\n  template: standup\n")
+        #expect(c.notes.template == "standup")
+        #expect(c.notes.defaultTab == "enhanced")
     }
 
     @Test func roundTripsThroughWrittenYAML() throws {
@@ -39,6 +46,7 @@ import Testing
         c.appearance.theme = "system"
         c.appearance.loader = "fig"
         c.notes.template = "standup"
+        c.notes.defaultTab = "mine"
         c.sharing.confluenceSpace = "has \"quotes\" and \\ slash"
         c.updates.autoCheck = false
         c.feedback.bugReportEndpoint = "https://relay.example.com/api/bug-report"

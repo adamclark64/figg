@@ -32,6 +32,9 @@ struct FiggApp: App {
             CommandGroup(after: .newItem) {
                 Button(model.isRecording ? "Stop Recording" : "Start Recording") { model.toggleRecording() }
                     .keyboardShortcut("r", modifiers: [.command, .option, .control])
+                Button(model.isPaused ? "Resume Recording" : "Pause Recording") { model.togglePause() }
+                    .keyboardShortcut("p", modifiers: [.command, .option, .control])
+                    .disabled(!model.isRecording)
                 Button("New Note Without Recording") { _ = model.newMeeting() }
                     .keyboardShortcut("n")
             }
@@ -52,7 +55,9 @@ struct FiggApp: App {
             MenuBarView()
                 .environmentObject(model)
         } label: {
-            if model.isRecording {
+            if model.isRecording, model.isPaused {
+                Image(systemName: "pause.circle.fill")
+            } else if model.isRecording {
                 Image(systemName: "record.circle.fill").symbolRenderingMode(.multicolor)
             } else if let fig = Self.menuBarIcon {
                 Image(nsImage: fig)

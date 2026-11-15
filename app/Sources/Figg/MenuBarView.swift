@@ -8,12 +8,18 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if model.isRecording, let started = model.recordingStarted {
-                TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                    Label("Recording \(formatTimestamp(ctx.date.timeIntervalSince(started)))", systemImage: "record.circle.fill")
-                        .foregroundStyle(.red)
+                if model.isPaused {
+                    Label("Paused", systemImage: "pause.circle.fill")
+                        .foregroundStyle(.secondary)
+                } else {
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        Label("Recording \(formatTimestamp(ctx.date.timeIntervalSince(started)))", systemImage: "record.circle.fill")
+                            .foregroundStyle(.red)
+                    }
                 }
                 Button("Stop and write notes") { model.toggleRecording() }
                     .keyboardShortcut(.defaultAction)
+                Button(model.isPaused ? "Resume recording" : "Pause recording") { model.togglePause() }
                 Button("Copy consent message") { model.copyConsentSnippet() }
             } else {
                 Button("Start recording") {

@@ -28,6 +28,9 @@ struct MainView: View {
             .toolbarBackground(theme.canvas, for: .windowToolbar)
         }
         .toolbar {
+            if model.isRecording {
+                ToolbarItem(placement: .primaryAction) { PauseButton() }
+            }
             ToolbarItem(placement: .primaryAction) { RecordButton() }
         }
         .tint(theme.accent)
@@ -44,7 +47,10 @@ struct RecordButton: View {
         Button {
             model.toggleRecording()
         } label: {
-            if model.isRecording, let started = model.recordingStarted {
+            if model.isRecording, model.isPaused {
+                Label("Stop  Paused", systemImage: "stop.circle.fill")
+                    .foregroundStyle(theme.inkMuted)
+            } else if model.isRecording, let started = model.recordingStarted {
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
                     Label("Stop  \(formatTimestamp(ctx.date.timeIntervalSince(started)))", systemImage: "stop.circle.fill")
                 }
@@ -54,6 +60,22 @@ struct RecordButton: View {
             }
         }
         .help("Start or stop recording (⌃⌥⌘R from any app)")
+    }
+}
+
+/// Pause or resume without ending the meeting. Only shown while recording.
+struct PauseButton: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        Button {
+            model.togglePause()
+        } label: {
+            Label(model.isPaused ? "Resume" : "Pause", systemImage: model.isPaused ? "play.circle" : "pause.circle")
+        }
+        .help(model.isPaused
+            ? "Resume recording this meeting"
+            : "Pause recording: nothing is recorded until you resume, and the meeting carries on in the same note")
     }
 }
 

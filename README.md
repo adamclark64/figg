@@ -6,12 +6,12 @@ your rough notes plus the transcript into clean notes with Claude on AWS
 Bedrock, or another model provider you choose. Audio never leaves the
 computer; only text goes to the model provider.
 
-- Record from the toolbar, the menu bar, or **⌃⌥⌘R** in any app
+- Record from the toolbar, the menu bar, or **⌃⌥⌘R** in any app; **Pause** (⌃⌥⌘P in figg) to step away without ending the meeting: nothing is recorded until you resume
 - **Meeting detection**: when a meeting app (Zoom, Teams, Meet in a browser, or any other) starts using your mic, figg offers to record, and offers to stop when it lets go
-- **Recording widget**: while you are in the meeting app, a small floating pill shows that figg is listening (live levels for you and the call); click the fig to jump back to the note, click the camera for a ⌘⇧4-style screenshot straight to your clipboard, drag it anywhere
+- **Recording widget**: while you are in the meeting app, a small floating pill shows that figg is listening (live levels for you and the call); click the fig to jump back to the note, click the camera for a ⌘⇧4-style screenshot that is saved in the meeting's notes at the moment you took it (and copied to the clipboard), drag it anywhere
 - Live transcript labelled **Me** / **Them**, re-checked against the whole recording when you stop (Nvidia Parakeet by default, Whisper optional)
 - **Speaker separation**: several people in the room become Me / Guest 1 / Guest 2, several on the call become Them 1 / Them 2 (set "People in the room" while recording for best results)
-- **Enhance** writes Summary / Notes / Action items; your own lines stay black, figg's additions are grey
+- **Enhance** writes Summary / Notes / Action items; your own lines stay black, figg's additions are grey. Meetings open on the enhanced notes once they exist (`notes.default_tab: mine` to always open on your own)
 - **Ask figg**: chat across all past meetings
 - **Share**: copy as Markdown or Slack, publish to Confluence, create Jira tickets from action items
 
