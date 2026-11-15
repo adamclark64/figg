@@ -38,6 +38,9 @@ struct FiggApp: App {
                 Button("New Note Without Recording") { _ = model.newMeeting() }
                     .keyboardShortcut("n")
             }
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Task { await model.checkForUpdatesNow() } }
+            }
             BugReportCommands()
         }
 

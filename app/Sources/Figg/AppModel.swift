@@ -22,6 +22,8 @@ struct Banner: Identifiable, Equatable {
     var text: String
     var action: Action?
     var isConfigWarning = false
+    /// "Up to date" or a failed check from the menu; replaced by the next one.
+    var isUpdateResult = false
 }
 
 enum ModelState: Equatable {
@@ -653,10 +655,46 @@ final class AppModel: ObservableObject {
             pendingUpdate = release
             return
         }
-        banners.removeAll { $0.action == .installUpdate }
+        showUpdateBanner(release)
+    }
+
+    /// "Check for Updates…" in the menus: checks now, whatever the schedule,
+    /// and says what it found in a banner, since a menu cannot show it.
+    func checkForUpdatesNow() async {
+        switch updates.phase {
+        case .checking, .downloading, .installing: return
+        default: break
+        }
+        updateSchedule.checked(at: Date())
+        if let release = await updates.check(quietly: false) {
+            // Asked for, so shown even if this version was offered before.
+            _ = updateSchedule.shouldOffer(release.version)
+            if pendingUpdate != nil { pendingUpdate = release }
+            showUpdateBanner(release)
+            return
+        }
+        switch updates.phase {
+        case .upToDate:
+            let version = UpdateManager.currentVersion.map { " v\($0)" } ?? ""
+            showUpdateResult(Banner(kind: .info, text: "figg\(version) is up to date.", isUpdateResult: true))
+        case let .failed(message):
+            showUpdateResult(Banner(kind: .error, text: message, isUpdateResult: true))
+        default:
+            break
+        }
+    }
+
+    /// One update banner at a time, so its button and text name one version.
+    private func showUpdateBanner(_ release: ReleaseInfo) {
+        banners.removeAll { $0.action == .installUpdate || $0.isUpdateResult }
         banners.append(Banner(kind: .info,
                               text: "figg v\(release.version) is available.",
                               action: .installUpdate))
+    }
+
+    private func showUpdateResult(_ banner: Banner) {
+        banners.removeAll { $0.isUpdateResult }
+        banners.append(banner)
     }
 
     /// Never relaunch mid-recording; remember the choice and install on stop.

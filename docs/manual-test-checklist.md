@@ -113,6 +113,7 @@ macOS permissions, or Bedrock.
   Settings > Recording > Check for Updates, Update now, confirm figg
   relaunches as the new version and, with the local signing certificate,
   mic + system-audio permissions survive without re-approval.
+- [ ] "Check for Updates…" in the menu bar menu and in the figg app menu shows a banner in the main window: "is available", "is up to date", or the error. Choosing it again replaces the result banner rather than adding another
 - [ ] While the update downloads, a banner shows the 3D fig newton being extruded from its back with a percentage, then hopping beside "Installing the update"; Settings shows the same
 
 ## Report a Bug

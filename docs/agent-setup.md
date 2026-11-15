@@ -68,7 +68,7 @@ installing.
 
 If `/Applications/Figg.app` already exists, do not copy over it. From figg
 0.5.1 on, the human updates it in Settings > Recording > **Check for
-Updates…**; skip to step 3.
+Updates…** (later versions also have it in the menu bar menu); skip to step 3.
 
 ```bash
 curl -L -o ~/Downloads/figg.dmg https://3gwgc5ir6t6yxpzh.public.blob.vercel-storage.com/figg.dmg

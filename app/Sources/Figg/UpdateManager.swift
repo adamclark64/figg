@@ -26,8 +26,8 @@ final class UpdateManager: ObservableObject {
     }
 
     /// Returns the newer release, if any. quietly=true (the automatic checks)
-    /// stays silent on failure; the Settings button passes false and shows
-    /// the outcome either way.
+    /// stays silent on failure; the Settings button and the menu items pass
+    /// false and show the outcome either way.
     @discardableResult
     func check(quietly: Bool) async -> ReleaseInfo? {
         // A check mid-install would reset the phase and resurrect the Update

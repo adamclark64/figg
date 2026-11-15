@@ -31,6 +31,10 @@ struct MenuBarView: View {
             Text("⌃⌥⌘R from any app").font(.caption).foregroundStyle(.secondary)
             Divider()
             Button("Open figg") { open() }
+            Button("Check for Updates…") {
+                Task { await model.checkForUpdatesNow() }
+                open()
+            }
             Button("Report a Bug…") {
                 openWindow(id: "bug-report")
                 NSApplication.shared.activate(ignoringOtherApps: true)
