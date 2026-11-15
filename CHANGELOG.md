@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.11.0](https://github.com/adamclark64/figg/compare/v0.10.0...v0.11.0) (2026-11-15)
+
+
+### Features
+
+* **notes:** open meetings on the enhanced notes when they exist ([8638eea](https://github.com/adamclark64/figg/commit/8638eeae9e9ffe49e84ddbf81f252286e136ced4))
+* **recording:** pause and resume a recording ([#35](https://github.com/adamclark64/figg/issues/35)) ([8638eea](https://github.com/adamclark64/figg/commit/8638eeae9e9ffe49e84ddbf81f252286e136ced4)), closes [#31](https://github.com/adamclark64/figg/issues/31) [#32](https://github.com/adamclark64/figg/issues/32) [#33](https://github.com/adamclark64/figg/issues/33)
+* **update:** check for updates every few hours and after wake ([#29](https://github.com/adamclark64/figg/issues/29)) ([3d2030c](https://github.com/adamclark64/figg/commit/3d2030cab05115590aac84e1b5ec565d2c03f65d))
+* **widget:** save widget screenshots into the meeting's notes ([8638eea](https://github.com/adamclark64/figg/commit/8638eeae9e9ffe49e84ddbf81f252286e136ced4))
+
 ## [0.10.0](https://github.com/adamclark64/figg/compare/v0.9.0...v0.10.0) (2026-11-14)
 
 
