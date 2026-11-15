@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/adamclark64/figg/compare/v0.11.0...v0.11.1) (2026-11-15)
+
+
+### Performance Improvements
+
+* cut figg's energy use during and right after a call ([#36](https://github.com/adamclark64/figg/issues/36)) ([15a63d8](https://github.com/adamclark64/figg/commit/15a63d8b213682c6bb1c37c40e0eb8488cf84d07)), closes [#27](https://github.com/adamclark64/figg/issues/27)
+
 ## [0.11.0](https://github.com/adamclark64/figg/compare/v0.10.0...v0.11.0) (2026-11-15)
 
 
