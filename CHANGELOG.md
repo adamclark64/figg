@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/adamclark64/figg/compare/v0.12.0...v0.13.0) (2026-11-16)
+
+
+### Features
+
+* **dictation:** type into any app by holding or tapping a key ([#45](https://github.com/adamclark64/figg/issues/45)) ([322347e](https://github.com/adamclark64/figg/commit/322347e9e6ab385bb0a5529a1836630174931ad8))
+
 ## [0.12.0](https://github.com/adamclark64/figg/compare/v0.11.1...v0.12.0) (2026-11-15)
 
 
