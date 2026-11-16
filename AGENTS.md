@@ -134,6 +134,7 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 | Slack/Confluence/Jira | `app/Sources/FiggExport/` |
 | Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
+| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
 | Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
@@ -177,6 +178,17 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 `user-report` issues each day; it never edits code or issues.
 
 ## Known gaps
+
+- Dictation never uses the clipboard: an AX write of the selected text in
+  native apps (checked by reading the value back), typed Unicode key events
+  in browsers, Electron apps and terminals (`InsertionRouter.keystrokeApps`).
+  Tap the key for hands-free, Esc cancels. Used live only into the Claude
+  desktop app (typed); native fields, browsers, Terminal and password
+  fields have unit tests but no live check yet.
+  A dictation during a meeting recording is also heard by the meeting's mic
+  and lands in its transcript as "Me". fn's own action (emoji, macOS
+  dictation) still fires unless the user sets "Press 🌐 key to" to Do
+  Nothing; figg does not change that setting.
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).

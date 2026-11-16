@@ -17,6 +17,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
     public var feedback = Feedback()
     public var appearance = Appearance()
     public var updates = Updates()
+    public var dictation = Dictation()
 
     public init() {}
 
@@ -233,6 +234,23 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey { case autoCheck = "auto_check" }
     }
 
+    /// Hold a key in any app, speak, release: the words are typed where the
+    /// cursor is. Transcribed on this Mac; nothing touches the clipboard.
+    public struct Dictation: Codable, Equatable, Sendable {
+        public init() {}
+        /// Off until turned on: it needs Accessibility permission.
+        public var enabled = false
+        /// The key to hold: "fn" (the fn/globe key) or "right_option".
+        public var key = "fn"
+        /// How many past dictations figg keeps to copy from later.
+        public var historyLimit = 200
+        enum CodingKeys: String, CodingKey {
+            case enabled
+            case key = "shortcut"
+            case historyLimit = "history_limit"
+        }
+    }
+
     /// `$FIGG_CONFIG` if set, else `~/.config/figg/config.yaml`.
     public static var defaultURL: URL {
         if let path = ProcessInfo.processInfo.environment["FIGG_CONFIG"], !path.isEmpty {
@@ -393,6 +411,17 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # from Settings.
           auto_check: \(updates.autoCheck)
 
+        dictation:
+          # Hold the key in any app, speak, and let go: figg types what you said
+          # where the cursor is. Speech is transcribed on this Mac and the
+          # clipboard is never used. Needs Accessibility permission.
+          enabled: \(dictation.enabled)
+          # "fn" (the fn/globe key) or "right_option".
+          shortcut: \(q(dictation.key))
+          # Past dictations kept in figg (menu bar > Dictation History) to copy
+          # from when one did not land where you wanted.
+          history_limit: \(dictation.historyLimit)
+
         """
     }
 }
@@ -421,6 +450,7 @@ extension FiggConfig {
         feedback = try c.decodeIfPresent(Feedback.self, forKey: .feedback) ?? Feedback()
         appearance = try c.decodeIfPresent(Appearance.self, forKey: .appearance) ?? Appearance()
         updates = try c.decodeIfPresent(Updates.self, forKey: .updates) ?? Updates()
+        dictation = try c.decodeIfPresent(Dictation.self, forKey: .dictation) ?? Dictation()
     }
 }
 
@@ -560,5 +590,15 @@ extension FiggConfig.Updates {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         autoCheck = try c.decodeIfPresent(Bool.self, forKey: .autoCheck) ?? Self().autoCheck
+    }
+}
+
+extension FiggConfig.Dictation {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self()
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? d.enabled
+        key = try c.decodeIfPresent(String.self, forKey: .key) ?? d.key
+        historyLimit = try c.decodeIfPresent(Int.self, forKey: .historyLimit) ?? d.historyLimit
     }
 }

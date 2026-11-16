@@ -31,6 +31,7 @@ struct MenuBarView: View {
             Text("⌃⌥⌘R from any app").font(.caption).foregroundStyle(.secondary)
             Divider()
             Button("Open figg") { open() }
+            Button("Dictation History…") { model.dictation.showHistory() }
             Button("Check for Updates…") {
                 Task { await model.checkForUpdatesNow() }
                 open()

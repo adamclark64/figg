@@ -102,6 +102,7 @@ public final class Store: @unchecked Sendable {
                 t.add(column: "calendarEventId", .text)
             }
         }
+        registerDictationMigrations(&m)
         return m
     }
 

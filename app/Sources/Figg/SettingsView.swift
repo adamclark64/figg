@@ -29,6 +29,7 @@ struct SettingsView: View {
         TabView {
             AISettings().tabItem { Label("AI", systemImage: "sparkles") }
             RecordingSettings().tabItem { Label("Recording", systemImage: "waveform") }
+            DictationSettings().tabItem { Label("Dictation", systemImage: "mic") }
             SharingSettings().tabItem { Label("Sharing", systemImage: "square.and.arrow.up") }
         }
     }
@@ -167,6 +168,49 @@ struct RecordingSettings: View {
                 Text("\(UpdateManager.currentVersion.map { "figg v\($0)" } ?? "figg (dev build)"). Updates come from figg's download site; only an anonymous version check is sent.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+struct DictationSettings: View {
+    @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var model: AppModel
+    @State private var granted = AccessibilityAccess.isGranted
+
+    var body: some View {
+        Form {
+            Toggle("Dictate into any app", isOn: $settings.config.dictation.enabled)
+            Picker("Hold to talk", selection: $settings.config.dictation.key) {
+                Text("fn (globe)").tag("fn")
+                Text("Right Option").tag("right_option")
+            }
+            .disabled(!settings.config.dictation.enabled)
+            Text("Hold the key, speak, and let go: figg types what you said where the cursor is. Speech is transcribed on this Mac with the same model as your meetings, and your clipboard is never used. Or tap the key to keep listening hands-free, and tap it again to finish. Esc cancels at any point and types nothing.")
+                .font(.caption).foregroundStyle(.secondary)
+            if settings.config.dictation.key == "fn" {
+                Text("To stop fn also opening emoji or macOS dictation, set System Settings > Keyboard > \"Press 🌐 key to\" to \"Do Nothing\".")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            HStack {
+                Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet").font(.caption)
+                if !granted {
+                    Button("Allow…") {
+                        AccessibilityAccess.request()
+                        AccessibilityAccess.openSettings()
+                    }
+                }
+            }
+            Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
+                .font(.caption).foregroundStyle(.secondary)
+            Section("History") {
+                Stepper("Keep the last \(settings.config.dictation.historyLimit)", value: $settings.config.dictation.historyLimit, in: 10...2000, step: 50)
+                Button("Open Dictation History…") { model.dictation.showHistory() }
+                Text("If the text did not land where you wanted, copy it from the history. Only the text is kept, never the audio.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            granted = AccessibilityAccess.isGranted
         }
     }
 }

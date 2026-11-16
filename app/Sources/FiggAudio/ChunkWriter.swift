@@ -13,8 +13,7 @@ final class ChunkWriter: @unchecked Sendable {
     private let levels: LevelMeter?
     private let queue: DispatchQueue
 
-    private var converter: AVAudioConverter?
-    private var converterInput: AVAudioFormat?
+    private let resampler = MonoResampler()
     private var pending: [Float] = []
     private var framesWritten = 0
 
@@ -38,7 +37,7 @@ final class ChunkWriter: @unchecked Sendable {
     /// Called from audio callbacks. Converts on the caller's thread, then
     /// hands the samples to a serial queue for accumulation and file IO.
     func append(_ buffer: AVAudioPCMBuffer) {
-        guard let samples = convert(buffer), !samples.isEmpty else { return }
+        guard let samples = resampler.convert(buffer), !samples.isEmpty else { return }
         levels?.record(stream, samples: samples)
         queue.async { [self] in
             pending.append(contentsOf: samples)
@@ -56,32 +55,6 @@ final class ChunkWriter: @unchecked Sendable {
             if !pending.isEmpty { write(pending) }
             pending.removeAll()
         }
-    }
-
-    private func convert(_ buffer: AVAudioPCMBuffer) -> [Float]? {
-        let outFormat = AudioChunk.format
-        if converter == nil || converterInput != buffer.format {
-            converter = AVAudioConverter(from: buffer.format, to: outFormat)
-            converter?.downmix = true
-            converterInput = buffer.format
-        }
-        guard let converter else { return nil }
-        let ratio = outFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 64
-        guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: capacity) else { return nil }
-        var consumed = false
-        var error: NSError?
-        converter.convert(to: out, error: &error) { _, status in
-            if consumed {
-                status.pointee = .noDataNow
-                return nil
-            }
-            consumed = true
-            status.pointee = .haveData
-            return buffer
-        }
-        guard error == nil, let data = out.floatChannelData else { return nil }
-        return Array(UnsafeBufferPointer(start: data[0], count: Int(out.frameLength)))
     }
 
     private func write(_ samples: [Float]) {

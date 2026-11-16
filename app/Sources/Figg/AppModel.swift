@@ -70,6 +70,8 @@ final class AppModel: ObservableObject {
     /// The Accessibility hint is shown once per launch.
     private var askedForAccessibility = false
     private let transcriber: any Transcriber
+    /// Hold-to-talk dictation into any app, sharing the meeting transcriber.
+    private(set) var dictation: DictationController!
     private(set) var queue: TranscriptionQueue!
     private var credentialProviders: [String: AWSCLICredentialsProvider] = [:]
     private var notesSaveTasks: [String: Task<Void, Never>] = [:]
@@ -106,6 +108,7 @@ final class AppModel: ObservableObject {
         } else {
             transcriber = ParakeetTranscriber()
         }
+        dictation = DictationController(store: store, transcriber: transcriber, settings: settings)
         let keepAudio = settings.keepAudio
         queue = TranscriptionQueue(
             store: store,

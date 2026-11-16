@@ -50,7 +50,19 @@ import Testing
         c.sharing.confluenceSpace = "has \"quotes\" and \\ slash"
         c.updates.autoCheck = false
         c.feedback.bugReportEndpoint = "https://relay.example.com/api/bug-report"
+        c.dictation.enabled = true
+        c.dictation.key = "right_option"
+        c.dictation.historyLimit = 50
         #expect(try FiggConfig.parse(c.yaml()) == c)
+    }
+
+    @Test func dictationIsOffByDefaultAndOptional() throws {
+        #expect(!FiggConfig().dictation.enabled)
+        #expect(FiggConfig().dictation.key == "fn")
+        let c = try FiggConfig.parse("dictation:\n  enabled: true\n")
+        #expect(c.dictation.enabled)
+        #expect(c.dictation.key == "fn")
+        #expect(c.dictation.historyLimit == 200)
     }
 
     @Test func reportingABugNeedsNoSetup() throws {

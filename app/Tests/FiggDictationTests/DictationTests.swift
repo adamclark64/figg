@@ -1,0 +1,130 @@
+import FiggDictation
+import Foundation
+import Testing
+
+@Suite struct HoldToTalkTests {
+    let t0 = Date(timeIntervalSince1970: 1000)
+
+    @Test func holdThenReleaseStartsAndStops() {
+        var h = HoldToTalk(key: .fn)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0) == .start)
+        #expect(h.isActive)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 2) == .stop)
+        #expect(!h.isActive)
+    }
+
+    @Test func aTapLocksRecordingOnUntilTheNextPress() {
+        var h = HoldToTalk(key: .fn)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0) == .start)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 0.1) == .handsFree)
+        #expect(h.isHandsFree)
+        // Typing other keys while hands-free does not stop it.
+        #expect(h.keyDown(keyCode: 0) == nil)
+        // The second press stops on release, so nothing is typed while the key is held.
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0 + 5) == nil)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 5.1) == .stop)
+        #expect(!h.isActive)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0 + 6) == .start)
+    }
+
+    @Test func anOrdinaryTapCountsAsATap() {
+        var h = HoldToTalk(key: .rightOption)
+        _ = h.flagsChanged(keyCode: 61, keyIsDown: true, otherModifiers: false, now: t0)
+        #expect(h.flagsChanged(keyCode: 61, keyIsDown: false, otherModifiers: false, now: t0 + 0.4) == .handsFree)
+    }
+
+    @Test func escapeCancelsEitherWay() {
+        var h = HoldToTalk(key: .fn)
+        _ = h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0)
+        #expect(h.keyDown(keyCode: HoldToTalk.escapeKeyCode) == .cancel)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 2) == nil)
+
+        _ = h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0 + 3)
+        _ = h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 3.1)
+        #expect(h.keyDown(keyCode: HoldToTalk.escapeKeyCode) == .cancel)
+        #expect(!h.isActive)
+        #expect(h.keyDown(keyCode: HoldToTalk.escapeKeyCode) == nil)
+    }
+
+    @Test func pressingAnotherKeyWhileHoldingMeansAShortcut() {
+        var h = HoldToTalk(key: .fn)
+        _ = h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0)
+        #expect(h.keyDown(keyCode: 123) == .cancel)
+        // Releasing afterwards says nothing more.
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: false, now: t0 + 3) == nil)
+        // And the next hold works again.
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: false, now: t0 + 4) == .start)
+    }
+
+    @Test func addingAModifierCancels() {
+        var h = HoldToTalk(key: .rightOption)
+        _ = h.flagsChanged(keyCode: 61, keyIsDown: true, otherModifiers: false, now: t0)
+        #expect(h.flagsChanged(keyCode: 56, keyIsDown: true, otherModifiers: true, now: t0 + 1) == .cancel)
+    }
+
+    @Test func keyWithAModifierAlreadyHeldDoesNotStart() {
+        var h = HoldToTalk(key: .fn)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: true, otherModifiers: true, now: t0) == nil)
+        #expect(h.flagsChanged(keyCode: 63, keyIsDown: false, otherModifiers: true, now: t0 + 2) == nil)
+    }
+
+    @Test func otherKeysAloneDoNothing() {
+        var h = HoldToTalk(key: .fn)
+        #expect(h.keyDown(keyCode: 0) == nil)
+        #expect(h.keyDown(keyCode: HoldToTalk.escapeKeyCode) == nil)
+        #expect(h.flagsChanged(keyCode: 56, keyIsDown: false, otherModifiers: true, now: t0) == nil)
+    }
+
+    @Test func unknownSettingFallsBackToFn() {
+        #expect(HoldKey(setting: "caps") == .fn)
+        #expect(HoldKey(setting: "right_option") == .rightOption)
+    }
+}
+
+@Suite struct InsertionTests {
+    @Test func passwordFieldsAreNeverFilled() {
+        let f = FocusedField(bundleID: "com.apple.mail", role: "AXTextField", subrole: "AXSecureTextField")
+        #expect(InsertionRouter.method(for: f, trusted: true) == .none(.passwordField))
+    }
+
+    @Test func withoutPermissionNothingIsInserted() {
+        let f = FocusedField(bundleID: "com.apple.Notes", role: "AXTextArea")
+        #expect(InsertionRouter.method(for: f, trusted: false) == .none(.noPermission))
+    }
+
+    @Test func browsersAndElectronGetKeystrokes() {
+        for id in ["com.google.Chrome", "com.tinyspeck.slackmacgap", "com.electron.something", "com.googlecode.iterm2"] {
+            #expect(InsertionRouter.method(for: FocusedField(bundleID: id, role: "AXTextArea"), trusted: true) == .keystrokes)
+        }
+    }
+
+    @Test func nativeFieldsUseAccessibility() {
+        let f = FocusedField(bundleID: "com.apple.Notes", role: "AXTextArea")
+        #expect(InsertionRouter.method(for: f, trusted: true) == .accessibility)
+    }
+
+    @Test func noVisibleElementStillTypes() {
+        #expect(InsertionRouter.method(for: FocusedField(bundleID: "com.example.app"), trusted: true) == .keystrokes)
+    }
+
+    @Test func anAXWriteThatChangedNothingIsAFailure() {
+        #expect(!InsertionRouter.axWriteTookEffect(before: "hi", after: "hi", inserted: "there"))
+        #expect(!InsertionRouter.axWriteTookEffect(before: "hi", after: nil, inserted: "there"))
+        #expect(InsertionRouter.axWriteTookEffect(before: "hi", after: "hi there", inserted: " there"))
+    }
+
+    @Test func chunksNeverSplitACharacter() {
+        let text = String(repeating: "a", count: 19) + "👍🏽" + "bc"
+        let pieces = KeystrokeChunks.split(text)
+        #expect(pieces.joined() == text)
+        #expect(pieces.allSatisfy { $0.utf16.count <= 20 })
+        #expect(pieces[1].hasPrefix("👍🏽"))
+    }
+
+    @Test func textGetsASpaceAfterAWord() {
+        #expect(DictationText.prepare(["Hello  world."], precedingCharacter: "x") == " Hello world.")
+        #expect(DictationText.prepare(["Hello", "world."], precedingCharacter: " ") == "Hello world.")
+        #expect(DictationText.prepare(["Hi"], precedingCharacter: "(") == "Hi")
+        #expect(DictationText.prepare(["  "]) == "")
+    }
+}
