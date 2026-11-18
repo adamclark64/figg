@@ -51,10 +51,13 @@ struct MeetingView: View {
                             }
                         }
                         .onChange(of: notes) { _, new in model.saveNotes(meetingId, new) }
+                        .transition(.opacity)
                 case .enhanced:
                     enhancedPane
+                        .transition(.opacity)
                 }
             }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: tab)
             .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 40)
             .padding(.top, 28)
@@ -341,8 +344,10 @@ struct GeneratedDocSheet: View {
 /// "My notes" / "Enhanced" as a pill toggle instead of a stock segmented control.
 struct NotesTabs: View {
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var tab: MeetingView.Tab
     let hasEnhanced: Bool
+    @Namespace private var highlight
 
     var body: some View {
         HStack(spacing: 2) {
@@ -355,13 +360,20 @@ struct NotesTabs: View {
     }
 
     private func item(_ t: MeetingView.Tab, _ title: String, _ icon: String) -> some View {
-        Button { tab = t } label: {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { tab = t }
+        } label: {
             Label(title, systemImage: icon)
                 .font(.callout.weight(tab == t ? .semibold : .regular))
                 .foregroundStyle(tab == t ? theme.accent : theme.inkMuted)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .background(tab == t ? theme.accentSoft : .clear, in: Capsule())
+                .background {
+                    // One highlight that slides between the two tabs.
+                    if tab == t {
+                        Capsule().fill(theme.accentSoft).matchedGeometryEffect(id: "tab", in: highlight)
+                    }
+                }
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -497,6 +509,7 @@ struct EnhancedNotesView: View {
 
 struct TranscriptPane: View {
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let lines: [TranscriptLine]
     var shots: [MeetingScreenshot] = []
     let live: Bool
@@ -560,7 +573,9 @@ struct TranscriptPane: View {
                     }
                     .scrollContentBackground(.hidden)
                     .onChange(of: lines.count) { _, _ in
-                        if live, let last = TranscriptItem.merge(lines, shots).last { proxy.scrollTo(last.id, anchor: .bottom) }
+                        guard live, let last = TranscriptItem.merge(lines, shots).last else { return }
+                        // Glide to a new line rather than jumping.
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.3)) { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
             }

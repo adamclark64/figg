@@ -190,6 +190,7 @@ struct WhisperStatus: View {
 struct BannerStack: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.theme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         UpdateProgressBanner(updates: model.updates)
@@ -206,10 +207,13 @@ struct BannerStack: View {
                 .padding(10)
                 .background(theme.surface, in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color(banner.kind).opacity(0.35)))
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.horizontal, model.banners.isEmpty ? 0 : 12)
         .padding(.top, model.banners.isEmpty ? 0 : 8)
+        // Banners slide in and out instead of shoving the page.
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.banners.map(\.id))
     }
 
     func icon(_ k: Banner.Kind) -> String {
