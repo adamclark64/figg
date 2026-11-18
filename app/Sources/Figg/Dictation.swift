@@ -41,6 +41,10 @@ final class DictationController: ObservableObject {
     private let transcriber: any Transcriber
     private let settings: AppSettings
     private let capture = DictationCapture()
+    private let sounds = DictationSounds()
+    /// Seconds at the start of this recording to silence: how long the
+    /// start cue played into it can be heard. Zero when none played.
+    private var startCueSeconds = 0.0
     private var holdToTalk = HoldToTalk(key: .fn)
     private var monitors: [Any] = []
     private var configWatch: AnyCancellable?
@@ -145,6 +149,9 @@ final class DictationController: ObservableObject {
             handsFree = false
             target = NSWorkspace.shared.frontmostApplication
             liveText = ""
+            // After the mic is on, so the first word is never lost; the
+            // cue's own moment is silenced in `heard`.
+            startCueSeconds = play(.start)?.muteSeconds ?? 0
             show(.listening)
             startLivePreview()
         } catch {
@@ -162,7 +169,7 @@ final class DictationController: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(700))
                 guard let self, self.capturing, await self.transcriber.isDownloaded() else { continue }
-                let samples = self.capture.snapshot()
+                let samples = self.heard(self.capture.snapshot())
                 guard samples.count > 8_000, !SilenceGate.isSilent(samples) else { continue }
                 guard let segments = try? await self.transcriber.transcribe(samples: samples),
                       !Task.isCancelled, self.capturing else { continue }
@@ -181,6 +188,7 @@ final class DictationController: ObservableObject {
         capturing = false
         handsFree = false
         generation += 1
+        play(.cancel)
         show(.idle)
     }
 
@@ -198,14 +206,16 @@ final class DictationController: ObservableObject {
             return
         }
         liveTask?.cancel()
-        let samples = capture.stop()
+        let samples = heard(capture.stop())
         capturing = false
         handsFree = false
         // Under half a second of audio, or silence: nothing was said.
         guard samples.count > 8_000, !SilenceGate.isSilent(samples) else {
+            play(.cancel)
             show(.idle)
             return
         }
+        play(.stop)
         show(.transcribing)
         let run = generation
         Task { await finish(samples, run: run) }
@@ -261,6 +271,40 @@ final class DictationController: ObservableObject {
         }
         if showResult { show(shown) }
         return outcome
+    }
+
+    // MARK: Sounds
+
+    /// Plays a cue when sounds are on. Returns the sound it played.
+    @discardableResult
+    private func play(_ cue: DictationCue) -> DictationSound? {
+        let config = settings.config.dictation
+        guard config.sounds, config.soundVolume > 0,
+              let sound = cue.sound(setting: Self.soundSetting(cue, config)) else { return nil }
+        sounds.play(sound, volume: cue.volume(setting: config.soundVolume))
+        return sound
+    }
+
+    /// Plays a cue with the current Settings choices, for trying them out
+    /// (even with sounds turned off).
+    func preview(_ cue: DictationCue) {
+        let config = settings.config.dictation
+        guard let sound = cue.sound(setting: Self.soundSetting(cue, config)) else { return }
+        sounds.play(sound, volume: cue.volume(setting: config.soundVolume))
+    }
+
+    static func soundSetting(_ cue: DictationCue, _ config: FiggConfig.Dictation) -> String {
+        switch cue {
+        case .start: return config.startSound
+        case .stop: return config.stopSound
+        case .cancel: return config.cancelSound
+        }
+    }
+
+    /// The mic samples with the start cue silenced, so a speaker playing it
+    /// is never transcribed as speech.
+    private func heard(_ samples: [Float]) -> [Float] {
+        DictationCue.silencingStart(samples, seconds: startCueSeconds)
     }
 
     // MARK: Actions (the panel's menu)

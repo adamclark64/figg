@@ -128,3 +128,52 @@ import Testing
         #expect(DictationText.prepare(["  "]) == "")
     }
 }
+
+@Suite struct DictationCueTests {
+    @Test func cancelIsSofterAndVolumeIsClamped() {
+        #expect(DictationCue.start.volume(setting: 0.5) == 0.5)
+        #expect(DictationCue.cancel.volume(setting: 0.5) < DictationCue.stop.volume(setting: 0.5))
+        #expect(DictationCue.start.volume(setting: 3) == 1)
+        #expect(DictationCue.start.volume(setting: -1) == 0)
+    }
+
+    @Test func everyChoiceIsABuiltInSystemSound() {
+        #expect(DictationSound.all.count == 8)
+        for sound in DictationSound.all {
+            #expect(FileManager.default.fileExists(atPath: sound.path), "\(sound.name)")
+        }
+        for cue in DictationCue.allCases {
+            #expect(DictationSound.named(cue.defaultSound) != nil)
+        }
+    }
+
+    @Test func noneTyposAndCaseInTheSetting() {
+        #expect(DictationCue.stop.sound(setting: "none") == nil)
+        #expect(DictationCue.stop.sound(setting: "None") == nil)
+        #expect(DictationCue.start.sound(setting: "morse")?.name == "Morse")
+        // A name this Mac does not have falls back to the cue's default.
+        #expect(DictationCue.start.sound(setting: "Tinkk")?.name == "Tink")
+    }
+
+    @Test func theStartSoundIsSilencedForAsLongAsItCanBeHeard() throws {
+        let tink = try #require(DictationSound.named("Tink"))
+        let glass = try #require(DictationSound.named("Glass"))
+        #expect(tink.isQuick && !glass.isQuick)
+        #expect(glass.muteSeconds > tink.muteSeconds)
+        #expect(tink.muteSeconds == tink.audibleSeconds + DictationSound.outputLatency)
+    }
+
+    @Test func theStartCueIsSilencedButTimingIsKept() {
+        let samples = [Float](repeating: 0.5, count: 16_000)
+        let out = DictationCue.silencingStart(samples, seconds: 0.25)
+        #expect(out.count == samples.count)
+        #expect(out[0..<4_000].allSatisfy { $0 == 0 })
+        #expect(out[4_000...].allSatisfy { $0 == 0.5 })
+    }
+
+    @Test func aShortRecordingIsAllSilencedWithoutCrashing() {
+        #expect(DictationCue.silencingStart([0.5, 0.5], seconds: 0.25) == [0, 0])
+        #expect(DictationCue.silencingStart([], seconds: 0.25) == [])
+        #expect(DictationCue.silencingStart([0.5], seconds: 0) == [0.5])
+    }
+}

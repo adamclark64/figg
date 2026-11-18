@@ -2,6 +2,7 @@ import FiggConfig
 import FiggNotes
 import FiggStore
 import FiggMeetingApps
+import FiggDictation
 import SwiftUI
 
 struct SettingsView: View {
@@ -202,6 +203,20 @@ struct DictationSettings: View {
             }
             Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
                 .font(.caption).foregroundStyle(.secondary)
+            Section("Sounds") {
+                Toggle("Play a sound when listening starts and stops", isOn: $settings.config.dictation.sounds)
+                Group {
+                    soundPicker("Start listening", .start, $settings.config.dictation.startSound)
+                    soundPicker("About to type", .stop, $settings.config.dictation.stopSound)
+                    soundPicker("Cancel", .cancel, $settings.config.dictation.cancelSound)
+                    Slider(value: $settings.config.dictation.soundVolume, in: 0...1) { Text("Volume") } onEditingChanged: { editing in
+                        if !editing { model.dictation.preview(.start) }
+                    }
+                }
+                .disabled(!settings.config.dictation.sounds)
+                Text("Picking a sound plays it. The cancel sound plays a little quieter. They are never picked up as your speech or as call audio: the mic is silenced while the start sound plays, so a quick one (marked) loses none of what you say.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("History") {
                 Stepper("Keep the last \(settings.config.dictation.historyLimit)", value: $settings.config.dictation.historyLimit, in: 10...2000, step: 50)
                 Button("Open Dictation History…") { model.dictation.showHistory() }
@@ -212,6 +227,22 @@ struct DictationSettings: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             granted = AccessibilityAccess.isGranted
         }
+    }
+
+    /// A menu of the macOS system sounds for one cue; choosing one plays it.
+    private func soundPicker(_ title: String, _ cue: DictationCue, _ selection: Binding<String>) -> some View {
+        Picker(title, selection: selection) {
+            Text("None").tag(DictationCue.none)
+            Divider()
+            ForEach(DictationSound.all, id: \.name) { sound in
+                Text(cue == .start && sound.isQuick ? "\(sound.name) (quick)" : sound.name).tag(sound.name)
+            }
+            // A name typed into config.yaml that is not in the list.
+            if selection.wrappedValue != DictationCue.none, DictationSound.named(selection.wrappedValue)?.name != selection.wrappedValue {
+                Text(selection.wrappedValue).tag(selection.wrappedValue)
+            }
+        }
+        .onChange(of: selection.wrappedValue) { _, _ in model.dictation.preview(cue) }
     }
 }
 

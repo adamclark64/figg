@@ -53,6 +53,11 @@ import Testing
         c.dictation.enabled = true
         c.dictation.key = "right_option"
         c.dictation.historyLimit = 50
+        c.dictation.sounds = false
+        c.dictation.soundVolume = 0.25
+        c.dictation.startSound = "Morse"
+        c.dictation.stopSound = "none"
+        c.dictation.cancelSound = "Frog"
         #expect(try FiggConfig.parse(c.yaml()) == c)
     }
 
@@ -63,6 +68,11 @@ import Testing
         #expect(c.dictation.enabled)
         #expect(c.dictation.key == "fn")
         #expect(c.dictation.historyLimit == 200)
+        #expect(c.dictation.sounds)
+        #expect(c.dictation.soundVolume == 0.5)
+        #expect(c.dictation.startSound == "Tink")
+        #expect(c.dictation.stopSound == "Pop")
+        #expect(c.dictation.cancelSound == "Bottle")
     }
 
     @Test func reportingABugNeedsNoSetup() throws {

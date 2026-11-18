@@ -244,10 +244,24 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var key = "fn"
         /// How many past dictations figg keeps to copy from later.
         public var historyLimit = 200
+        /// A short sound when listening starts, stops or is cancelled.
+        public var sounds = true
+        /// Volume of those sounds, 0 to 1.
+        public var soundVolume = 0.5
+        /// A macOS system sound name (as in /System/Library/Sounds) for each
+        /// cue, or "none" to play nothing for that one.
+        public var startSound = "Tink"
+        public var stopSound = "Pop"
+        public var cancelSound = "Bottle"
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
             case historyLimit = "history_limit"
+            case sounds
+            case soundVolume = "sound_volume"
+            case startSound = "start_sound"
+            case stopSound = "stop_sound"
+            case cancelSound = "cancel_sound"
         }
     }
 
@@ -421,6 +435,18 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Past dictations kept in figg (menu bar > Dictation History) to copy
           # from when one did not land where you wanted.
           history_limit: \(dictation.historyLimit)
+          # A short sound when figg starts listening, stops (about to type) and
+          # cancels. They are never picked up as speech or as call audio.
+          sounds: \(dictation.sounds)
+          # Volume of those sounds, 0 to 1.
+          sound_volume: \(dictation.soundVolume)
+          # Which sound for each: Tink, Frog, Morse, Pop, Ping, Bottle, Purr,
+          # Glass (macOS system sounds) or "none". The mic is silenced while
+          # the start sound plays, so a long one costs the first moment of what
+          # you say; Tink, Frog and Morse are quick.
+          start_sound: \(q(dictation.startSound))
+          stop_sound: \(q(dictation.stopSound))
+          cancel_sound: \(q(dictation.cancelSound))
 
         """
     }
@@ -600,5 +626,10 @@ extension FiggConfig.Dictation {
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? d.enabled
         key = try c.decodeIfPresent(String.self, forKey: .key) ?? d.key
         historyLimit = try c.decodeIfPresent(Int.self, forKey: .historyLimit) ?? d.historyLimit
+        sounds = try c.decodeIfPresent(Bool.self, forKey: .sounds) ?? d.sounds
+        soundVolume = try c.decodeIfPresent(Double.self, forKey: .soundVolume) ?? d.soundVolume
+        startSound = try c.decodeIfPresent(String.self, forKey: .startSound) ?? d.startSound
+        stopSound = try c.decodeIfPresent(String.self, forKey: .stopSound) ?? d.stopSound
+        cancelSound = try c.decodeIfPresent(String.self, forKey: .cancelSound) ?? d.cancelSound
     }
 }
