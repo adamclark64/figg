@@ -91,11 +91,10 @@ public struct KeyCombo: Equatable, Sendable {
 
     static let symbols = ["space": "Space", "return": "↩", "tab": "⇥"]
 
-    /// The suggestion shown in Settings: ⌃⌥⌘V, next to figg's ⌃⌥⌘R (record)
-    /// and ⌃⌥⌘P (pause). Not on until the user picks it: a global shortcut
-    /// takes the keys from every app, and macOS gives no way to ask whether
-    /// another app already uses them (a second app may register the same
-    /// hot key without an error).
+    /// The default: ⌃⌥⌘V, next to figg's ⌃⌥⌘R (record) and ⌃⌥⌘P (pause).
+    /// No standard editing or macOS shortcut uses it. macOS gives no way to
+    /// ask whether another app already does (a second app may register the
+    /// same hot key without an error), so Settings lets the user change it.
     public static let pasteLastDefault = KeyCombo(keyCode: 0x09, modifiers: [.control, .option, .command])
 
     // MARK: Clashes

@@ -238,10 +238,12 @@ public struct FiggConfig: Codable, Equatable, Sendable {
     /// cursor is. Transcribed on this Mac; nothing touches the clipboard.
     public struct Dictation: Codable, Equatable, Sendable {
         public init() {}
-        /// Off until turned on: it needs Accessibility permission.
-        public var enabled = false
-        /// The key to hold: "fn" (the fn/globe key) or "right_option".
-        public var key = "fn"
+        /// On by default; it asks for Accessibility permission the first time.
+        public var enabled = true
+        /// The key to hold: "right_option" (the default) or "fn" (the
+        /// fn/globe key, which macOS also uses for emoji and its own
+        /// dictation). A copy that already has this setting keeps it.
+        public var key = "right_option"
         /// How many past dictations figg keeps to copy from later.
         public var historyLimit = 200
         /// A short sound when listening starts, stops or is cancelled.
@@ -254,9 +256,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var stopSound = "Pop"
         public var cancelSound = "Bottle"
         /// Shortcut that types the last dictation again where the cursor is,
-        /// e.g. "ctrl+option+cmd+v". Off ("") until the user picks one: a
-        /// global shortcut takes those keys from every other app.
-        public var pasteLastShortcut = ""
+        /// e.g. "ctrl+option+cmd+v" (the default, which no standard or macOS
+        /// shortcut uses), or "" for off.
+        public var pasteLastShortcut = "ctrl+option+cmd+v"
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
@@ -435,7 +437,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # where the cursor is. Speech is transcribed on this Mac and the
           # clipboard is never used. Needs Accessibility permission.
           enabled: \(dictation.enabled)
-          # "fn" (the fn/globe key) or "right_option".
+          # "right_option" or "fn" (the fn/globe key).
           shortcut: \(q(dictation.key))
           # Past dictations kept in figg (menu bar > Dictation History) to copy
           # from when one did not land where you wanted.
@@ -455,7 +457,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Press this in any app to type your last dictation again where the
           # cursor is (without the clipboard). Modifiers are ctrl, option,
           # shift and cmd, and at least one of ctrl, option or cmd is needed.
-          # It takes those keys from every other app. "" (the default) is off.
+          # It takes those keys from every other app. "" turns it off.
           paste_last_shortcut: \(q(dictation.pasteLastShortcut))
 
         """

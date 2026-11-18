@@ -50,8 +50,8 @@ import Testing
         c.sharing.confluenceSpace = "has \"quotes\" and \\ slash"
         c.updates.autoCheck = false
         c.feedback.bugReportEndpoint = "https://relay.example.com/api/bug-report"
-        c.dictation.enabled = true
-        c.dictation.key = "right_option"
+        c.dictation.enabled = false
+        c.dictation.key = "fn"
         c.dictation.historyLimit = 50
         c.dictation.sounds = false
         c.dictation.soundVolume = 0.25
@@ -62,19 +62,31 @@ import Testing
         #expect(try FiggConfig.parse(c.yaml()) == c)
     }
 
-    @Test func dictationIsOffByDefaultAndOptional() throws {
-        #expect(!FiggConfig().dictation.enabled)
-        #expect(FiggConfig().dictation.key == "fn")
-        let c = try FiggConfig.parse("dictation:\n  enabled: true\n")
-        #expect(c.dictation.enabled)
-        #expect(c.dictation.key == "fn")
+    @Test func dictationIsOnByDefaultWithRightOption() throws {
+        #expect(FiggConfig().dictation.enabled)
+        #expect(FiggConfig().dictation.key == "right_option")
+        let c = try FiggConfig.parse("dictation:\n  enabled: false\n")
+        #expect(!c.dictation.enabled)
+        #expect(c.dictation.key == "right_option")
         #expect(c.dictation.historyLimit == 200)
         #expect(c.dictation.sounds)
         #expect(c.dictation.soundVolume == 0.5)
         #expect(c.dictation.startSound == "Tink")
         #expect(c.dictation.stopSound == "Pop")
         #expect(c.dictation.cancelSound == "Bottle")
-        #expect(c.dictation.pasteLastShortcut == "")
+        #expect(c.dictation.pasteLastShortcut == "ctrl+option+cmd+v")
+    }
+
+    /// A copy from before this change wrote its key and on/off into
+    /// config.yaml, so a co-worker who picked fn (or turned dictation off)
+    /// keeps that; only the shortcut, which older copies never wrote, fills in.
+    @Test func olderConfigsKeepTheirDictationChoices() throws {
+        let c = try FiggConfig.parse("dictation:\n  enabled: false\n  shortcut: \"fn\"\n  history_limit: 200\n")
+        #expect(!c.dictation.enabled)
+        #expect(c.dictation.key == "fn")
+        #expect(c.dictation.pasteLastShortcut == "ctrl+option+cmd+v")
+        let off = try FiggConfig.parse("dictation:\n  paste_last_shortcut: \"\"\n")
+        #expect(off.dictation.pasteLastShortcut == "")
     }
 
     @Test func reportingABugNeedsNoSetup() throws {

@@ -182,8 +182,8 @@ struct DictationSettings: View {
         Form {
             Toggle("Dictate into any app", isOn: $settings.config.dictation.enabled)
             Picker("Hold to talk", selection: $settings.config.dictation.key) {
-                Text("fn (globe)").tag("fn")
                 Text("Right Option").tag("right_option")
+                Text("fn (globe)").tag("fn")
             }
             .disabled(!settings.config.dictation.enabled)
             Text("Hold the key, speak, and let go: figg types what you said where the cursor is. Speech is transcribed on this Mac with the same model as your meetings, and your clipboard is never used. Or tap the key to keep listening hands-free, and tap it again to finish. Esc cancels at any point and types nothing.")
@@ -222,7 +222,7 @@ struct DictationSettings: View {
                     ShortcutRecorder(setting: $settings.config.dictation.pasteLastShortcut)
                 }
                 .disabled(!settings.config.dictation.enabled)
-                Text("Press it in any app to type your last dictation again where the cursor is, without using the clipboard. Off until you pick one, because it takes those keys from every other app: figg warns about macOS's own shortcuts, but cannot see the ones inside other apps' menus. ⌃⌥⌘V is a good choice.")
+                Text("Press it in any app to type your last dictation again where the cursor is, without using the clipboard. It takes those keys from every other app: figg warns about macOS's own shortcuts, but cannot see the ones inside other apps' menus. Clear it (Delete while recording) to turn it off.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("History") {

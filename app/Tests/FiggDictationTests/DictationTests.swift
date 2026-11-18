@@ -76,7 +76,7 @@ import Testing
     }
 
     @Test func unknownSettingFallsBackToFn() {
-        #expect(HoldKey(setting: "caps") == .fn)
+        #expect(HoldKey(setting: "caps") == .rightOption)
         #expect(HoldKey(setting: "right_option") == .rightOption)
     }
 }

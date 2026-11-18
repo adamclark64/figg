@@ -6,8 +6,9 @@ public enum HoldKey: String, Sendable, CaseIterable {
     case fn
     case rightOption = "right_option"
 
-    /// A config value figg does not know falls back to fn.
-    public init(setting: String) { self = HoldKey(rawValue: setting) ?? .fn }
+    /// A config value figg does not know falls back to Right Option, the
+    /// default.
+    public init(setting: String) { self = HoldKey(rawValue: setting) ?? .rightOption }
 
     /// macOS virtual key code (kVK_Function, kVK_RightOption).
     public var keyCode: UInt16 {
