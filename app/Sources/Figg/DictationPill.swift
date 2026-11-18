@@ -26,15 +26,67 @@ final class DictationPill {
         panel.contentView = NSHostingView(rootView: DictationPanelView(controller: controller))
     }
 
+    /// Rises this far into place as it opens, and sinks part of it as it closes.
+    private static let travel: CGFloat = 14
+    /// Bumped by every show and hide, so a close that a new show interrupts
+    /// does not order the panel out when its fade ends.
+    private var generation = 0
+    private var isHiding = false
+
+    /// Fades the panel in while it rises into place. Showing it again while
+    /// it is up (a new phase) only keeps it there.
     func show() {
-        if let screen = NSScreen.main {
-            let f = screen.visibleFrame
-            panel.setFrameOrigin(NSPoint(x: f.midX - panel.frame.width / 2, y: f.minY + 12))
+        generation += 1
+        let resting = restingOrigin()
+        let alreadyUp = panel.isVisible && !isHiding
+        isHiding = false
+        // Left alone, so a fade-in still running finishes smoothly.
+        guard !alreadyUp else { return }
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if !panel.isVisible {
+            panel.alphaValue = 0
+            panel.setFrameOrigin(NSPoint(x: resting.x, y: resting.y - (reduceMotion ? 0 : Self.travel)))
         }
         panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1)  // quick, soft landing
+            panel.animator().alphaValue = 1
+            panel.animator().setFrameOrigin(resting)
+        }
     }
 
-    func hide() { panel.orderOut(nil) }
+    /// Fades the panel out while it sinks a little, then takes it off screen.
+    func hide() {
+        guard panel.isVisible, !isHiding else { return }
+        generation += 1
+        let mine = generation
+        isHiding = true
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let origin = panel.frame.origin
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.16
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+            if !reduceMotion {
+                panel.animator().setFrameOrigin(NSPoint(x: origin.x, y: origin.y - Self.travel / 2))
+            }
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.generation == mine else { return }
+                self.isHiding = false
+                self.panel.orderOut(nil)
+                self.panel.alphaValue = 1
+            }
+        }
+    }
+
+    /// Centred just above the bottom of the screen with the active window.
+    private func restingOrigin() -> NSPoint {
+        guard let screen = NSScreen.main else { return panel.frame.origin }
+        let f = screen.visibleFrame
+        return NSPoint(x: f.midX - panel.frame.width / 2, y: f.minY + 12)
+    }
 }
 
 /// Always dark, like a heads-up display, in figg's night colours.
