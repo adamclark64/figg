@@ -177,3 +177,65 @@ import Testing
         #expect(DictationCue.silencingStart([0.5], seconds: 0) == [0.5])
     }
 }
+
+@Suite struct KeyComboTests {
+    @Test func theDefaultReadsAndWritesBack() throws {
+        let c = try #require(KeyCombo(setting: "ctrl+option+cmd+v"))
+        #expect(c == .pasteLastDefault)
+        #expect(c.setting == "ctrl+option+cmd+v")
+        #expect(c.label == "⌃⌥⌘V")
+    }
+
+    @Test func parsingIsLenientAboutNamesCaseAndOrder() {
+        #expect(KeyCombo(setting: "Cmd + Opt + Ctrl + V") == .pasteLastDefault)
+        #expect(KeyCombo(setting: "command+alt+control+v") == .pasteLastDefault)
+        #expect(KeyCombo(setting: "⌃⌥⌘+v") == nil)
+        #expect(KeyCombo(setting: "ctrl+shift+f5")?.label == "⌃⇧F5")
+        #expect(KeyCombo(setting: "option+space")?.label == "⌥Space")
+    }
+
+    @Test func offTyposAndRiskyCombosAreRejected() {
+        #expect(KeyCombo(setting: "") == nil)
+        #expect(KeyCombo(setting: "none") == nil)
+        #expect(KeyCombo(setting: "v") == nil)
+        #expect(KeyCombo(setting: "shift+v") == nil)
+        #expect(KeyCombo(setting: "cmd+banana") == nil)
+        #expect(KeyCombo(setting: "hyper+v") == nil)
+    }
+
+    @Test func everyKeyRoundTrips() {
+        for code in KeyCombo.keyNames.keys {
+            let c = KeyCombo(keyCode: code, modifiers: [.command, .shift])
+            #expect(KeyCombo(setting: c.setting) == c, "\(c.setting)")
+        }
+    }
+}
+
+@Suite struct KeyComboClashTests {
+    @Test func figgsOwnAndStandardShortcutsAreCaught() throws {
+        #expect(try #require(KeyCombo(setting: "ctrl+option+cmd+r")).clash() == "figg's Start/Stop Recording")
+        #expect(try #require(KeyCombo(setting: "cmd+v")).clash() == "Paste")
+        #expect(try #require(KeyCombo(setting: "shift+option+cmd+v")).clash() == "Paste and Match Style")
+        #expect(KeyCombo.pasteLastDefault.clash() == nil)
+    }
+
+    @Test func turnedOnMacOSShortcutsAreCaughtAndTurnedOffOnesAreNot() {
+        // Shaped like com.apple.symbolichotkeys: ctrl+option+cmd+V (key 9,
+        // mask 0x1C0000) on, ctrl+F5 (key 0x60) off.
+        let hotKeys: [String: Any] = [
+            "500": ["enabled": true, "value": ["parameters": [118, 9, 0x1C0000], "type": "standard"]],
+            "501": ["enabled": false, "value": ["parameters": [65535, 0x60, 0x40000], "type": "standard"]],
+            "502": ["enabled": true, "value": ["parameters": [65535, 65535, 0], "type": "standard"]],
+        ]
+        #expect(KeyCombo.pasteLastDefault.clash(systemHotKeys: hotKeys) == "a macOS shortcut")
+        #expect(KeyCombo(setting: "ctrl+f5")!.clash(systemHotKeys: hotKeys) == nil)
+    }
+}
+
+@Suite struct KeyComboStandardListTests {
+    @Test func everyListedShortcutParses() {
+        // `standard` force-unwraps each entry; reaching it at all proves they parse.
+        #expect(KeyCombo(setting: "shift+cmd+4")!.clash() == "a macOS screenshot shortcut")
+        #expect(KeyCombo(setting: "ctrl+space")!.clash() == "the input source switcher")
+    }
+}

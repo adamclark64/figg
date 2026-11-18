@@ -217,6 +217,14 @@ struct DictationSettings: View {
                 Text("Picking a sound plays it. The cancel sound plays a little quieter. They are never picked up as your speech or as call audio: the mic is silenced while the start sound plays, so a quick one (marked) loses none of what you say.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("Type the last dictation again") {
+                LabeledContent("Shortcut") {
+                    ShortcutRecorder(setting: $settings.config.dictation.pasteLastShortcut)
+                }
+                .disabled(!settings.config.dictation.enabled)
+                Text("Press it in any app to type your last dictation again where the cursor is, without using the clipboard. Off until you pick one, because it takes those keys from every other app: figg warns about macOS's own shortcuts, but cannot see the ones inside other apps' menus. ⌃⌥⌘V is a good choice.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("History") {
                 Stepper("Keep the last \(settings.config.dictation.historyLimit)", value: $settings.config.dictation.historyLimit, in: 10...2000, step: 50)
                 Button("Open Dictation History…") { model.dictation.showHistory() }

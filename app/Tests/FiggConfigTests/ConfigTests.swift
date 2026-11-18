@@ -58,6 +58,7 @@ import Testing
         c.dictation.startSound = "Morse"
         c.dictation.stopSound = "none"
         c.dictation.cancelSound = "Frog"
+        c.dictation.pasteLastShortcut = "ctrl+shift+f5"
         #expect(try FiggConfig.parse(c.yaml()) == c)
     }
 
@@ -73,6 +74,7 @@ import Testing
         #expect(c.dictation.startSound == "Tink")
         #expect(c.dictation.stopSound == "Pop")
         #expect(c.dictation.cancelSound == "Bottle")
+        #expect(c.dictation.pasteLastShortcut == "")
     }
 
     @Test func reportingABugNeedsNoSetup() throws {

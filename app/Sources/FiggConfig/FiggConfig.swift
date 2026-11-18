@@ -253,6 +253,10 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var startSound = "Tink"
         public var stopSound = "Pop"
         public var cancelSound = "Bottle"
+        /// Shortcut that types the last dictation again where the cursor is,
+        /// e.g. "ctrl+option+cmd+v". Off ("") until the user picks one: a
+        /// global shortcut takes those keys from every other app.
+        public var pasteLastShortcut = ""
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
@@ -262,6 +266,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case startSound = "start_sound"
             case stopSound = "stop_sound"
             case cancelSound = "cancel_sound"
+            case pasteLastShortcut = "paste_last_shortcut"
         }
     }
 
@@ -447,6 +452,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           start_sound: \(q(dictation.startSound))
           stop_sound: \(q(dictation.stopSound))
           cancel_sound: \(q(dictation.cancelSound))
+          # Press this in any app to type your last dictation again where the
+          # cursor is (without the clipboard). Modifiers are ctrl, option,
+          # shift and cmd, and at least one of ctrl, option or cmd is needed.
+          # It takes those keys from every other app. "" (the default) is off.
+          paste_last_shortcut: \(q(dictation.pasteLastShortcut))
 
         """
     }
@@ -631,5 +641,6 @@ extension FiggConfig.Dictation {
         startSound = try c.decodeIfPresent(String.self, forKey: .startSound) ?? d.startSound
         stopSound = try c.decodeIfPresent(String.self, forKey: .stopSound) ?? d.stopSound
         cancelSound = try c.decodeIfPresent(String.self, forKey: .cancelSound) ?? d.cancelSound
+        pasteLastShortcut = try c.decodeIfPresent(String.self, forKey: .pasteLastShortcut) ?? d.pasteLastShortcut
     }
 }

@@ -47,6 +47,7 @@ final class DictationController: ObservableObject {
     private var startCueSeconds = 0.0
     private var holdToTalk = HoldToTalk(key: .fn)
     private var monitors: [Any] = []
+    private var pasteLastHotKey: HotKey?
     private var configWatch: AnyCancellable?
     private var pill: DictationPill?
     private var hideTask: Task<Void, Never>?
@@ -75,7 +76,15 @@ final class DictationController: ObservableObject {
 
     private func apply(_ config: FiggConfig.Dictation) {
         removeMonitors()
+        pasteLastHotKey = nil
         guard config.enabled else { return }
+        if let combo = KeyCombo(setting: config.pasteLastShortcut) {
+            let hotKey = HotKey(combo) { [weak self] in
+                MainActor.assumeIsolated { self?.pasteLast() }
+            }
+            NSLog("figg dictation: paste-last shortcut %@ %@", combo.label, hotKey.registered ? "registered" : "refused by macOS")
+            pasteLastHotKey = hotKey.registered ? hotKey : nil
+        }
         // Without Accessibility the global monitor hears nothing; macOS's own
         // prompt adds figg to the list (shown once per app).
         if !AccessibilityAccess.isGranted { AccessibilityAccess.request() }
@@ -317,6 +326,27 @@ final class DictationController: ObservableObject {
         liveText = last.text
         insert(" " + last.text)
     }
+
+    /// The paste-last shortcut: types the latest dictation again. Waits for
+    /// the shortcut's own keys to come up first, so they cannot combine with
+    /// the typed text (⌘ held while typing "a" would select all).
+    func pasteLast() {
+        NSLog("figg dictation: paste-last shortcut (%d in history)", history.count)
+        guard !capturing else { return }
+        guard !history.isEmpty else {
+            show(.note("No dictation yet. Hold \(shortcutLabel) to dictate."))
+            return
+        }
+        Task { @MainActor in
+            let deadline = Date().addingTimeInterval(1.5)
+            while !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty, Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            insertLast()
+        }
+    }
+
+    var pasteLastLabel: String? { KeyCombo(setting: settings.config.dictation.pasteLastShortcut)?.label }
 
     func copyLast() {
         guard let last = history.first else { return }
