@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/adamclark64/figg/compare/v0.14.0...v0.15.0) (2026-11-18)
+
+
+### Features
+
+* **dictation:** turn dictation on by default with right option and ⌃⌥⌘V ([#54](https://github.com/adamclark64/figg/issues/54)) ([ff849b5](https://github.com/adamclark64/figg/commit/ff849b5e6658331cebc05cb5f06a5e6c66c82deb))
+* **dictation:** use softer start and stop sounds by default ([#55](https://github.com/adamclark64/figg/issues/55)) ([571ab84](https://github.com/adamclark64/figg/commit/571ab849cc1ccc72f6af14b53c7593e88cd56775))
+
+
+### Bug Fixes
+
+* **update:** keep macOS permissions across updates ([#56](https://github.com/adamclark64/figg/issues/56)) ([a5830e2](https://github.com/adamclark64/figg/commit/a5830e2cc2da2716423ea639fe956eed6ca7bffd))
+
 ## [0.14.0](https://github.com/adamclark64/figg/compare/v0.13.0...v0.14.0) (2026-11-18)
 
 
