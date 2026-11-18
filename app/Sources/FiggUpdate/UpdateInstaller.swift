@@ -109,16 +109,23 @@ public struct UpdateInstaller: Sendable {
         defer { try? fm.removeItem(at: staged.deletingLastPathComponent()) }
         try fm.copyItem(at: source, to: staged)
 
-        // CI dmgs are ad-hoc signed; re-signing with the local cert keeps the
-        // mic and system-audio permissions across the update.
+        // macOS keeps privacy permissions per signing identity. Releases are
+        // signed with the stable "figg Release Signing" certificate, so they
+        // are installed as they are. An ad-hoc signed dmg (releases before
+        // that, or one built without the certificate) is re-signed with the
+        // local cert when there is one, so the update keeps the mic,
+        // system-audio and Accessibility permissions.
+        // `codesign -d -r-` prints the designated requirement: a cdhash for an
+        // ad-hoc build, a certificate for a signed one.
         // No -v: the self-signed "figg Local Signing" cert is not a "valid"
         // identity to security(1), yet codesign accepts it (bundle.sh checks
         // the same way). With -v the re-sign silently never ran (seen live
         // updating 0.3.0 to 0.4.0) and updates kept the ad-hoc CI signature,
         // which drops the mic and system-audio permissions.
-        let identities = try await runner.run("/usr/bin/security", ["find-identity", "-p", "codesigning"])
+        let requirement = try await runner.run("/usr/bin/codesign", ["-d", "-r-", staged.path])
         try await runner.run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", staged.path])
-        if identities.contains("figg Local Signing") {
+        if Self.isAdHoc(requirement: requirement),
+           try await runner.run("/usr/bin/security", ["find-identity", "-p", "codesigning"]).contains("figg Local Signing") {
             try await runner.run("/usr/bin/codesign",
                                  ["--force", "--deep", "--options", "runtime", "--timestamp=none",
                                   "--preserve-metadata=entitlements",
@@ -135,6 +142,10 @@ public struct UpdateInstaller: Sendable {
         }
         try? fm.removeItem(at: old)
     }
+
+    /// True unless the designated requirement names a certificate. An
+    /// unreadable (empty) one counts as ad-hoc, which only means a re-sign.
+    static func isAdHoc(requirement: String) -> Bool { !requirement.contains("certificate") }
 
     /// CFBundleShortVersionString of an app bundle on disk, which
     /// scripts/bundle.sh stamps from the release tag.

@@ -6,13 +6,18 @@
 # publish job then signs that dmg for the in-app updater and puts it on the
 # download store.
 #
-# Signing: with no secrets configured the DMG is ad-hoc signed and not
-# notarized (right-click > Open on first launch). Once a Developer ID exists,
-# add these repo secrets and the same workflow signs and notarizes:
-#   FIGG_CERT_P12          base64 of the Developer ID Application .p12
+# Signing: the app is signed with the self-signed "figg Release Signing"
+# certificate, so every release has the same identity and macOS keeps its
+# Microphone, System Audio and Accessibility permissions across updates
+# (docs/release-signing.md, "App signing certificate"). It is not notarized:
+# right-click > Open on first launch. The secrets:
+#   FIGG_CERT_P12          base64 of the certificate's .p12
 #   FIGG_CERT_PASSWORD     password for that .p12
-#   FIGG_SIGN_IDENTITY     e.g. "Developer ID Application: Name (TEAMID)"
-#   FIGG_NOTARY_APPLE_ID / FIGG_NOTARY_PASSWORD / FIGG_NOTARY_TEAM_ID
+#   FIGG_SIGN_IDENTITY     "figg Release Signing"
+# With no FIGG_CERT_P12 the DMG is ad-hoc signed and every release loses
+# those permissions. A Developer ID later goes in the same three secrets,
+# plus FIGG_NOTARY_APPLE_ID / FIGG_NOTARY_PASSWORD / FIGG_NOTARY_TEAM_ID to
+# notarize.
 name: release
 
 on:
@@ -61,7 +66,7 @@ jobs:
       - name: Derive version from tag
         run: echo "FIGG_VERSION=${TAG#v}" >> "$GITHUB_ENV"
 
-      - name: Import Developer ID certificate (only when secrets exist)
+      - name: Import the signing certificate (only when secrets exist)
         if: env.HAS_CERT == 'true'
         env:
           CERT_P12: ${{ secrets.FIGG_CERT_P12 }}

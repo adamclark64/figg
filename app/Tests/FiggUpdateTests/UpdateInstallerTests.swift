@@ -87,9 +87,10 @@ final class FakeRunner: CommandRunner, @unchecked Sendable {
         try await fixture.install()
 
         #expect(try fixture.marker() == "new")
-        // Attach, then quarantine strip and re-sign on the staged copy, then detach.
-        #expect(fixture.runner.tools() == ["hdiutil", "security", "xattr", "codesign", "hdiutil"])
-        let codesign = fixture.runner.calls.first { ($0.tool as NSString).lastPathComponent == "codesign" }!
+        // Attach, read the signature, strip quarantine, re-sign the staged
+        // copy, then detach.
+        #expect(fixture.runner.tools() == ["hdiutil", "codesign", "xattr", "security", "codesign", "hdiutil"])
+        let codesign = fixture.runner.calls.last { ($0.tool as NSString).lastPathComponent == "codesign" }!
         #expect(codesign.args.contains("figg Local Signing"))
         #expect(codesign.args.contains("--preserve-metadata=entitlements"))
     }
@@ -97,7 +98,20 @@ final class FakeRunner: CommandRunner, @unchecked Sendable {
     @Test func skipsResignWithoutLocalCert() async throws {
         let fixture = try makeFixture(signingIdentities: "0 valid identities found")
         try await fixture.install()
-        #expect(!fixture.runner.tools().contains("codesign"))
+        #expect(fixture.runner.tools().filter { $0 == "codesign" }.count == 1)  // only the read
+        #expect(try fixture.marker() == "new")
+    }
+
+    /// A release signed with figg's release certificate keeps that
+    /// signature, even on a Mac with the local cert: re-signing would give
+    /// it a different identity and lose its permissions on the next update.
+    @Test func keepsTheReleaseSignature() async throws {
+        let fixture = try makeFixture(signingIdentities: #"1) ABC123 "figg Local Signing""#)
+        fixture.runner.hooks["codesign"] = { _ in
+            #"designated => identifier "dev.adamclark.figg" and certificate leaf = H"436e46708e8f0ed166cdde506614f3e9d9c0fe73""# + "\n"
+        }
+        try await fixture.install()
+        #expect(fixture.runner.tools() == ["hdiutil", "codesign", "xattr", "hdiutil"])
         #expect(try fixture.marker() == "new")
     }
 

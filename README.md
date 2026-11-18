@@ -147,10 +147,11 @@ builds and attaches `figg-X.Y.Z.dmg`. It then signs the DMG for the in-app
 updater, which refuses anything not signed with the release key
 ([docs/release-signing.md](docs/release-signing.md)).
 
-There is no Apple Developer ID yet, so the DMG is ad-hoc signed and not
-notarized: right-click > Open on first launch. When a Developer ID exists, add
-the secrets listed in the workflow header and the same pipeline signs and
-notarizes. [app/scripts/release.sh](app/scripts/release.sh) does the signed build
+The app is signed with figg's own self-signed release certificate, so macOS
+keeps its permissions from one release to the next. There is no Apple
+Developer ID yet, so it is not notarized: right-click > Open on first launch.
+When a Developer ID exists, put it in the secrets listed in the workflow
+header and the same pipeline signs and notarizes. [app/scripts/release.sh](app/scripts/release.sh) does the signed build
 locally; [app/scripts/dmg.sh](app/scripts/dmg.sh) is the shared packaging step.
 
 ## Docs

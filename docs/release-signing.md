@@ -36,6 +36,59 @@ on `main` can sign. It also says nothing about the first download from the
 website, which no installed copy is there to check. Releases still have no
 Developer ID signature and are not notarized.
 
+## App signing certificate (permissions)
+
+This is a second, separate signature: the macOS code signature on
+`Figg.app`. macOS keeps Microphone, System Audio Recording, Accessibility
+and Screen Recording per signing identity. An ad-hoc signed app's identity
+is the hash of that exact build, so before this every release looked like a
+new app and lost all of them.
+
+Releases are now signed with a self-signed certificate, **figg Release
+Signing**. Its designated requirement is the bundle ID plus that
+certificate, the same for every release, so permissions survive updates.
+The first release signed this way still asks once more, since it differs
+from the ad-hoc one before it.
+
+- The repository secrets `FIGG_CERT_P12` (base64 of the .p12),
+  `FIGG_CERT_PASSWORD` and `FIGG_SIGN_IDENTITY` (`figg Release Signing`)
+  hold it. The `dmg` job imports it into a throwaway keychain;
+  `scripts/dmg.sh` signs the app and the DMG with it.
+- The owner keeps the only other copy, outside the repository. Never commit
+  it.
+- `UpdateInstaller` installs a certificate-signed release as it is. It only
+  re-signs an ad-hoc one, with the local "figg Local Signing" cert when the
+  Mac has it (`docs/local-signing.md`).
+- Check a release: `codesign -d -r- /Applications/Figg.app` should print
+  `certificate leaf = H"436e46708e8f0ed166cdde506614f3e9d9c0fe73"`.
+
+It proves nothing to Gatekeeper (the certificate is self-signed), so the
+first launch is still right-click > Open. If the certificate is lost,
+make a new one the same way and replace the three secrets; every copy then
+asks for its permissions one more time. Making it:
+
+```bash
+cat > cert.cnf <<'CNF'
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = figg Release Signing
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+subjectKeyIdentifier = hash
+CNF
+openssl req -x509 -newkey rsa:3072 -nodes -keyout key.pem -out cert.pem -days 7300 -config cert.cnf
+openssl pkcs12 -export -inkey key.pem -in cert.pem -name "figg Release Signing" -out cert.p12 \
+  -legacy -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1
+```
+
+The `-legacy` options use the older .p12 encryption, which macOS's
+`security import` is known to read; OpenSSL 3's default often fails there.
+
 ## Where the key lives
 
 | Half | Where | Who can read it |

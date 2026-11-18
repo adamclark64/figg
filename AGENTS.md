@@ -220,8 +220,10 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   saved in `meetings/<id>/screenshots/` and shown in the note and
   transcript; exports and the model never get them. Neither has been tried
   on a real call yet.
-- The widget's screenshot button needs Screen Recording permission, which
-  without a Developer ID has to be granted again after each update. Whether
+- The widget's screenshot button needs Screen Recording permission. Releases
+  are signed with the stable "figg Release Signing" certificate so
+  permissions should survive updates, but that has not been seen across a
+  real update yet. Whether
   the pill stays out of screen shares on macOS 15 has not been checked on a
   real call.
 - Report a Bug's Command-V paste and its browser handoff have unit tests
@@ -229,7 +231,8 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   in the running app or against GitHub's issue form in each browser. A
   report through the hosted API has not been sent from the running app,
   and `figg-api` is not deployed yet.
-- No Developer ID yet, so no notarized `.dmg`.
+- No Developer ID yet, so no notarized `.dmg` (releases are signed with a
+  self-signed certificate; `docs/release-signing.md`).
 - Updates are signed by the release job and the app refuses any other DMG
   (`docs/release-signing.md`), but the key is a GitHub Actions secret:
   whoever controls the repository's workflows on `main` can still sign.

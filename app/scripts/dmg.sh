@@ -5,8 +5,8 @@
 #
 # Unsigned by default (the app keeps whatever signature bundle.sh gave it).
 # With credentials it signs and notarizes:
-#   FIGG_SIGN_IDENTITY    Developer ID Application identity; re-signs the app
-#                         with a secure timestamp and signs the DMG
+#   FIGG_SIGN_IDENTITY    "figg Release Signing" (or a Developer ID); re-signs
+#                         the app with a secure timestamp and signs the DMG
 #   FIGG_NOTARY_PROFILE   notarytool keychain profile (local use), or
 #   FIGG_NOTARY_APPLE_ID / FIGG_NOTARY_PASSWORD / FIGG_NOTARY_TEAM_ID (CI)
 set -euo pipefail
