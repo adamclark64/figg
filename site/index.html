@@ -13,6 +13,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=VT323&family=Caveat:wght@500&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-X9Z0LC8ZEL"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', 'G-X9Z0LC8ZEL');
+</script>
 <style>
   :root {
     --ink: #fbeef6;
@@ -225,6 +232,11 @@
       </a>
       <span class="req">Apple Silicon · macOS 14.4+ · free</span>
     </div>
+    <script>
+      document.getElementById('download').addEventListener('click', () => {
+        gtag('event', 'download', { link_location: 'landing' });
+      });
+    </script>
     <p class="agent-line"><a href="/docs/agent-setup">Let your agent set figg up for you</a></p>
     <ul class="chips">
       <li>on-device transcription</li>
@@ -1086,11 +1098,14 @@ const surfaces = [floor, rug, sill, pedCap, cabBody, deskGroup.userData.top];
 
 // Everything you can pick up lives directly in the room so moving it is simple.
 const pickables = [bustGroup, flamingoGroup, chairGroup, plant, tall, can, floppy, newton, deskGroup.userData.mug];
+const propNames = ['bust', 'flamingo', 'chair', 'plant', 'tall_plant', 'can', 'floppy', 'fig_newton', 'mug'];
+const track = (name, params) => window.gtag?.('event', name, params);
 const box3 = new THREE.Box3();
-for (const o of pickables) {
+for (const [i, o] of pickables.entries()) {
   room.attach(o);
   box3.setFromObject(o);
   o.userData.prop = {
+    name: propNames[i],
     bottom: o.position.y - box3.min.y, // distance from origin down to its base
     restY: o.position.y, vy: 0, yaw: o.rotation.y, held: false,
     hold: new THREE.Vector3(), tiltX: 0, tiltZ: 0, lift: Math.min(0.6, 0.25 + (box3.max.y - box3.min.y) * 0.3)
@@ -1189,6 +1204,9 @@ function release() {
   if (mode === 'fig') {
     if (performance.now() - lastT > 80) spinVel = 0; // stopped before letting go: no fling
     spinVel = THREE.MathUtils.clamp(spinVel, -12, 12);
+    track('scene_interact', { object: 'fig', action: moved ? 'spin' : 'tap' });
+  } else if (mode === 'orbit') {
+    if (moved) track('scene_interact', { object: 'room', action: 'look_around' });
   } else if (mode === 'radio') {
     if (!moved) window.figgMusic?.toggle(); // pointerup still counts as the user's gesture for audio
   } else if (mode === 'prop') {
@@ -1196,6 +1214,7 @@ function release() {
     if (!moved) { p.vy = 2.6; p.yaw += Math.PI / 2; } // tap: hop and quarter turn
     else { p.held = false; p.restY = landingY(held); }
     p.tiltX = p.tiltZ = 0;
+    track('scene_interact', { object: p.name, action: moved ? 'drag' : 'tap' });
   }
   mode = null; held = null;
 }
@@ -1214,17 +1233,25 @@ function hover(e) {
 }
 window.addEventListener('figg-music', () => { overRadio = false; });
 
+let radioWheel = -Infinity;
 canvas.addEventListener('wheel', (e) => {
   if (!held && hitTest(e)?.kind === 'radio' && window.figgMusic) {
     e.preventDefault();
     window.figgMusic.nudge(-e.deltaY * 0.0015);
     radioSpin += -e.deltaY * 0.002;
+    const now = performance.now();
+    if (!(now - radioWheel < 1000)) track('music', { action: 'volume', source: 'radio' });
+    radioWheel = now;
     return;
   }
   const target = held || hitTest(e)?.obj;
   if (!target) return;
   e.preventDefault();
   target.userData.prop.yaw += e.deltaY * 0.004;
+  // A scroll sends a burst of wheel events; count one per object per second.
+  const now = performance.now(), p = target.userData.prop;
+  if (!(now - (p.lastWheel ?? -Infinity) < 1000)) track('scene_interact', { object: p.name, action: 'rotate' });
+  p.lastWheel = now;
 }, { passive: false });
 
 function updateProps(dt) {
@@ -1311,6 +1338,7 @@ tick();
     if (ctx && playing) fade(level(), 0.05);
   }
   vol.addEventListener('input', volumeChanged);
+  vol.addEventListener('change', () => window.gtag?.('event', 'music', { action: 'volume', source: 'slider' }));
 
   function setUp() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1338,10 +1366,12 @@ tick();
     gain.gain.linearRampToValueAtTime(to, now + secs);
   }
 
-  async function toggle() {
+  async function toggle(e) {
     if (loading) return;
     playing = !playing;
     show(playing);
+    // The header button passes its click event; the radio in the scene calls with none.
+    window.gtag?.('event', 'music', { action: playing ? 'play' : 'pause', source: e ? 'button' : 'radio' });
     try {
       if (!audio) setUp();
       if (playing) {
