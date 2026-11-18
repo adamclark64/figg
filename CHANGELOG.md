@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/adamclark64/figg/compare/v0.13.0...v0.14.0) (2026-11-18)
+
+
+### Features
+
+* **dictation:** add a shortcut that types the last dictation again ([#52](https://github.com/adamclark64/figg/issues/52)) ([988f6b0](https://github.com/adamclark64/figg/commit/988f6b08ecf4759dc0dad4430c3958e86b0ed2d1)), closes [#47](https://github.com/adamclark64/figg/issues/47)
+* **dictation:** play a sound when listening starts, stops or cancels ([#51](https://github.com/adamclark64/figg/issues/51)) ([431a44a](https://github.com/adamclark64/figg/commit/431a44a1705f41f2742ab97a01cdc9f786e4a4e1)), closes [#43](https://github.com/adamclark64/figg/issues/43) [#49](https://github.com/adamclark64/figg/issues/49)
+
 ## [0.13.0](https://github.com/adamclark64/figg/compare/v0.12.0...v0.13.0) (2026-11-16)
 
 
