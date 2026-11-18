@@ -95,6 +95,11 @@ wrong offsets, headphones); give it
 with Keep audio on, and it also replays the chunks to count live lines
 (`BENCH_REALTIME=1` replays them at recording speed, as the app sees them).
 
+`scripts/stitch-audio.sh <meeting folder> [out.m4a]` joins a meeting's
+10 s chunks (kept with Keep audio on) into one playable file, mic and call
+audio mixed, each chunk placed at the start time in its file name. Needs
+ffmpeg; writes to `~/Desktop/figg-<id>.m4a` by default.
+
 `swift run -c release figg-asr-bench` compares Parakeet and Whisper on the
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
 changing engines or chunking.
