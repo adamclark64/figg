@@ -278,11 +278,10 @@ struct EmptyState: View {
             HStack(spacing: 10) {
                 Button("Record") { model.toggleRecording() }
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.figgPrimary)
                 Button("Ask figg") { model.selection = .ask }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.figgSecondary)
             }
-            .controlSize(.large)
             .padding(.top, 4)
         }
         .padding()

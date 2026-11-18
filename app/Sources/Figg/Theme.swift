@@ -13,6 +13,7 @@ struct Theme: Equatable {
     var ink: Color         // primary text, and the user's own note lines
     var inkMuted: Color    // secondary text, and figg-added note lines
     var accent: Color      // buttons, selection, links
+    var onAccent: Color    // text on an accent fill (the main button)
     var accentSoft: Color  // tinted backgrounds (recording strip, banners)
     var record: Color      // recording indicator
 
@@ -29,6 +30,7 @@ struct Theme: Equatable {
         ink: .dynamic(light: 0x2A1F2B, dark: 0xF1EAEE),
         inkMuted: .dynamic(light: 0x857883, dark: 0xA8999F),
         accent: .dynamic(light: 0x7B2D5E, dark: 0xE08BBD),
+        onAccent: .dynamic(light: 0xFFFDF9, dark: 0x2A1F2B),
         accentSoft: .dynamic(light: 0xF3E4EC, dark: 0x3A2233),
         record: .dynamic(light: 0xC2413A, dark: 0xF07A70))
 
@@ -40,6 +42,7 @@ struct Theme: Equatable {
         ink: .primary,
         inkMuted: .secondary,
         accent: .accentColor,
+        onAccent: .white,
         accentSoft: Color.accentColor.opacity(0.12),
         record: .red)
 
@@ -99,4 +102,45 @@ extension View {
             .background(theme.surface, in: Capsule())
             .overlay(Capsule().strokeBorder(theme.line))
     }
+}
+
+/// figg's own button look, drawn from the theme so it is the same in light
+/// and dark. The stock `.borderedProminent` and `.bordered` styles each tint
+/// differently by appearance (the prominent one dims a light tint in dark
+/// mode), so a pair of them never quite matched. `.primary` is the accent
+/// fill; `.secondary` is a surface fill with a hairline, the same size.
+struct FiggButtonStyle: ButtonStyle {
+    enum Kind { case primary, secondary }
+    var kind: Kind = .primary
+
+    func makeBody(configuration: Configuration) -> some View {
+        Styled(configuration: configuration, kind: kind)
+    }
+
+    private struct Styled: View {
+        let configuration: Configuration
+        let kind: Kind
+        @Environment(\.theme) private var theme
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            let primary = kind == .primary
+            configuration.label
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(primary ? theme.onAccent : theme.ink)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 32)
+                .background(primary ? theme.accent : theme.surface,
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(primary ? Color.clear : theme.line))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
+        }
+    }
+}
+
+extension ButtonStyle where Self == FiggButtonStyle {
+    static var figgPrimary: FiggButtonStyle { FiggButtonStyle(kind: .primary) }
+    static var figgSecondary: FiggButtonStyle { FiggButtonStyle(kind: .secondary) }
 }

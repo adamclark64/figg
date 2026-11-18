@@ -258,7 +258,7 @@ struct MeetingView: View {
                 Text("No enhanced notes yet.").font(Theme.display(17, .regular)).foregroundStyle(theme.inkMuted)
                 if !isRecording {
                     Button("Enhance now") { Task { await model.enhance(meetingId) } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.figgPrimary)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
