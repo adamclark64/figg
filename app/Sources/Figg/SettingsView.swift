@@ -106,20 +106,20 @@ struct AISettings: View {
                 if let shipped = Provider.builtIn(id: provider.id) {
                     Button("Reset to defaults") { settings.config.llm.active.models = shipped.models }
                 }
-                Text(modelsCaption).font(.caption).foregroundStyle(.secondary)
+                Text(modelsCaption).settingsCaption()
             }
             Section("Notes") {
                 Picker("Default template", selection: $settings.config.notes.template) {
                     ForEach(NoteTemplate.all) { t in Text(t.name).tag(t.id) }
                 }
                 Text("Shapes the sections Enhance writes. Each meeting can pick its own template in the meeting view.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
                 Picker("Open meetings on", selection: $settings.config.notes.defaultTab) {
                     Text("Enhanced notes").tag("enhanced")
                     Text("My notes").tag("mine")
                 }
                 Text("With Enhanced notes, a meeting that has no enhanced notes yet, or is recording, still opens on your own notes.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
         }
     }
@@ -137,16 +137,16 @@ struct RecordingSettings: View {
             }
             Toggle("Offer to record when a meeting app uses the mic", isOn: $settings.config.detection.enabled)
             Text("Works with any app (Zoom, Teams, Meet in a browser, Slack huddles). Dictation apps like FluidVoice and Wispr Flow are ignored; add others under detection.ignore_apps in config.yaml.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Toggle("Use your calendar (titles, attendees, pre-meeting brief)", isOn: $settings.config.calendar.enabled)
             Text("Read-only and local: figg titles new recordings after the current event, suggests attendee names for speakers, and can brief you before a meeting from past notes. macOS asks for Calendar access the first time.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Toggle("Show a floating widget while recording in another app", isOn: $settings.config.recording.widget)
             Text("A small pill on the edge of the screen shows that figg is listening while you are in the meeting app. Click the fig to return to the note or the camera to copy a screenshot; drag it anywhere.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Toggle("Keep audio after transcription", isOn: $settings.config.recording.keepAudio)
             Text("Off by default. When on, audio chunks are kept under ~/Library/Application Support/figg/meetings.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Picker("Speech engine", selection: $settings.config.transcription.engine) {
                 Text("Parakeet (Nvidia, recommended)").tag("parakeet")
                 Text("Whisper").tag("whisper")
@@ -156,9 +156,9 @@ struct RecordingSettings: View {
                 .disabled(settings.config.transcription.engine != "whisper")
             TextField("Language", text: $settings.config.transcription.language)
             Text("Engine and model changes take effect after restarting figg. Language applies to Whisper (empty = detect); Parakeet detects it. Smaller models (e.g. `small.en`) are faster on older Macs.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Text("Use headphones: on laptop speakers your mic also hears the other side, so some of their speech can show up as \"Me\".")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Toggle("Name speakers on Zoom calls", isOn: $settings.config.transcription.meetingAppNames)
             MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames)
             Section("Updates") {
@@ -168,7 +168,7 @@ struct RecordingSettings: View {
                     UpdateStatusView(updates: model.updates, install: model.installUpdate)
                 }
                 Text("\(UpdateManager.currentVersion.map { "figg v\($0)" } ?? "figg (dev build)"). Updates come from figg's download site; only an anonymous version check is sent.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
         }
     }
@@ -188,10 +188,10 @@ struct DictationSettings: View {
             }
             .disabled(!settings.config.dictation.enabled)
             Text("Hold the key, speak, and let go: figg types what you said where the cursor is. Speech is transcribed on this Mac with the same model as your meetings, and your clipboard is never used. Or tap the key to keep listening hands-free, and tap it again to finish. Esc cancels at any point and types nothing.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             if settings.config.dictation.key == "fn" {
                 Text("To stop fn also opening emoji or macOS dictation, set System Settings > Keyboard > \"Press 🌐 key to\" to \"Do Nothing\".")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
             HStack {
                 Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet").font(.caption)
@@ -203,7 +203,7 @@ struct DictationSettings: View {
                 }
             }
             Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             Section("Sounds") {
                 Toggle("Play a sound when listening starts and stops", isOn: $settings.config.dictation.sounds)
                 Group {
@@ -216,7 +216,7 @@ struct DictationSettings: View {
                 }
                 .disabled(!settings.config.dictation.sounds)
                 Text("Picking a sound plays it. The cancel sound plays a little quieter. They are never picked up as your speech or as call audio: the mic is silenced while the start sound plays, so a quick one (marked) loses none of what you say.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
             Section("Type the last dictation again") {
                 LabeledContent("Shortcut") {
@@ -224,13 +224,13 @@ struct DictationSettings: View {
                 }
                 .disabled(!settings.config.dictation.enabled)
                 Text("Press it in any app to type your last dictation again where the cursor is, without using the clipboard. It takes those keys from every other app: figg warns about macOS's own shortcuts, but cannot see the ones inside other apps' menus. Clear it (Delete while recording) to turn it off.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
             Section("History") {
                 Stepper("Keep the last \(settings.config.dictation.historyLimit)", value: $settings.config.dictation.historyLimit, in: 10...2000, step: 50)
                 Button("Open Dictation History…") { model.dictation.showHistory() }
                 Text("If the text did not land where you wanted, copy it from the history. Only the text is kept, never the audio.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .settingsCaption()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -286,7 +286,7 @@ struct SharingSettings: View {
                 .font(.caption)
             TextField("Confluence space key", text: $settings.config.sharing.confluenceSpace)
             TextField("Jira project key", text: $settings.config.sharing.jiraProject)
-            Text("Email and API token are stored in your macOS Keychain, not in config.yaml.").font(.caption).foregroundStyle(.secondary)
+            Text("Email and API token are stored in your macOS Keychain, not in config.yaml.").settingsCaption()
         }
     }
 }
@@ -299,7 +299,7 @@ private struct MeetingAppNamesStatus: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("In the Zoom desktop app, figg reads who Zoom shows as talking and uses their Zoom names instead of \"Them 1\", \"Them 2\". Works best in Speaker view. It needs Accessibility permission to read Zoom's window; only names are read, on this Mac.")
-                .font(.caption).foregroundStyle(.secondary)
+                .settingsCaption()
             if enabled {
                 HStack {
                     Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet")
@@ -317,5 +317,18 @@ private struct MeetingAppNamesStatus: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             granted = AccessibilityAccess.isGranted
         }
+    }
+}
+
+extension View {
+    /// Small grey help text under a setting. A Form sizes its value column
+    /// to the widest row, so an unwrapped caption sets the width of the whole
+    /// pane and pushes the labels and buttons out of the window. Filling the
+    /// column and growing downwards makes it wrap instead.
+    func settingsCaption() -> some View {
+        font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
