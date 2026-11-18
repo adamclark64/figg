@@ -237,7 +237,7 @@ struct DictationSettings: View {
         }
     }
 
-    /// A menu of the macOS system sounds for one cue; choosing one plays it.
+    /// A menu of the sounds for one cue; choosing one plays it.
     private func soundPicker(_ title: String, _ cue: DictationCue, _ selection: Binding<String>) -> some View {
         Picker(title, selection: selection) {
             Text("None").tag(DictationCue.none)

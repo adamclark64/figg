@@ -71,9 +71,9 @@ import Testing
         #expect(c.dictation.historyLimit == 200)
         #expect(c.dictation.sounds)
         #expect(c.dictation.soundVolume == 0.5)
-        #expect(c.dictation.startSound == "Tink")
-        #expect(c.dictation.stopSound == "Pop")
-        #expect(c.dictation.cancelSound == "Bottle")
+        #expect(c.dictation.startSound == "Soft Start")
+        #expect(c.dictation.stopSound == "Soft Stop")
+        #expect(c.dictation.cancelSound == "Soft Stop")
         #expect(c.dictation.pasteLastShortcut == "ctrl+option+cmd+v")
     }
 

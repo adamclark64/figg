@@ -17,7 +17,7 @@ final class DictationSounds {
 
     private func load(_ sound: DictationSound) -> NSSound? {
         if let s = loaded[sound.name] { return s }
-        guard let s = NSSound(contentsOfFile: sound.path, byReference: true) else { return nil }
+        guard let s = NSSound(contentsOfFile: sound.path(resources: Bundle.main.resourcePath ?? ""), byReference: true) else { return nil }
         loaded[sound.name] = s
         return s
     }

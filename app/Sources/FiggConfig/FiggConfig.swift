@@ -250,11 +250,12 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var sounds = true
         /// Volume of those sounds, 0 to 1.
         public var soundVolume = 0.5
-        /// A macOS system sound name (as in /System/Library/Sounds) for each
-        /// cue, or "none" to play nothing for that one.
-        public var startSound = "Tink"
-        public var stopSound = "Pop"
-        public var cancelSound = "Bottle"
+        /// A sound name for each cue: figg's own "Soft Start" or "Soft Stop",
+        /// a macOS system sound (as in /System/Library/Sounds), or "none" to
+        /// play nothing for that one.
+        public var startSound = "Soft Start"
+        public var stopSound = "Soft Stop"
+        public var cancelSound = "Soft Stop"
         /// Shortcut that types the last dictation again where the cursor is,
         /// e.g. "ctrl+option+cmd+v" (the default, which no standard or macOS
         /// shortcut uses), or "" for off.
@@ -447,10 +448,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           sounds: \(dictation.sounds)
           # Volume of those sounds, 0 to 1.
           sound_volume: \(dictation.soundVolume)
-          # Which sound for each: Tink, Frog, Morse, Pop, Ping, Bottle, Purr,
-          # Glass (macOS system sounds) or "none". The mic is silenced while
-          # the start sound plays, so a long one costs the first moment of what
-          # you say; Tink, Frog and Morse are quick.
+          # Which sound for each: Soft Start, Soft Stop (figg's own), Tink,
+          # Frog, Morse, Pop, Ping, Bottle, Purr, Glass (macOS system sounds) or
+          # "none". The mic is silenced while the start sound plays, so a long
+          # one costs the first moment of what you say; Tink, Frog and Morse
+          # are quick.
           start_sound: \(q(dictation.startSound))
           stop_sound: \(q(dictation.stopSound))
           cancel_sound: \(q(dictation.cancelSound))

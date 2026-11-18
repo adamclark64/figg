@@ -137,10 +137,14 @@ import Testing
         #expect(DictationCue.start.volume(setting: -1) == 0)
     }
 
-    @Test func everyChoiceIsABuiltInSystemSound() {
-        #expect(DictationSound.all.count == 8)
+    @Test func everyChoiceHasAFile() {
+        #expect(DictationSound.all.count == 10)
+        // app/Resources, which scripts/bundle.sh copies into the .app.
+        let resources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources").path
         for sound in DictationSound.all {
-            #expect(FileManager.default.fileExists(atPath: sound.path), "\(sound.name)")
+            #expect(FileManager.default.fileExists(atPath: sound.path(resources: resources)), "\(sound.name)")
         }
         for cue in DictationCue.allCases {
             #expect(DictationSound.named(cue.defaultSound) != nil)
@@ -152,7 +156,9 @@ import Testing
         #expect(DictationCue.stop.sound(setting: "None") == nil)
         #expect(DictationCue.start.sound(setting: "morse")?.name == "Morse")
         // A name this Mac does not have falls back to the cue's default.
-        #expect(DictationCue.start.sound(setting: "Tinkk")?.name == "Tink")
+        #expect(DictationCue.start.sound(setting: "Tinkk")?.name == "Soft Start")
+        #expect(DictationCue.cancel.sound(setting: "Tinkk")?.name == "Soft Stop")
+        #expect(DictationCue.stop.sound(setting: "soft stop")?.source == .bundled(file: "SoftStop"))
     }
 
     @Test func theStartSoundIsSilencedForAsLongAsItCanBeHeard() throws {

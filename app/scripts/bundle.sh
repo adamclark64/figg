@@ -39,6 +39,8 @@ cp "$BIN/Figg" "$APP/Contents/MacOS/Figg"
 find "$BIN" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP/Contents/Resources/" \;
 # Icons; regenerate from Resources/figg-logo.png with: swift scripts/make-icon.swift
 cp Resources/AppIcon.icns Resources/MenuBarIcon.png Resources/MenuBarIcon@2x.png "$APP/Contents/Resources/"
+# Dictation's start and stop sounds (DictationSound.Source.bundled).
+cp -R Resources/Sounds "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 
 codesign --force --deep --options runtime --timestamp=none \
