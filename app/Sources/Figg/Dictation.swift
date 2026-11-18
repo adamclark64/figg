@@ -371,10 +371,7 @@ final class DictationController: ObservableObject {
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
-    func showSettings() {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-    }
+    func showSettings() { SettingsWindow.open(tab: .dictation) }
 
     var shortcutLabel: String { HoldKey(setting: settings.config.dictation.key).label }
 

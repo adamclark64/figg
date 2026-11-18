@@ -7,6 +7,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
+    @ObservedObject private var window = SettingsWindow.shared
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -27,11 +28,11 @@ struct SettingsView: View {
     }
 
     private var tabs: some View {
-        TabView {
-            AISettings().tabItem { Label("AI", systemImage: "sparkles") }
-            RecordingSettings().tabItem { Label("Recording", systemImage: "waveform") }
-            DictationSettings().tabItem { Label("Dictation", systemImage: "mic") }
-            SharingSettings().tabItem { Label("Sharing", systemImage: "square.and.arrow.up") }
+        TabView(selection: $window.tab) {
+            AISettings().tabItem { Label("AI", systemImage: "sparkles") }.tag(SettingsWindow.Tab.ai)
+            RecordingSettings().tabItem { Label("Recording", systemImage: "waveform") }.tag(SettingsWindow.Tab.recording)
+            DictationSettings().tabItem { Label("Dictation", systemImage: "mic") }.tag(SettingsWindow.Tab.dictation)
+            SharingSettings().tabItem { Label("Sharing", systemImage: "square.and.arrow.up") }.tag(SettingsWindow.Tab.sharing)
         }
     }
 }
