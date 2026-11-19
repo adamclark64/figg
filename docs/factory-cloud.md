@@ -1,7 +1,7 @@
 # Factory cloud setup
 
 How the figg factory (issue 89) runs in Claude Code cloud sessions: one
-personal environment, `figg-factory`, and four scheduled tasks that call the
+personal environment, `figg factory`, and four scheduled tasks that call the
 factory skills in `.claude/skills/`. How to feed and steer the factory is in
 [factory.md](factory.md).
 
@@ -19,12 +19,16 @@ schedule. It fires on pull request, issue and release events, and a pull
 request trigger can filter on labels, base branch, head branch, draft and
 merged. So no polling is needed: each label change starts its own session.
 
-Two limits shape the prompts:
+What a triggered run sees, from the first real run (factory-build, fired by
+a merge into `main`):
 
-- **The run is not told which PR fired it** (the docs promise only that a
-  PR-triggered run starts from that PR's head commit). Each prompt therefore
-  looks up the matching PRs over REST and works on each one. The skills are
-  safe to re-run, so a PR that has already been handled is skipped.
+- **The run is told which PR fired it.** A `<github-trigger-context>` block
+  follows the prompt with the event (`pull_request.closed`), the repository,
+  the PR number and link, the branch and the head SHA. The checkout starts
+  on that PR's head.
+- **The prompts still look up their PRs over REST.** That way the same
+  prompt also works on Run now and catches anything missed while a task was
+  off. The skills are safe to re-run, so a PR already handled is skipped.
 - **Events are capped per task and per account each hour**, and events over
   the cap are dropped, not queued. The daily `factory-status` run is the
   backstop that shows anything stuck.
@@ -33,14 +37,14 @@ The trigger needs the Claude GitHub App installed on `adamclark64/figg`.
 A GitHub trigger cannot be added from the CLI before v2.1.225; the web
 form at https://claude.ai/code/routines always works.
 
-## The environment: figg-factory
+## The environment: figg factory
 
 Create it at https://claude.ai/code from the environment selector under the
 message box. It is personal (not shared).
 
 | Setting | Value |
 |---|---|
-| Name | `figg-factory` |
+| Name | `figg factory` |
 | Network access | Limited, with **Allow package managers** checked |
 | Allowed domains | none extra |
 | Environment variables | none |
@@ -73,7 +77,7 @@ and skips the download when that version is already there. Tested on
 
 ```bash
 #!/usr/bin/env bash
-# figg-factory setup: pinned, checksummed gitleaks for the factory gates.
+# figg factory setup: pinned, checksummed gitleaks for the factory gates.
 set -euo pipefail
 GITLEAKS_VERSION=8.28.0
 GITLEAKS_SHA256=a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
@@ -89,33 +93,45 @@ fi
 gitleaks version
 ```
 
+The first triggered run logged "Setup script completed" about a second
+after it started.
+
 To bump gitleaks, change both pins here, in the environment, and in
 `.github/workflows/ci.yml` together.
 
 ## The scheduled tasks
 
-Four tasks, one per row. All use the `figg-factory` environment, the
+Four tasks, one per row. All use the `figg factory` environment, the
 `adamclark64/figg` repository only, and no connectors (clear the connector
 list in the task form: a task with none named gets every connector on the
 account).
 
-| Task | Trigger | Calls | Model |
-|---|---|---|---|
-| `factory-design` | GitHub: `pull_request.labeled`, labels include `factory:spec` | `factory-design` on each open PR labelled `factory:spec` | Opus |
-| `factory-build` | GitHub: `pull_request.closed`, is merged, labels include `factory:planned`, base branch `main` | `factory-build` on each merged Spec PR still labelled `factory:planned` | Opus |
-| `factory-fix` | GitHub: `pull_request.labeled`, labels include `factory:ci-failed`, head branch starts with `factory/` | `factory-fix` on each open PR labelled `factory:ci-failed` | Opus |
-| `factory-status` | Schedule: daily, `0 14 * * *` (14:00 UTC) | `factory-status` | Sonnet |
+| Task | Trigger | Filter to add in the web form | Calls | Model |
+|---|---|---|---|---|
+| `factory-design` | GitHub: `pull_request.labeled` | labels include `factory:spec` | `factory-design` on each open PR labelled `factory:spec` | Opus |
+| `factory-build` | GitHub: `pull_request.closed` | is merged | `factory-build` on each merged Spec PR labelled `factory:planned` or `factory:building` | Opus |
+| `factory-fix` | GitHub: `pull_request.labeled` | labels include `factory:ci-failed`, head branch starts with `factory/` | `factory-fix` on each open PR labelled `factory:ci-failed` | Opus |
+| `factory-status` | Schedule: daily, `0 14 * * *` (14:00 UTC) | none | `factory-status` | Sonnet |
 
-`factory-build` also needs to run again after each item PR lands in its
-integration branch (`factory-build` says so). Proposed: a second GitHub
-trigger on the same task, `pull_request.closed`, is merged, base branch
-starts with `factory/`. Until it is added, run the task by hand (Run now)
-or start `/factory-build NNNN` in a cloud session.
+**The triggers are unfiltered for now.** The API that adds a GitHub trigger
+takes the event list but rejects every filter shape tried, so filters can
+only be set by hand in each task's web form. Until they are, every label
+added to any PR starts a `factory-design` run and a `factory-fix` run, and
+every closed PR starts a `factory-build` run. Each of those finds nothing
+to do and stops (about 16 seconds of Opus on the first one), but they add
+up.
+
+`factory-build` has to run again after each item PR lands in its
+integration branch (`factory-build` says so). Its `pull_request.closed`
+trigger covers that too, as long as the filter is only "is merged": an item
+PR merged into `factory/NNNN` fires it, and the prompt finds the Spec PR
+still labelled `factory:building`.
 
 `factory:ci-failed` is added by CI's `label` job with the workflow's own
 token. GitHub does not start workflows from that token's events, but app
-webhooks are still delivered; the throwaway test below checks that the
-trigger really sees it.
+webhooks are still delivered. That has not been seen on a real run yet;
+if a red factory PR sits without a `factory-fix` run, run the task by hand
+and note it here.
 
 ### Prompts
 
@@ -180,8 +196,9 @@ file with `git show` and follow it exactly. It is read-only: change nothing.
 Each fire is a full cloud session on the owner's subscription. A spec costs
 about one design run, one or more build runs, and one fix run per red CI
 (at most three per PR before `factory:needs-human`). The daily status run is
-one short Sonnet session. A `pull_request.labeled` trigger fires for every
-label added while the filter matches, so a PR that gets two labels at once
+one short Sonnet session. Unfiltered triggers add one short run per
+unrelated label or closed PR (see above). A `pull_request.labeled` trigger
+fires for every label added while the filter matches, so a PR that gets two labels at once
 can start two runs; the skills are idempotent, so the second one finds
 nothing to do.
 
@@ -205,24 +222,19 @@ task back on, run it once by hand (Run now) to catch up.
 
 These cannot be done from a session:
 
-1. Install the Claude GitHub App on `adamclark64/figg` (and only there) if
-   it is not installed yet.
-2. Create the `figg-factory` environment with the settings above.
-3. Create the four tasks (or tell a session the environment's id and let it
-   create them), add their GitHub triggers and label filters in the web
-   form, and clear their connectors.
-4. Delete the throwaway test task once it has answered.
-5. Approve the two factory gates: merge each Spec PR (approval 1) and each
+1. Keep the Claude GitHub App installed on `adamclark64/figg` (check at
+   https://github.com/settings/installations). Without it no trigger fires.
+2. Add the label filters above to each task in the web form.
+3. Approve the two factory gates: merge each Spec PR (approval 1) and each
    final PR (approval 2). Nothing in the cloud merges.
-6. Delete tasks: only the web page can do it.
+4. Delete tasks, including the throwaway test task below: only the web
+   page can do it.
+
+The environment and the four tasks are already set up as described here.
 
 ## The throwaway trigger test
 
-To check what a triggered run actually receives, a disabled test task,
-`factory-trigger-test`, fires on `pull_request.labeled` in
-`adamclark64/figg` with no label filter. It changes nothing and only
-reports the event context it was given, its checkout, and the open PRs
-labelled `factory:test-trigger`. To use it: turn it on, add the label
-`factory:test-trigger` to any PR, read the run, remove the label, then delete
-the task. Record the answers here: whether the run names the PR, and
-whether a label added by CI's `label` job fires a trigger.
+`factory-trigger-test` was a disabled, read-only task set up to learn what
+a triggered run receives. The first real `factory-build` run answered that
+(see "What wakes the factory"), so the test task is no longer needed.
+Delete it at https://claude.ai/code/routines.
