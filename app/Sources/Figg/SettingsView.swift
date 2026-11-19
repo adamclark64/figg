@@ -202,7 +202,7 @@ struct DictationSettings: View {
                     }
                 }
             }
-            Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
+            Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped. If figg is already switched on in that list but this still says not allowed, select figg there, remove it with −, then click Allow… again.")
                 .settingsCaption()
             Section("Sounds") {
                 Toggle("Play a sound when listening starts and stops", isOn: $settings.config.dictation.sounds)

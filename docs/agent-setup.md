@@ -144,7 +144,9 @@ Build with `app/scripts/bundle.sh`, not `swift build`: a `swift build` binary
 crashes on resource lookup.
 
 **Check:** the last line of output reads
-`Built app/build/Figg.app (<version> build <n>, signed with 'figg Local Signing')`.
+`Built app/build/Figg.app (<version> build <n>, dev.adamclark.figg.dev, signed with 'figg Local Signing')`.
+A build from source is called **figg dev** in System Settings lists, so it
+never takes over the permissions of a downloaded figg on the same Mac.
 If it says `signed with '-'`, the certificate was not found; go back to
 `docs/local-signing.md`.
 
@@ -184,7 +186,8 @@ It lists a `parakeet-tdt-0.6b-v3` folder.
 
 ## 4. Permissions
 
-figg needs two macOS permissions, and only the human can grant them:
+figg needs two macOS permissions, and only the human can grant them. In
+the lists below a build from source appears as **figg dev**:
 
 - **Microphone**: System Settings > Privacy & Security > Microphone
 - **System Audio Recording**: System Settings > Privacy & Security >

@@ -32,7 +32,7 @@ import Testing
 
     @Test func ignoresDictationAndFigg() {
         var d = MeetingDetector(startDelay: 3)
-        let noise: Set<String> = ["com.FluidApp.app", "com.apple.CoreSpeech", "dev.adamclark.figg"]
+        let noise: Set<String> = ["com.FluidApp.app", "com.apple.CoreSpeech", "dev.adamclark.figg", "dev.adamclark.figg.dev"]
         _ = d.update(apps: noise, isRecording: false, now: at(0))
         #expect(d.update(apps: noise, isRecording: false, now: at(30)) == nil)
     }

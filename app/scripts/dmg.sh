@@ -15,6 +15,11 @@ cd "$(dirname "$0")/.."
 VERSION="${FIGG_VERSION:?Set FIGG_VERSION, e.g. FIGG_VERSION=0.2.0}"
 APP="build/Figg.app"
 [[ -d "$APP" ]] || { echo "No $APP; run scripts/bundle.sh first" >&2; exit 1; }
+# A DMG is a release, and a release must carry the release bundle ID or it
+# would install as a second app beside figg, with none of its permissions.
+ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
+[[ "$ID" == "dev.adamclark.figg" ]] || {
+  echo "$APP is a local build ($ID); build releases with FIGG_SIGN_IDENTITY set" >&2; exit 1; }
 
 # Notarization requires a secure timestamp, which bundle.sh omits.
 if [[ -n "${FIGG_SIGN_IDENTITY:-}" ]]; then

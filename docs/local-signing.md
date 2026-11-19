@@ -28,7 +28,11 @@ security find-identity -p codesigning | grep "figg Local Signing"
 app/scripts/bundle.sh
 ```
 
-The output should end with `signed with 'figg Local Signing'`. Grant figg its
+The output should end with `dev.adamclark.figg.dev, signed with 'figg Local Signing'`.
+A local build is called **figg dev** and has its own bundle ID, so it never
+shares permissions with a downloaded figg: macOS keeps one entry per bundle
+ID, tied to the certificate it was granted to, and a local build under the
+release's ID left the installed app showing as allowed but refused. Grant figg its
 permissions once (System Settings > Privacy & Security > Microphone, and
 Screen & System Audio Recording > System Audio Recording Only); they now
 survive rebuilds. The first build signed this way may ask for your login

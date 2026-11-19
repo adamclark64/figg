@@ -33,6 +33,7 @@ public struct MeetingDetector: Sendable {
 
     public static let defaultIgnored: Set<String> = [
         "dev.adamclark.figg",
+        "dev.adamclark.figg.dev",           // a local build (scripts/bundle.sh)
         "com.FluidApp.app",                 // FluidVoice dictation
         "com.electron.wispr-flow",          // Wispr Flow dictation
         "com.apple.CoreSpeech", "com.apple.corespeechd",
