@@ -100,6 +100,8 @@ macOS permissions, or Bedrock.
 - [ ] Copy for Slack pastes cleanly into Slack
 - [ ] Publish to Confluence opens the new page (set space key first)
 - [ ] Jira sheet lists action items; created keys shown; tickets look right
+- [ ] Save as Markdown on a meeting with a transcript: the .md opens in a Markdown editor with the notes, then `## Transcript` with timestamped lines
+- [ ] Save as Markdown into a read-only folder shows "Could not save the file: ..." and writes nothing
 
 ## Data
 - [ ] `~/Library/Application Support/figg` is mode 700
