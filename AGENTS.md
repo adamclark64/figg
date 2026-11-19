@@ -134,7 +134,7 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
 | Slack/Confluence/Jira | `app/Sources/FiggExport/` |
 | Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
-| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
+| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift`, optional cleanup prompt in `FiggNotes/DictationCleanup.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
 | Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
@@ -189,6 +189,16 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   and lands in its transcript as "Me". fn's own action (emoji, macOS
   dictation) still fires unless the user sets "Press 🌐 key to" to Do
   Nothing; figg does not change that setting.
+  Cleanup (`dictation.cleanup`: off, light, medium; off by default) waits
+  up to 5 s for the provider's fast model, then types the raw text; Esc
+  skips it. A reply that is empty, much longer or mostly other words is
+  treated as the model answering the dictation and not used. Use Raw Text
+  and Process Again select the text figg just typed through AX (only when
+  it is exactly what sits before the cursor) and type over it; otherwise
+  they change only the history. Unit tests only: no live call, no live
+  replace in a browser or Electron field yet, and the latency cost is not
+  measured (#93). Medium's paragraphs are flattened to one line when typed
+  as keystrokes, so a Return never sends a chat message.
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).

@@ -245,3 +245,35 @@ import Testing
         #expect(KeyCombo(setting: "ctrl+space")!.clash() == "the input source switcher")
     }
 }
+
+@Suite struct JustTypedTests {
+    @Test func findsTheTextRightBeforeTheCursor() {
+        let value = "Hi there. So I think we ship Friday."
+        let typed = " So I think we ship Friday."
+        let r = JustTyped.range(of: typed, in: value, cursor: value.utf16.count)
+        #expect(r?.location == 9)
+        #expect(r?.length == typed.utf16.count)
+    }
+
+    @Test func leavesTheFieldAloneWhenTheUserMovedOn() {
+        let value = "So I think we ship Friday. And more"
+        #expect(JustTyped.range(of: "So I think we ship Friday.", in: value, cursor: value.utf16.count) == nil)
+        // Cursor moved back, or something is selected.
+        #expect(JustTyped.range(of: "Friday.", in: "Friday. x", cursor: 9) == nil)
+        #expect(JustTyped.range(of: "Friday.", in: "Friday.", cursor: 7, selectionLength: 2) == nil)
+        #expect(JustTyped.range(of: "Friday.", in: "Fri", cursor: 3) == nil)
+        #expect(JustTyped.range(of: "", in: "abc", cursor: 3) == nil)
+    }
+
+    @Test func matchesParagraphsThatWereTypedOnOneLine() {
+        let typed = " Ship it.\n\nOn Friday 🎉."
+        let value = "Notes: Ship it. On Friday 🎉."
+        let r = JustTyped.range(of: typed, in: value, cursor: value.utf16.count)
+        #expect(r?.location == 6)
+    }
+
+    @Test func singleLineKeepsTheLeadingSpace() {
+        #expect(DictationText.singleLine(" a\n\nb\nc ") == " a b c")
+        #expect(DictationText.singleLine("no breaks") == "no breaks")
+    }
+}

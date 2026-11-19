@@ -156,6 +156,11 @@ final class AppModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in await self?.autoCheckForUpdates(after: UpdateSchedule.wakeInterval) }
         }
+        // Dictation cleanup uses the active provider's fast model, like titles.
+        dictation.makeCleaner = { [weak self] in
+            guard let self else { return nil }
+            return DictationCleaner(llm: self.llm, model: self.models.fastModel)
+        }
     }
 
     // MARK: Calendar

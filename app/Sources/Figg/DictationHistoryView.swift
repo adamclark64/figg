@@ -37,6 +37,11 @@ struct DictationHistoryView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(d.text).textSelection(.enabled)
+                if let raw = d.rawText, raw != d.text {
+                    Text("As heard: \(raw)")
+                        .font(.callout).foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
                 HStack(spacing: 6) {
                     Text(d.createdAt.formatted(date: .abbreviated, time: .shortened))
                     if !d.appName.isEmpty { Text("· \(d.appName)") }
@@ -56,6 +61,9 @@ struct DictationHistoryView: View {
         .padding(.vertical, 4)
         .contextMenu {
             Button("Copy") { controller.copy(d) }
+            if let raw = d.rawText, raw != d.text {
+                Button("Copy Raw Text") { controller.copy(raw) }
+            }
             Button("Delete", role: .destructive) { controller.delete(d) }
         }
     }

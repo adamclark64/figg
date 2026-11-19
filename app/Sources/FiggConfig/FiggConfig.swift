@@ -260,6 +260,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         /// e.g. "ctrl+option+cmd+v" (the default, which no standard or macOS
         /// shortcut uses), or "" for off.
         public var pasteLastShortcut = "ctrl+option+cmd+v"
+        /// Optional cleanup of the transcribed text by the model provider
+        /// before it is typed: "off" (the default), "light" (fillers,
+        /// stutters, punctuation) or "medium" (also false starts, grammar
+        /// slips and paragraphs). Text only; audio never leaves the Mac.
+        public var cleanup = "off"
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
@@ -270,6 +275,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case stopSound = "stop_sound"
             case cancelSound = "cancel_sound"
             case pasteLastShortcut = "paste_last_shortcut"
+            case cleanup
         }
     }
 
@@ -461,6 +467,14 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # shift and cmd, and at least one of ctrl, option or cmd is needed.
           # It takes those keys from every other app. "" turns it off.
           paste_last_shortcut: \(q(dictation.pasteLastShortcut))
+          # Tidy the words before they are typed, using the model provider
+          # under llm (its fast model): "off", "light" (drops um, uh and
+          # stutters, fixes punctuation) or "medium" (also false starts, small
+          # grammar slips and paragraphs). Only the text is sent, never audio.
+          # figg waits up to 5 s for the model and types the raw words if it
+          # is slow or fails. The panel's ••• menu has Use Raw Text and
+          # Process Again.
+          cleanup: \(q(dictation.cleanup))
 
         """
     }
@@ -646,5 +660,13 @@ extension FiggConfig.Dictation {
         stopSound = try c.decodeIfPresent(String.self, forKey: .stopSound) ?? d.stopSound
         cancelSound = try c.decodeIfPresent(String.self, forKey: .cancelSound) ?? d.cancelSound
         pasteLastShortcut = try c.decodeIfPresent(String.self, forKey: .pasteLastShortcut) ?? d.pasteLastShortcut
+        // A level name, or `true` / `false`.
+        if let level = try? c.decodeIfPresent(String.self, forKey: .cleanup) {
+            cleanup = level
+        } else if let on = try? c.decodeIfPresent(Bool.self, forKey: .cleanup) {
+            cleanup = on ? "light" : "off"
+        } else {
+            cleanup = d.cleanup
+        }
     }
 }

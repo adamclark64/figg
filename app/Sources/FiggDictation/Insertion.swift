@@ -73,6 +73,27 @@ public enum InsertionRouter {
     }
 }
 
+/// Finds text figg just put in, so Use Raw Text and Process Again can swap
+/// it for other words instead of adding a second copy.
+public enum JustTyped {
+    /// The UTF-16 range of `typed` when it sits right before the cursor in
+    /// `value` and nothing is selected, else nil: the user moved on, so
+    /// figg will not guess what to remove. Tries the text as given and as
+    /// typed on one line, since keystroke typing flattens line breaks.
+    public static func range(of typed: String, in value: String, cursor: Int, selectionLength: Int = 0)
+        -> (location: Int, length: Int)? {
+        guard selectionLength == 0 else { return nil }
+        let units = Array(value.utf16)
+        guard cursor <= units.count else { return nil }
+        for candidate in Set([typed, DictationText.singleLine(typed)]) {
+            let t = Array(candidate.utf16)
+            guard !t.isEmpty, t.count <= cursor else { continue }
+            if Array(units[(cursor - t.count)..<cursor]) == t { return (cursor - t.count, t.count) }
+        }
+        return nil
+    }
+}
+
 /// Splits text into pieces small enough for one synthetic key event.
 /// CGEvent carries at most 20 UTF-16 units per event; pieces never split a
 /// character (emoji, accented letters).
@@ -109,5 +130,17 @@ public enum DictationText {
             return " " + joined
         }
         return joined
+    }
+
+    /// The text with line breaks (a cleaned dictation's paragraphs) as
+    /// spaces. Used when typing keystrokes, where a Return would send a
+    /// chat message or run a terminal command.
+    public static func singleLine(_ text: String) -> String {
+        guard text.contains(where: \.isNewline) else { return text }
+        let leading = text.prefix(while: { $0 == " " })
+        return leading + text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 }

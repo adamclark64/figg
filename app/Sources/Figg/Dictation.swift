@@ -5,6 +5,7 @@ import FiggAudio
 import FiggConfig
 import FiggDictation
 import FiggMeetingApps
+import FiggNotes
 import FiggStore
 import FiggTranscription
 import SwiftUI
@@ -19,6 +20,9 @@ final class DictationController: ObservableObject {
         case idle
         case listening
         case transcribing
+        /// The model provider is tidying the text (`dictation.cleanup`).
+        /// Esc skips it and types the raw words.
+        case cleaning
         /// Finished: the text, and what happened to it.
         case done(DictationOutcome)
         /// A short note shown in the panel, e.g. why nothing was inserted.
@@ -36,6 +40,15 @@ final class DictationController: ObservableObject {
     /// A tap locked recording on; the next press of the key finishes.
     @Published private(set) var handsFree = false
     @Published var hovering = false
+
+    /// Builds the cleanup from the current model provider, on every use, so
+    /// a change in Settings applies to the next dictation. Set by AppModel.
+    var makeCleaner: (@MainActor () -> DictationCleaner?)?
+    /// The text figg last put into an app for the latest dictation, exactly
+    /// as typed (leading space included), so Use Raw Text and Process Again
+    /// can find it before the cursor and swap it.
+    private var lastTyped: (id: Int64, text: String)?
+    private var cleanupTask: Task<String?, Never>?
 
     private let store: Store
     private let transcriber: any Transcriber
@@ -205,6 +218,11 @@ final class DictationController: ObservableObject {
     /// (nothing typed, nothing saved), and the panel closes.
     private func dismiss() {
         guard phase != .idle else { return }
+        // Esc while cleaning up: type the raw text now.
+        if phase == .cleaning, let cleanupTask {
+            cleanupTask.cancel()
+            return
+        }
         generation += 1
         show(.idle)
     }
@@ -243,25 +261,62 @@ final class DictationController: ObservableObject {
             return
         }
         let (_, element) = TextInserter.focusedField()
-        let text = DictationText.prepare(
+        let prepared = DictationText.prepare(
             segments.compactMap { TranscriptCleaner.clean($0.text) },
             precedingCharacter: TextInserter.precedingCharacter(element))
-        guard !text.isEmpty else {
+        guard !prepared.isEmpty else {
             show(.idle)
             return
         }
         // Esc was pressed while this was transcribing.
         guard run == generation else { return }
+        let prefix = String(prepared.prefix(while: { $0 == " " }))
+        let raw = String(prepared.dropFirst(prefix.count))
+        var cleaned: String?
+        let level = CleanupLevel(setting: settings.config.dictation.cleanup)
+        if level != .off {
+            if !capturing {
+                liveText = raw
+                show(.cleaning)
+            }
+            cleaned = await cleanUp(raw, level: level)
+            guard run == generation else { return }
+        }
+        let body = cleaned ?? raw
+        let text = prefix + body
         // A new dictation started while this one was transcribing: still
         // type this one, but leave the panel to the new one.
         let quiet = capturing
-        if !quiet { liveText = text.trimmingCharacters(in: .whitespaces) }
+        if !quiet { liveText = body }
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
         let outcome = insert(text, showResult: !quiet)
-        NSLog("figg dictation: %@ %d characters into %@", "\(outcome)", text.count, appName)
-        let saved = Dictation(text: text.trimmingCharacters(in: .whitespaces), appName: appName, outcome: outcome)
-        _ = try? store.addDictation(saved, keep: settings.config.dictation.historyLimit)
+        NSLog("figg dictation: %@ %d characters into %@ (cleanup %@)", "\(outcome)", text.count, appName, cleaned == nil ? "none" : level.rawValue)
+        let saved = Dictation(text: body, rawText: cleaned == nil ? nil : raw, appName: appName, outcome: outcome)
+        let stored = try? store.addDictation(saved, keep: settings.config.dictation.historyLimit)
+        if let id = stored?.id, outcome != .notInserted {
+            lastTyped = (id, text)
+        } else {
+            lastTyped = nil
+        }
         reloadHistory()
+    }
+
+    /// The cleaned text, or nil when there is no provider, it fails, is slow
+    /// or is skipped with Esc: then the raw text is typed. Never throws, so
+    /// a dictation is never lost to cleanup.
+    private func cleanUp(_ raw: String, level: CleanupLevel) async -> String? {
+        guard let cleaner = makeCleaner?() else { return nil }
+        let task = Task { () -> String? in
+            do {
+                return try await cleaner.clean(raw, level: level)
+            } catch {
+                NSLog("figg dictation: cleanup skipped (%@)", "\(type(of: error))")
+                return nil
+            }
+        }
+        cleanupTask = task
+        defer { cleanupTask = nil }
+        return await task.value
     }
 
     /// Inserts and shows the result in the panel.
@@ -324,7 +379,8 @@ final class DictationController: ObservableObject {
         guard let last = history.first else { return }
         target = NSWorkspace.shared.frontmostApplication
         liveText = last.text
-        insert(" " + last.text)
+        let outcome = insert(" " + last.text)
+        if let id = last.id, outcome != .notInserted { lastTyped = (id, " " + last.text) }
     }
 
     /// The paste-last shortcut: types the latest dictation again. Waits for
@@ -344,6 +400,78 @@ final class DictationController: ObservableObject {
             }
             insertLast()
         }
+    }
+
+    /// The latest dictation was cleaned up and its raw words differ.
+    var canUseRawText: Bool {
+        guard let last = history.first, let raw = last.rawText else { return false }
+        return raw != last.text
+    }
+
+    /// Puts the latest dictation's raw transcript in place of the cleaned
+    /// text figg typed.
+    func useRawText() {
+        guard !capturing, let last = history.first, let raw = last.rawText else { return }
+        swapLast(last, for: raw, raw: raw)
+    }
+
+    /// Runs the cleanup again on the latest dictation's raw words and puts
+    /// the result in place of what was typed. Uses Light when cleanup is
+    /// off in Settings, since asking for it is the opt-in.
+    func processAgain() {
+        guard !capturing, phase != .cleaning, let last = history.first else { return }
+        let raw = last.rawText ?? last.text
+        var level = CleanupLevel(setting: settings.config.dictation.cleanup)
+        if level == .off { level = .light }
+        target = NSWorkspace.shared.frontmostApplication
+        liveText = raw
+        show(.cleaning)
+        let run = generation
+        Task { @MainActor in
+            let cleaned = await cleanUp(raw, level: level)
+            guard run == generation else { return }
+            guard let cleaned else {
+                show(.note(makeCleaner == nil ? "No model provider for cleanup" : "Cleanup did not work. Check Settings > AI."))
+                return
+            }
+            swapLast(last, for: cleaned, raw: raw)
+        }
+    }
+
+    /// Replaces the latest dictation's typed text with `text`, when that
+    /// text is still right before the cursor. Otherwise nothing in the app
+    /// changes; the history takes the new text, for Insert Last or Copy Last.
+    private func swapLast(_ last: Dictation, for text: String, raw: String) {
+        guard let id = last.id else { return }
+        target = NSWorkspace.shared.frontmostApplication
+        liveText = text
+        if let typed = lastTyped, typed.id == id {
+            let prefix = String(typed.text.prefix(while: { $0 == " " }))
+            if typed.text == prefix + text {
+                show(.idle)
+                return
+            }
+            ignoreKeysUntil = .distantFuture
+            let result = TextInserter.replace(typed.text, with: prefix + text)
+            ignoreKeysUntil = Date().addingTimeInterval(0.4)
+            if case .replaced(let inserted) = result {
+                switch inserted {
+                case .inserted, .typed:
+                    lastTyped = (id, prefix + text)
+                    show(.idle)
+                case .notInserted(let reason):
+                    lastTyped = nil
+                    show(.note(Self.message(for: reason)))
+                }
+                try? store.updateDictationText(id: id, text: text, rawText: raw)
+                reloadHistory()
+                return
+            }
+        }
+        lastTyped = nil
+        try? store.updateDictationText(id: id, text: text, rawText: raw)
+        reloadHistory()
+        show(.note("The last dictation is no longer before the cursor. Insert Last types this version."))
     }
 
     var pasteLastLabel: String? { KeyCombo(setting: settings.config.dictation.pasteLastShortcut)?.label }
@@ -390,9 +518,12 @@ final class DictationController: ObservableObject {
     }
 
     /// Copies one past dictation, only when the user asks.
-    func copy(_ dictation: Dictation) {
+    func copy(_ dictation: Dictation) { copy(dictation.text) }
+
+    /// Copies text from the history, only when the user asks.
+    func copy(_ text: String) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(dictation.text, forType: .string)
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     func delete(_ dictation: Dictation) {
