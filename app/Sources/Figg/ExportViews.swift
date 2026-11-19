@@ -3,6 +3,7 @@ import FiggExport
 import FiggNotes
 import FiggStore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ExportMenu: View {
     let meeting: Meeting
@@ -15,6 +16,7 @@ struct ExportMenu: View {
         Menu {
             Button("Copy as Markdown") { copy(Formatters.markdown(meeting)) }
             Button("Copy for Slack") { copy(Formatters.slack(meeting)) }
+            Button("Save as Markdown…") { save() }
             Divider()
             Button("Publish to Confluence…") { Task { await publish() } }
             Button("Create Jira tickets from action items…") { showJira = true }
@@ -33,6 +35,30 @@ struct ExportMenu: View {
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// Saves the notes and transcript as a .md file the user picks. Reads
+    /// the store directly (not `model.transcript`, which hides errors) so a
+    /// failed read never saves a file without its transcript.
+    @MainActor
+    private func save() {
+        let lines: [TranscriptLine]
+        do {
+            lines = try model.store.transcript(meetingId: meeting.id)
+        } catch {
+            result = "Could not read the transcript: \(error.localizedDescription)"
+            return
+        }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = ExportFile.suggestedName(for: meeting, pathExtension: "md")
+        panel.allowedContentTypes = UTType(filenameExtension: "md", conformingTo: .plainText).map { [$0] } ?? [.plainText]
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try ExportFile.write(MarkdownExport.document(meeting, lines: lines), to: url)
+        } catch {
+            result = "Could not save the file: \(error.localizedDescription)"
+        }
     }
 
     private func publish() async {
