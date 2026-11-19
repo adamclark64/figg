@@ -216,19 +216,6 @@ struct DictationSettings: View {
                 Text("Picking a sound plays it. The cancel sound plays a little quieter. They are never picked up as your speech or as call audio: the mic is silenced while the start sound plays, so a quick one (marked) loses none of what you say.")
                     .settingsCaption()
             }
-            Section("Clean up") {
-                Picker("Clean up the words", selection: $settings.config.dictation.cleanup) {
-                    ForEach(CleanupLevel.allCases, id: \.rawValue) { level in
-                        Text(level.label).tag(level.rawValue)
-                    }
-                    if CleanupLevel(setting: settings.config.dictation.cleanup).rawValue != settings.config.dictation.cleanup {
-                        Text(settings.config.dictation.cleanup).tag(settings.config.dictation.cleanup)
-                    }
-                }
-                .disabled(!settings.config.dictation.enabled)
-                Text("Light drops um, uh and stutters and fixes punctuation. Medium also drops false starts, fixes small grammar slips and adds paragraphs. It uses the fast model under AI; only the text is sent, never the audio. figg waits up to 5 seconds and types the words as heard if the model is slow or fails, and Esc skips it. The ••• menu has Use Raw Text and Process Again.")
-                    .settingsCaption()
-            }
             Section("Type the last dictation again") {
                 LabeledContent("Shortcut") {
                     ShortcutRecorder(setting: $settings.config.dictation.pasteLastShortcut)

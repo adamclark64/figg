@@ -225,7 +225,6 @@ struct DictationPanelView: View {
         switch controller.phase {
         case .listening: return "Listening…"
         case .transcribing: return "Transcribing…"
-        case .cleaning: return "Cleaning up…"
         case .note(let text): return text
         default: return ""
         }
@@ -238,7 +237,6 @@ struct DictationPanelView: View {
             return "Press \(controller.shortcutLabel) to finish · esc to cancel"
         case .listening: return "Release \(controller.shortcutLabel) to type · esc to cancel"
         case .transcribing: return "esc to cancel"
-        case .cleaning: return "esc to type it as heard"
         case .done(.inserted), .done(.typed): return "Typed into \(app)"
         case .done(.notInserted): return "Saved in History"
         case .note(let text): return controller.liveText.isEmpty ? "" : text
@@ -270,10 +268,6 @@ struct DictationPanelView: View {
                 .disabled(controller.history.isEmpty)
             Button("Copy Last", systemImage: "doc.on.doc") { controller.copyLast() }
                 .disabled(controller.history.isEmpty)
-            Button("Use Raw Text", systemImage: "text.quote") { controller.useRawText() }
-                .disabled(!controller.canUseRawText)
-            Button("Process Again", systemImage: "wand.and.stars") { controller.processAgain() }
-                .disabled(controller.history.isEmpty || controller.phase == .cleaning)
             Divider()
             Button("Dictation History…", systemImage: "clock.arrow.circlepath") { controller.showHistory() }
             Button("Dictation Settings…", systemImage: "gearshape") { controller.showSettings() }
@@ -341,7 +335,7 @@ struct WaveBars: View {
 
     private var color: Color {
         switch phase {
-        case .listening, .transcribing, .cleaning: return PanelColors.accent
+        case .listening, .transcribing: return PanelColors.accent
         default: return PanelColors.muted.opacity(0.6)
         }
     }
@@ -352,7 +346,7 @@ struct WaveBars: View {
         case .listening:
             let ripple = 0.55 + 0.45 * sin(t * 9 + Double(i) * 0.8)
             return 8 + 20 * level * CGFloat(ripple * (0.5 + 0.5 * centre))
-        case .transcribing, .cleaning:
+        case .transcribing:
             let pulse = max(0, sin(t * 4 - Double(i) * 0.6))
             return 8 + 10 * CGFloat(pulse)
         default:

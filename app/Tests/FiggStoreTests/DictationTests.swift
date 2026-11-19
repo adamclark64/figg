@@ -33,29 +33,3 @@ import Testing
         #expect(try store.recentDictations(limit: 10).isEmpty)
     }
 }
-
-@Suite struct DictationRawTextTests {
-    let store = try! Store.inMemory()
-
-    @Test func keepsRawAndCleanedText() throws {
-        try store.addDictation(Dictation(text: "Ship it Friday.", rawText: "uh ship it friday", appName: "Mail", outcome: .inserted), keep: 10)
-        try store.addDictation(Dictation(text: "plain", appName: "Mail", outcome: .typed), keep: 10)
-        let back = try store.recentDictations(limit: 10)
-        #expect(back.map(\.rawText) == [nil, "uh ship it friday"])
-    }
-
-    @Test func updatingTheTextNeverLosesTheRawWords() throws {
-        let d = try store.addDictation(Dictation(text: "Ship it Friday.", rawText: "uh ship it friday", appName: "", outcome: .inserted), keep: 10)
-        try store.updateDictationText(id: try #require(d.id), text: "uh ship it friday", rawText: "something else")
-        let back = try #require(try store.recentDictations(limit: 1).first)
-        #expect(back.text == "uh ship it friday")
-        #expect(back.rawText == "uh ship it friday")
-
-        // A dictation typed uncleaned gets its raw text on Process Again.
-        let plain = try store.addDictation(Dictation(text: "um hi", appName: "", outcome: .typed), keep: 10)
-        try store.updateDictationText(id: try #require(plain.id), text: "Hi.", rawText: "um hi")
-        let after = try #require(try store.recentDictations(limit: 1).first)
-        #expect(after.text == "Hi.")
-        #expect(after.rawText == "um hi")
-    }
-}

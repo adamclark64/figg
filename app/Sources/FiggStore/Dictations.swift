@@ -17,22 +17,17 @@ public enum DictationOutcome: String, Codable, Sendable, DatabaseValueConvertibl
 public struct Dictation: Codable, Sendable, Identifiable, Equatable, FetchableRecord, MutablePersistableRecord {
     public var id: Int64?
     public var createdAt: Date
-    /// What was typed: the cleaned text when cleanup ran.
     public var text: String
-    /// The transcript before cleanup, or nil when the text was typed as
-    /// transcribed. Kept so the raw words can be typed or copied instead.
-    public var rawText: String?
     /// The app that was in front, e.g. "Slack".
     public var appName: String
     public var outcome: DictationOutcome
 
     public static let databaseTableName = "dictation"
 
-    public init(id: Int64? = nil, createdAt: Date = Date(), text: String, rawText: String? = nil, appName: String, outcome: DictationOutcome) {
+    public init(id: Int64? = nil, createdAt: Date = Date(), text: String, appName: String, outcome: DictationOutcome) {
         self.id = id
         self.createdAt = createdAt
         self.text = text
-        self.rawText = rawText
         self.appName = appName
         self.outcome = outcome
     }
@@ -51,6 +46,9 @@ extension Store {
                 t.column("outcome", .text).notNull()
             }
         }
+        // Added for AI cleanup, which was pulled for speed. The column stays
+        // (unused) because databases that already ran this migration must
+        // keep seeing it registered.
         m.registerMigration("v7-dictation-raw-text") { db in
             try db.alter(table: "dictation") { t in t.add(column: "rawText", .text) }
         }
@@ -75,17 +73,6 @@ extension Store {
     public func recentDictations(limit: Int) throws -> [Dictation] {
         try db.read {
             try Dictation.order(Column("createdAt").desc, Column("id").desc).limit(limit).fetchAll($0)
-        }
-    }
-
-    /// Replaces what a past dictation says was typed, after Use Raw Text
-    /// or Process Again changed it. A raw text already kept is never
-    /// overwritten; `rawText` fills it in for a dictation typed uncleaned.
-    public func updateDictationText(id: Int64, text: String, rawText: String? = nil) throws {
-        try db.write {
-            try $0.execute(
-                sql: "UPDATE dictation SET text = ?, rawText = COALESCE(rawText, ?) WHERE id = ?",
-                arguments: [text, rawText, id])
         }
     }
 

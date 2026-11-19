@@ -85,12 +85,6 @@ two real (tiny) Bedrock calls; needs working credentials for that profile
 `FIGG_LIVE=1 FIGG_OPENROUTER_KEY=<key> swift test --package-path app --filter LiveOpenRouterTests`
 makes one real call to OpenRouter's free router.
 
-`FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --package-path app --filter LiveDictationCleanupTests`
-runs a fixed set of tricky dictations (self-corrections, "scratch that",
-spoken lists, an instruction to ignore) through the cleanup prompt on
-Bedrock (`FIGG_MODEL` picks another model). Run it after changing the
-prompt in `FiggNotes/DictationCleanup.swift`.
-
 `cd site && npm install && npm run dev` builds the website into `site/dist`
 and serves it on http://localhost:4173. The docs pages are the repo's own
 Markdown: change the `.md` file, never the built HTML.
@@ -169,7 +163,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Slack/Confluence/Jira | `app/Sources/FiggExport/` |
 | Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
-| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift`, optional cleanup prompt in `FiggNotes/DictationCleanup.swift` |
+| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
 | Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
@@ -225,21 +219,6 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   and lands in its transcript as "Me". fn's own action (emoji, macOS
   dictation) still fires unless the user sets "Press 🌐 key to" to Do
   Nothing; figg does not change that setting.
-  Cleanup (`dictation.cleanup`: off, light, medium; off by default) waits
-  up to 5 s for the provider's fast model, then types the raw text; Esc
-  skips it. A reply that is empty, much longer or mostly other words is
-  treated as the model answering the dictation and not used. Use Raw Text
-  and Process Again select the text figg just typed through AX (only when
-  it is exactly what sits before the cursor) and type over it; otherwise
-  they change only the history. Unit tests only: no live call, no live
-  replace in a browser or Electron field yet, and the latency cost is not
-  measured (#93). Medium's paragraphs are flattened to one line when typed
-  as keystrokes, so a Return never sends a chat message.
-  Both levels drop self-corrections ("at 2, actually 3", "scratch that");
-  only Medium turns spoken lists into numbered lines. A dictation that
-  ends in "scratch that" types nothing even with cleanup off (a local
-  rule, `DictationText.isScratched`) and is kept in the history. The live
-  prompt test set has not been run yet.
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).

@@ -59,18 +59,7 @@ import Testing
         c.dictation.stopSound = "none"
         c.dictation.cancelSound = "Frog"
         c.dictation.pasteLastShortcut = "ctrl+shift+f5"
-        c.dictation.cleanup = "medium"
         #expect(try FiggConfig.parse(c.yaml()) == c)
-    }
-
-    @Test func dictationCleanupIsOffByDefault() throws {
-        #expect(FiggConfig().dictation.cleanup == "off")
-        #expect(FiggConfig().yaml().contains("  cleanup: \"off\"\n"))
-        #expect(try FiggConfig.parse("dictation:\n  enabled: true\n").dictation.cleanup == "off")
-        #expect(try FiggConfig.parse("dictation:\n  cleanup: light\n").dictation.cleanup == "light")
-        // `cleanup: true` reads as Light either way it decodes.
-        let on = try FiggConfig.parse("dictation:\n  cleanup: true\n").dictation.cleanup
-        #expect(on == "light" || on == "true")
     }
 
     @Test func dictationIsOnByDefaultWithRightOption() throws {

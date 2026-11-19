@@ -45,50 +45,13 @@ public enum TextInserter {
         case .none(let reason):
             return .notInserted(reason)
         case .keystrokes:
-            type(DictationText.singleLine(text))
+            type(text)
             return .typed
         case .accessibility:
             if let element, writeSelection(element, text) { return .inserted }
-            type(DictationText.singleLine(text))
+            type(text)
             return .typed
         }
-    }
-
-    public enum Replacement: Equatable, Sendable {
-        /// The old text was selected and the new text put over it.
-        case replaced(Result)
-        /// figg could not find the old text right before the cursor, or
-        /// could not select it, so nothing was changed.
-        case notFound
-    }
-
-    /// Swaps `old`, which figg just put before the cursor, for `new`: selects
-    /// it through Accessibility, checks the selection took, then inserts over
-    /// it the usual way. Nothing is removed unless the text before the cursor
-    /// is exactly `old`.
-    @MainActor
-    public static func replace(_ old: String, with new: String) -> Replacement {
-        let (field, element) = focusedField()
-        guard let element, AXIsProcessTrusted(), !field.isPasswordField,
-              let value = string(element, kAXValueAttribute),
-              let selection = selectedRange(element),
-              let found = JustTyped.range(of: old, in: value, cursor: selection.location, selectionLength: selection.length)
-        else { return .notFound }
-        var range = CFRange(location: found.location, length: found.length)
-        guard let axRange = AXValueCreate(.cfRange, &range),
-              AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, axRange) == .success,
-              let now = selectedRange(element), now.location == found.location, now.length == found.length
-        else { return .notFound }
-        return .replaced(insert(new))
-    }
-
-    static func selectedRange(_ element: AXUIElement) -> CFRange? {
-        var rangeValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
-              let rangeValue, CFGetTypeID(rangeValue) == AXValueGetTypeID() else { return nil }
-        var range = CFRange()
-        guard AXValueGetValue(rangeValue as! AXValue, .cfRange, &range) else { return nil }
-        return range
     }
 
     /// Replaces the selection (or inserts at the cursor) and checks the value
