@@ -49,7 +49,7 @@ done < <(added_lines "$base" "$head" 'app/Sources/**/*.swift')
 dash=$(printf '\342\200\224') # U+2014, spelled in octal so this file stays clean
 while IFS=: read -r path line _; do
   flag "$path" "$line" "Em-dash. Use a comma, a colon, parentheses or two sentences (AGENTS.md conventions)."
-done < <(git grep -nI "$dash" "$head" -- . | sed "s/^$head://")
+done < <(git grep -nI "$dash" "$head" -- . | sed "s|^$head:||")
 
 if [[ "$bad" -ne 0 ]]; then
   echo "Hard-rule check failed; see the errors above." >&2
