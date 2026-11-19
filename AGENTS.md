@@ -83,6 +83,12 @@ two real (tiny) Bedrock calls; needs working credentials for that profile
 `FIGG_LIVE=1 FIGG_OPENROUTER_KEY=<key> swift test --package-path app --filter LiveOpenRouterTests`
 makes one real call to OpenRouter's free router.
 
+`FIGG_LIVE=1 FIGG_PROFILE=<name> swift test --package-path app --filter LiveDictationCleanupTests`
+runs a fixed set of tricky dictations (self-corrections, "scratch that",
+spoken lists, an instruction to ignore) through the cleanup prompt on
+Bedrock (`FIGG_MODEL` picks another model). Run it after changing the
+prompt in `FiggNotes/DictationCleanup.swift`.
+
 `cd site && npm install && npm run dev` builds the website into `site/dist`
 and serves it on http://localhost:4173. The docs pages are the repo's own
 Markdown: change the `.md` file, never the built HTML.
@@ -199,6 +205,11 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   replace in a browser or Electron field yet, and the latency cost is not
   measured (#93). Medium's paragraphs are flattened to one line when typed
   as keystrokes, so a Return never sends a chat message.
+  Both levels drop self-corrections ("at 2, actually 3", "scratch that");
+  only Medium turns spoken lists into numbered lines. A dictation that
+  ends in "scratch that" types nothing even with cleanup off (a local
+  rule, `DictationText.isScratched`) and is kept in the history. The live
+  prompt test set has not been run yet.
 
 - Bedrock is verified live, but no real call has been recorded and enhanced
   end to end yet (see `docs/manual-test-checklist.md`).

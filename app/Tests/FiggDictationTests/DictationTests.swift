@@ -277,3 +277,14 @@ import Testing
         #expect(DictationText.singleLine("no breaks") == "no breaks")
     }
 }
+
+@Suite struct ScratchThatTests {
+    @Test func onlyAtTheVeryEnd() {
+        #expect(DictationText.isScratched("send it to Sam scratch that"))
+        #expect(DictationText.isScratched("Send it to Sam. Scratch that."))
+        #expect(DictationText.isScratched("scratch that"))
+        #expect(!DictationText.isScratched("scratch that, send it to Priya"))
+        #expect(!DictationText.isScratched("I need to scratch the car"))
+        #expect(!DictationText.isScratched(""))
+    }
+}

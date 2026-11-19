@@ -272,6 +272,21 @@ final class DictationController: ObservableObject {
         guard run == generation else { return }
         let prefix = String(prepared.prefix(while: { $0 == " " }))
         let raw = String(prepared.dropFirst(prefix.count))
+        // "…scratch that" at the end: type nothing, keep it in the history.
+        if DictationText.isScratched(raw) {
+            let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
+            _ = try? store.addDictation(Dictation(text: raw, appName: appName, outcome: .notInserted),
+                                        keep: settings.config.dictation.historyLimit)
+            lastTyped = nil
+            reloadHistory()
+            NSLog("figg dictation: scratched, nothing typed")
+            if !capturing {
+                play(.cancel)
+                liveText = raw
+                show(.note("Scratched. Nothing typed; it is in Dictation History."))
+            }
+            return
+        }
         var cleaned: String?
         let level = CleanupLevel(setting: settings.config.dictation.cleanup)
         if level != .off {

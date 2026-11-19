@@ -132,6 +132,17 @@ public enum DictationText {
         return joined
     }
 
+    /// A dictation that ends in "scratch that" is dropped whole: nothing is
+    /// typed. Only at the very end, where it cannot be ordinary speech the
+    /// user meant to type, so this needs no model. The text still goes to
+    /// the history, in case it was meant.
+    public static func isScratched(_ text: String) -> Bool {
+        let words = text.lowercased()
+            .components(separatedBy: CharacterSet.letters.inverted)
+            .filter { !$0.isEmpty }
+        return words.suffix(2) == ["scratch", "that"]
+    }
+
     /// The text with line breaks (a cleaned dictation's paragraphs) as
     /// spaces. Used when typing keystrokes, where a Return would send a
     /// chat message or run a terminal command.
