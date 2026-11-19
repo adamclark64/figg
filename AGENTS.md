@@ -136,6 +136,26 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
   A line that really needs `UserDefaults` or a sampling parameter carries
   `factory-allow: userdefaults` (or `sampling`) and a reason.
 
+## Factory
+
+Work can be written as a spec and built by the factory (issue 89): spec,
+design, build, fix, with a human merging the Spec PR (approval 1) and the
+final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
+
+- Each stage is a skill in `.claude/skills/factory-*/SKILL.md`
+  (`factory-spec`, `factory-design`, `factory-build`, `factory-fix`,
+  `factory-triage`, `factory-status`), runnable from a fresh session; the
+  design review is the `design-critic` agent in `.claude/agents/`.
+- Names are fixed: spec `specs/NNNN-<slug>/`, Spec PR branch
+  `factory/NNNN-<slug>`, integration branch `factory/NNNN`, item branches
+  `factory/NNNN-pN`, and the `factory:*` labels in `docs/factory.md`.
+- Agents never merge into `main` and never push to it.
+- Never use figg meetings, transcripts or notes (the figg MCP tools, the
+  local database, exports) as content for specs, examples or test data.
+  Sample text is invented and neutral.
+- In cloud sessions use `gh api` REST only (GraphQL is blocked there), and
+  rely on CI's `test` job, since Swift only builds on macOS.
+
 ## Where to look
 
 | Task | File |
