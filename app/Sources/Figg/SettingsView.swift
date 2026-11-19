@@ -29,6 +29,7 @@ struct SettingsView: View {
 
     private var tabs: some View {
         TabView(selection: $window.tab) {
+            PermissionsSettings().tabItem { Label("Permissions", systemImage: "lock.shield") }.tag(SettingsWindow.Tab.permissions)
             AISettings().tabItem { Label("AI", systemImage: "sparkles") }.tag(SettingsWindow.Tab.ai)
             RecordingSettings().tabItem { Label("Recording", systemImage: "waveform") }.tag(SettingsWindow.Tab.recording)
             DictationSettings().tabItem { Label("Dictation", systemImage: "mic") }.tag(SettingsWindow.Tab.dictation)
@@ -196,13 +197,10 @@ struct DictationSettings: View {
             HStack {
                 Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet").font(.caption)
                 if !granted {
-                    Button("Allow…") {
-                        AccessibilityAccess.request()
-                        AccessibilityAccess.openSettings()
-                    }
+                    Button("Fix in Permissions…") { PermissionCenter.open() }
                 }
             }
-            Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped. If figg is already switched on in that list but this still says not allowed, select figg there, remove it with −, then click Allow… again.")
+            Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
                 .settingsCaption()
             Section("Sounds") {
                 Toggle("Play a sound when listening starts and stops", isOn: $settings.config.dictation.sounds)
@@ -318,10 +316,7 @@ private struct MeetingAppNamesStatus: View {
                     Text(granted ? "Accessibility: allowed" : "Accessibility: not allowed yet")
                         .font(.caption)
                     if !granted {
-                        Button("Allow…") {
-                            AccessibilityAccess.request()
-                            AccessibilityAccess.openSettings()
-                        }
+                        Button("Fix in Permissions…") { PermissionCenter.open() }
                     }
                 }
             }

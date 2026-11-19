@@ -100,7 +100,6 @@ final class DictationController: ObservableObject {
         }
         // Without Accessibility the global monitor hears nothing; macOS's own
         // prompt adds figg to the list (shown once per app).
-        if !AccessibilityAccess.isGranted { AccessibilityAccess.request() }
         holdToTalk = HoldToTalk(key: HoldKey(setting: config.key))
         // Global monitors see other apps' events; they need Accessibility.
         // Local monitors cover figg's own windows.
@@ -160,7 +159,7 @@ final class DictationController: ObservableObject {
     private func start() {
         guard !capturing else { return }
         guard AVCaptureAuthorized.mic else {
-            Task { _ = await DictationCapture.requestPermission() }
+            askForPermissionsOnce()
             _ = holdToTalk.cancel()
             show(.note("figg needs microphone access to dictate"))
             return
@@ -346,7 +345,9 @@ final class DictationController: ObservableObject {
         // Text is in: the panel goes straight away.
         case .inserted: (outcome, shown) = (.inserted, .idle)
         case .typed: (outcome, shown) = (.typed, .idle)
-        case .notInserted(let reason): (outcome, shown) = (.notInserted, .note(Self.message(for: reason)))
+        case .notInserted(let reason):
+            (outcome, shown) = (.notInserted, .note(Self.message(for: reason)))
+            if reason == .noPermission { askForPermissionsOnce() }
         }
         if showResult { show(shown) }
         return outcome
@@ -516,12 +517,22 @@ final class DictationController: ObservableObject {
 
     func showSettings() { SettingsWindow.open(tab: .dictation) }
 
+    private var askedForPermissions = false
+
+    /// Opens Settings > Permissions, once per launch, instead of firing a
+    /// macOS prompt from inside dictation.
+    private func askForPermissionsOnce() {
+        guard !askedForPermissions else { return }
+        askedForPermissions = true
+        PermissionCenter.open()
+    }
+
     var shortcutLabel: String { HoldKey(setting: settings.config.dictation.key).label }
 
     static func message(for reason: NotInsertedReason) -> String {
         switch reason {
         case .passwordField: return "Not typed into a password field. Saved in Dictation History."
-        case .noPermission: return "figg needs Accessibility to type. Saved in Dictation History."
+        case .noPermission: return "figg needs Accessibility to type. Saved in Dictation History. Fix it in Settings > Permissions."
         case .noFocusedApp: return "No text field in front. Saved in Dictation History."
         }
     }

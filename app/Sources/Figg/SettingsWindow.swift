@@ -12,7 +12,7 @@ import SwiftUI
 final class SettingsWindow: ObservableObject {
     static let shared = SettingsWindow()
 
-    enum Tab: Hashable { case ai, recording, dictation, sharing }
+    enum Tab: Hashable { case permissions, ai, recording, dictation, sharing }
 
     /// The tab SettingsView shows. Set before opening to land on a tab.
     @Published var tab: Tab = .ai

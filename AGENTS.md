@@ -174,6 +174,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
+| macOS permissions (Settings > Permissions, Fix, signer change) | `app/Sources/FiggPermissions/`, `app/Sources/Figg/PermissionsView.swift` (the only place figg asks) |
 | Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
 | In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `app/Sources/Figg/UpdateManager.swift`, `app/scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
 | Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/v1/bug-report.ts` |

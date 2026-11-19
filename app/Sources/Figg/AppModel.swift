@@ -15,7 +15,7 @@ import SwiftUI
 
 struct Banner: Identifiable, Equatable {
     enum Kind { case info, warning, error }
-    enum Action: Equatable { case ssoLogin, retryEnhance(String), openPrivacySettings, installUpdate, allowAccessibility }
+    enum Action: Equatable { case ssoLogin, retryEnhance(String), fixPermissions, installUpdate }
 
     let id = UUID()
     var kind: Kind
@@ -134,6 +134,7 @@ final class AppModel: ObservableObject {
         // record). If the model is already on disk, load it now.
         Task { if await transcriber.isDownloaded() { await loadWhisper() } }
         Task { await recoverUnfinished() }
+        PermissionCenter.shared.checkAtLaunch()
         meetingWatcher = MeetingWatcher(model: self, settings: settings)
         meetingWatcher?.start()
         recordingWidget = RecordingWidget(model: self, settings: settings)
@@ -372,7 +373,7 @@ final class AppModel: ObservableObject {
         }
         let result = await recorder.start()
         for problem in result.problems {
-            banners.append(Banner(kind: result.anyStarted ? .warning : .error, text: problem, action: .openPrivacySettings))
+            banners.append(Banner(kind: result.anyStarted ? .warning : .error, text: problem, action: .fixPermissions))
         }
         guard result.anyStarted else {
             try? store.delete(meetingId: id)
@@ -399,7 +400,7 @@ final class AppModel: ObservableObject {
         guard AccessibilityAccess.isGranted else {
             if zoomOpen, !askedForAccessibility {
                 askedForAccessibility = true
-                banners.append(Banner(kind: .info, text: "figg can put Zoom's names on the people talking, instead of \"Them 1\", \"Them 2\". It needs Accessibility permission to read Zoom's window; nothing leaves this Mac.", action: .allowAccessibility))
+                banners.append(Banner(kind: .info, text: "figg can put Zoom's names on the people talking, instead of \"Them 1\", \"Them 2\". It needs Accessibility permission to read Zoom's window; nothing leaves this Mac.", action: .fixPermissions))
             }
             return
         }
@@ -416,8 +417,8 @@ final class AppModel: ObservableObject {
         guard silenceWatch.record(peak: peak) else { return }
         banners.append(Banner(
             kind: .warning,
-            text: "figg hasn't heard any sound from your Mac for 30 seconds. If people are talking on the call, give figg System Audio Recording permission (Privacy & Security > Screen & System Audio Recording), then quit and reopen figg.",
-            action: .openPrivacySettings))
+            text: "figg hasn't heard any sound from your Mac for 30 seconds. If people are talking on the call, System Audio Recording is probably not working: click Fix permissions.",
+            action: .fixPermissions))
     }
 
     // MARK: Screenshots
@@ -465,7 +466,7 @@ final class AppModel: ObservableObject {
         guard let recorder, isPaused else { return }
         let result = await recorder.resume()
         for problem in result.problems {
-            banners.append(Banner(kind: result.anyStarted ? .warning : .error, text: problem, action: .openPrivacySettings))
+            banners.append(Banner(kind: result.anyStarted ? .warning : .error, text: problem, action: .fixPermissions))
         }
         guard result.anyStarted else {
             recorder.pause()  // nothing came back: stay paused rather than pretend
@@ -638,13 +639,10 @@ final class AppModel: ObservableObject {
             runSSOLogin()
         case let .retryEnhance(id):
             Task { await enhance(id) }
-        case .openPrivacySettings:
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        case .fixPermissions:
+            PermissionCenter.open()
         case .installUpdate:
             installUpdate()
-        case .allowAccessibility:
-            AccessibilityAccess.request()
-            AccessibilityAccess.openSettings()
         }
     }
 

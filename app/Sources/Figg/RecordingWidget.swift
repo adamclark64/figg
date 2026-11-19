@@ -114,18 +114,16 @@ final class RecordingWidget {
     private func takeScreenshot() {
         guard !capturing, let model else { return }
         // macOS only lets an app with Screen Recording access capture other
-        // apps' windows. The first press without it asks (the system dialog
-        // offers System Settings) and stops there, so the crosshair does not
-        // open on top of that dialog. The preflight answer can stay false
+        // apps' windows. The first press without it points at Permissions
+        // (which asks) and stops there. The preflight answer can stay false
         // until figg restarts even after access is granted, so later presses
         // go ahead regardless rather than blocking mid-meeting.
         if !CGPreflightScreenCaptureAccess(), !askedForScreenAccess {
             askedForScreenAccess = true
-            CGRequestScreenCaptureAccess()
             model.banners.append(Banner(
                 kind: .warning,
-                text: "To take screenshots from the recording widget, allow figg under System Settings > Privacy & Security > Screen & System Audio Recording, then press the camera again. Screenshots are saved in the meeting's notes.",
-                action: .openPrivacySettings))
+                text: "Screenshots from the widget need Screen Recording permission. Click Fix permissions, then press the camera again.",
+                action: .fixPermissions))
             return
         }
         // Named by the moment of the press, not when the region is picked.
