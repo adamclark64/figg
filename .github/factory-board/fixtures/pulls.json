@@ -1,0 +1,431 @@
+[
+  {
+    "number": 10,
+    "title": "feat(export): export a meeting to Markdown",
+    "state": "closed",
+    "merged_at": "2026-11-01T09:00:00Z",
+    "closed_at": "2026-11-01T09:00:00Z",
+    "updated_at": "2026-11-01T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/10",
+    "head": {
+      "ref": "factory/0001-export-markdown",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:planned"
+      }
+    ]
+  },
+  {
+    "number": 11,
+    "title": "feat(export): add the formatter",
+    "state": "closed",
+    "merged_at": "2026-11-02T09:00:00Z",
+    "closed_at": "2026-11-02T09:00:00Z",
+    "updated_at": "2026-11-02T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/11",
+    "head": {
+      "ref": "factory/0001-p1",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0001"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      }
+    ]
+  },
+  {
+    "number": 12,
+    "title": "feat(export): add the menu item",
+    "state": "closed",
+    "merged_at": "2026-11-03T09:00:00Z",
+    "closed_at": "2026-11-03T09:00:00Z",
+    "updated_at": "2026-11-03T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/12",
+    "head": {
+      "ref": "factory/0001-p2",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0001"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      }
+    ]
+  },
+  {
+    "number": 13,
+    "title": "feat(export): export a meeting to Markdown",
+    "state": "closed",
+    "merged_at": "2026-11-04T09:00:00Z",
+    "closed_at": "2026-11-04T09:00:00Z",
+    "updated_at": "2026-11-04T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/13",
+    "head": {
+      "ref": "factory/0001",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:final"
+      }
+    ]
+  },
+  {
+    "number": 20,
+    "title": "feat(notes): filter notes by tag",
+    "state": "closed",
+    "merged_at": "2026-11-10T09:00:00Z",
+    "closed_at": "2026-11-10T09:00:00Z",
+    "updated_at": "2026-11-10T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/20",
+    "head": {
+      "ref": "factory/0002-tag-filter",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:planned"
+      }
+    ]
+  },
+  {
+    "number": 21,
+    "title": "feat(notes): tag index",
+    "state": "closed",
+    "merged_at": "2026-11-11T09:00:00Z",
+    "closed_at": "2026-11-11T09:00:00Z",
+    "updated_at": "2026-11-11T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/21",
+    "head": {
+      "ref": "factory/0002-p1",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0002"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      }
+    ]
+  },
+  {
+    "number": 22,
+    "title": "feat(notes): tag filter view",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-18T12:00:00Z",
+    "html_url": "https://github.com/example/app/pull/22",
+    "head": {
+      "ref": "factory/0002-p2",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0002"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      },
+      {
+        "name": "factory:ci-failed"
+      }
+    ]
+  },
+  {
+    "number": 23,
+    "title": "test(notes): tag filter tests",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-17T12:00:00Z",
+    "html_url": "https://github.com/example/app/pull/23",
+    "head": {
+      "ref": "factory/0002-p3",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0002"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      }
+    ]
+  },
+  {
+    "number": 30,
+    "title": "feat(ui): dark mode icons",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-16T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/30",
+    "head": {
+      "ref": "factory/0003-dark-icons",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:spec"
+      },
+      {
+        "name": "factory:planned"
+      }
+    ]
+  },
+  {
+    "number": 40,
+    "title": "@someone <img src=x onerror=alert(1)> [click](https://bad.example) | other/repo#5 `code` **bold**\nsecond line",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-15T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/40",
+    "head": {
+      "ref": "factory/0004-odd-title",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:spec"
+      }
+    ]
+  },
+  {
+    "number": 50,
+    "title": "fix(export): retry uploads",
+    "state": "closed",
+    "merged_at": "2026-11-05T08:00:00Z",
+    "closed_at": "2026-11-05T08:00:00Z",
+    "updated_at": "2026-11-05T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/50",
+    "head": {
+      "ref": "factory/0005-retry-upload",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:planned"
+      }
+    ]
+  },
+  {
+    "number": 51,
+    "title": "fix(export): backoff",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-14T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/51",
+    "head": {
+      "ref": "factory/0005-p1",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0005"
+    },
+    "labels": [
+      {
+        "name": "factory:building"
+      },
+      {
+        "name": "factory:ci-failed"
+      },
+      {
+        "name": "factory:needs-human"
+      }
+    ]
+  },
+  {
+    "number": 60,
+    "title": "feat: something we did not want",
+    "state": "closed",
+    "merged_at": null,
+    "closed_at": "2026-11-06T08:00:00Z",
+    "updated_at": "2026-11-06T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/60",
+    "head": {
+      "ref": "factory/0006-abandoned",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:spec"
+      }
+    ]
+  },
+  {
+    "number": 70,
+    "title": "feat(notes): shorter default titles",
+    "state": "closed",
+    "merged_at": "2026-11-18T15:00:00Z",
+    "closed_at": "2026-11-18T15:00:00Z",
+    "updated_at": "2026-11-18T15:00:00Z",
+    "html_url": "https://github.com/example/app/pull/70",
+    "head": {
+      "ref": "factory/0007-short-titles",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": [
+      {
+        "name": "factory:planned"
+      }
+    ]
+  },
+  {
+    "number": 80,
+    "title": "feat(ui): remember sort order",
+    "state": "closed",
+    "merged_at": "2026-11-12T08:00:00Z",
+    "closed_at": "2026-11-12T08:00:00Z",
+    "updated_at": "2026-11-12T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/80",
+    "head": {
+      "ref": "factory/0008-sort-order",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": []
+  },
+  {
+    "number": 81,
+    "title": "feat(ui): store sort order",
+    "state": "closed",
+    "merged_at": "2026-11-13T08:00:00Z",
+    "closed_at": "2026-11-13T08:00:00Z",
+    "updated_at": "2026-11-13T08:00:00Z",
+    "html_url": "https://github.com/example/app/pull/81",
+    "head": {
+      "ref": "factory/0008-p1",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "factory/0008"
+    },
+    "labels": []
+  },
+  {
+    "number": 82,
+    "title": "feat(ui): remember sort order",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-18T09:00:00Z",
+    "html_url": "https://github.com/example/app/pull/82",
+    "head": {
+      "ref": "factory/0008",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": []
+  },
+  {
+    "number": 90,
+    "title": "feat: fork tries to get on the board",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-18T10:00:00Z",
+    "html_url": "https://github.com/example/app/pull/90",
+    "head": {
+      "ref": "factory/0009-from-fork",
+      "repo": {
+        "full_name": "stranger/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": []
+  },
+  {
+    "number": 91,
+    "title": "docs: fix a typo",
+    "state": "open",
+    "merged_at": null,
+    "closed_at": null,
+    "updated_at": "2026-11-18T10:00:00Z",
+    "html_url": "https://github.com/example/app/pull/91",
+    "head": {
+      "ref": "fix/typo",
+      "repo": {
+        "full_name": "example/app"
+      }
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": []
+  }
+]

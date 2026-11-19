@@ -1,10 +1,12 @@
 # Build and test on pull requests. macOS runners are slow, so this is
-# PR-only; pushes to main go straight to release-please.
+# PR-only; pushes to main go straight to release-please. PRs into a
+# factory integration branch (factory/<id>, issue 89) run it too, so each
+# small agent PR is tested before it lands there.
 name: ci
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "factory/**"]
 
 permissions:
   contents: read
@@ -41,14 +43,80 @@ jobs:
       - name: Test
         run: swift test
 
-  # Fast Linux checks that need no Swift toolchain. The factory adds more
-  # here (issue 89); a failure blocks the PR like a failing test.
+  # Fast Linux checks that need no Swift toolchain (scripts/factory/).
+  # A failure blocks the PR like a failing test.
   gates:
     runs-on: ubuntu-latest
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+      HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The checks compare the PR against its base, so they need history.
+          fetch-depth: 0
 
       - name: No private files tracked
         run: scripts/factory/check-private-files.sh
+
+      - name: Conventional Commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/factory/check-commits.sh "$BASE" "$HEAD"
+
+      - name: AGENTS.md hard rules
+        run: scripts/factory/check-rules.sh "$BASE" "$HEAD"
+
+      - name: No private words
+        env:
+          FACTORY_PRIVATE_WORDS: ${{ secrets.FACTORY_PRIVATE_WORDS }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: scripts/factory/check-words.sh "$BASE" "$HEAD"
+
+      # Pinned and checksummed: the latest-release lookup is not reachable
+      # from every agent environment, and an unpinned download could change
+      # under us.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.28.0
+          GITLEAKS_SHA256: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+
+      - name: No secrets in the PR's commits
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --exit-code 1 \
+            --log-opts="$BASE..$HEAD" .
+
+  # Keeps the factory:ci-failed label in step with CI on factory PRs, so the
+  # fix stage (issue 89) knows which PRs to pick up. Runs no PR code.
+  label:
+    needs: [test, gates]
+    if: ${{ !cancelled() && startsWith(github.head_ref, 'factory/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      # Labels are written through the issues API.
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      FAILED: ${{ contains(needs.*.result, 'failure') }}
+    steps:
+      - name: Set or clear factory:ci-failed
+        run: |
+          if [[ "$FAILED" == "true" ]]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/labels" \
+              -f "labels[]=factory:ci-failed" --silent
+            echo "Labelled PR $PR factory:ci-failed."
+          else
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR/labels/factory:ci-failed" \
+              --silent 2>/dev/null || true
+            echo "CI passed; factory:ci-failed cleared on PR $PR if it was set."
+          fi

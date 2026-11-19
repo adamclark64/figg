@@ -1,0 +1,78 @@
+name: factory-board
+
+# Keeps the pinned "Factory board" issue in step with the factory (issue 89):
+# one row per spec, its stage from the factory:* labels and its branches,
+# open item PRs, failed CI and needs-human. Docs: .github/factory-board/README.md
+#
+# It reads pull requests over REST and rewrites one issue body. It never
+# checks out or runs PR code, runs no model, and reads nothing from the
+# event payload: every run rebuilds the board from the API, so a missed or
+# reordered event is fixed by the next one. PR titles reach only render.py,
+# as JSON in a file, never a shell command line.
+
+on:
+  # pull_request_target runs this file as it is on main, never a PR's copy,
+  # and the job checks out main too. Label, open, close and merge events on
+  # factory PRs move the board.
+  pull_request_target:
+    types: [opened, reopened, closed, edited, labeled, unlabeled]
+    branches: [main, "factory/**"]
+  # ci.yml's label job sets factory:ci-failed with GITHUB_TOKEN, and events
+  # made with that token start no workflows, so a finished CI run is the
+  # signal for those label changes.
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+  schedule:
+    # 06:17 UTC daily, catches anything the events missed.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "Update the board issue (false = dry run to step summary only)"
+        required: false
+        default: "true"
+
+permissions: {}
+
+concurrency:
+  # Each run renders the whole board, so only the newest pending run matters.
+  group: factory-board
+  cancel-in-progress: false
+
+jobs:
+  board:
+    # Skip events from PRs that are not on factory/ branches of this
+    # repository; render.py filters again, so this only saves runs.
+    if: >-
+      github.event_name != 'pull_request_target' ||
+      (startsWith(github.event.pull_request.head.ref, 'factory/') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      POST: ${{ github.event.inputs.post || 'true' }}
+      FACTORY_BOARD_ISSUE: ${{ vars.FACTORY_BOARD_ISSUE }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Ensure labels
+        run: bash .github/factory-board/ensure-labels.sh
+
+      - name: Fetch pull requests
+        run: bash .github/factory-board/fetch.sh
+
+      - name: Render board
+        run: python3 .github/factory-board/render.py --repo "$REPO" board/pulls.json > board/board.md
+
+      - name: Update board issue
+        run: bash .github/factory-board/update.sh
