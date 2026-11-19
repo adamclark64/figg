@@ -35,7 +35,7 @@ views are thin.
 | `site/` | The website, with `README.md` and `docs/` rendered into `/docs` | Vercel project `figg` (root `site`) |
 | `docs/` | Docs for all three | Published by `site/build.mjs` |
 | `specs/` | Specs for the factory (issue 89): one folder per change with `spec.md`, `design.md`, `plan.md` (see `specs/README.md`) | Not deployed |
-| `scripts/factory/` | Repo checks the factory runs before pushing and CI runs on every PR (`check-private-files.sh`) | Not deployed |
+| `scripts/factory/` | Repo checks the factory runs before pushing and CI's `gates` job runs on every PR: private files, Conventional Commits, grep-able hard rules, private words (see `scripts/factory/README.md`) | Not deployed |
 
 Swift commands take `--package-path app` from the repo root (or run them
 in `app/`). The `app/scripts/` scripts find their own folder, so run them
@@ -133,6 +133,8 @@ check against WAV/TXT pairs in `app/Tests/FiggTranscriptionTests/Fixtures/`
   (`specs/README.md`). Under `.claude/` only `settings.json`, `skills/` and
   `agents/` are committed; run `scripts/factory/check-private-files.sh`
   before pushing, and CI's `gates` job runs it on every PR.
+  A line that really needs `UserDefaults` or a sampling parameter carries
+  `factory-allow: userdefaults` (or `sampling`) and a reason.
 
 ## Where to look
 
