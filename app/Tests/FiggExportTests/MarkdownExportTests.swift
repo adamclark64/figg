@@ -83,7 +83,8 @@ import Testing
     @Test func newlinesFlattened() {
         let item = MarkdownExport.item(line(.me, 0, "a\nb\r\nc"))
         #expect(item == "- **[00:00] Me:** a b c")
-        #expect(!item.contains(where: \.isNewline))
+        let hasNewline = item.contains { $0.isNewline }
+        #expect(!hasNewline)
         #expect(items(MarkdownExport.document(enhanced, lines: [line(.me, 0, "a\nb\r\nc")])) == [item])
     }
 
