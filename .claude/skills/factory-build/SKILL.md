@@ -51,7 +51,8 @@ gh api --method GET repos/adamclark64/figg/pulls -f state=closed \
   --jq '.[] | {number, merged_at, labels: [.labels[].name]}'
 ```
 
-Stop if it is not merged. Read `spec.md`, `design.md` and `plan.md` from
+Stop if it is not merged, or if it carries `factory:needs-human`: that is
+the human pausing the whole spec (`docs/factory.md`). Read `spec.md`, `design.md` and `plan.md` from
 `origin/main` (`git show origin/main:specs/NNNN-<slug>/plan.md`) and
 `AGENTS.md`.
 
@@ -91,7 +92,8 @@ gh api --method GET repos/adamclark64/figg/pulls -f state=all \
   (step 4e) instead of starting again.
 
 An item is **ready** when it is not started and every item it depends on
-has landed.
+has landed. An open item PR with `factory:needs-human` is paused: leave it
+alone, start nothing that depends on it, and list it in the report.
 
 ## 4. Fan out the ready items
 

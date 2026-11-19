@@ -36,8 +36,9 @@ Stage 2 of the figg factory (issue 89). Input: a Spec PR number. Output:
    ```
 
    Go on only if it is open, not a draft, based on `main`, its head is
-   `factory/NNNN-<slug>` in `adamclark64/figg` (never a fork), and it has
-   `factory:spec`. Otherwise report why and stop.
+   `factory/NNNN-<slug>` in `adamclark64/figg` (never a fork), it has
+   `factory:spec`, and it does not have `factory:needs-human` (the human's
+   pause). Otherwise report why and stop.
 
 2. **Check out the branch**:
 

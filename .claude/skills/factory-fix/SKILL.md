@@ -36,12 +36,27 @@ Each attempt posts a PR comment whose first line is exactly:
 <!-- factory-fix attempt N -->
 ```
 
-Count them:
+Only markers since the human last removed `factory:needs-human` count:
+removing that label (and re-adding `factory:ci-failed`) gives the fix
+stage three fresh tries (`docs/factory.md`). Find that moment, if any:
+
+```bash
+gh api --method GET repos/adamclark64/figg/issues/<PR>/events -f per_page=100 --paginate \
+  --jq '.[] | select(.event == "unlabeled" and .label.name == "factory:needs-human") | .created_at' \
+  | sort | tail -1
+```
+
+Then count the markers posted after it (use `""` when there was none;
+ISO timestamps compare as text). `--paginate` prints one count per page,
+so add them up:
 
 ```bash
 gh api --method GET repos/adamclark64/figg/issues/<PR>/comments -f per_page=100 --paginate \
-  --jq '[.[] | select(.body | startswith("<!-- factory-fix attempt "))] | length'
+  --jq '[.[] | select(.created_at > "<RESET>") | select(.body | startswith("<!-- factory-fix attempt "))] | length'
 ```
+
+Number the next marker from that count, so after a reset it says
+`attempt 1` again.
 
 ## Steps
 
