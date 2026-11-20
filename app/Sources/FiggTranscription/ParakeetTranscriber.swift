@@ -8,6 +8,7 @@ import Foundation
 public actor ParakeetTranscriber: Transcriber {
     private var manager: AsrManager?
     private var loading: Task<AsrManager, Error>?
+    private let runner = SerialRunner()
 
     public init() {}
 
@@ -42,10 +43,13 @@ public actor ParakeetTranscriber: Transcriber {
 
     public func transcribe(samples: [Float]) async throws -> [TranscriptSegment] {
         let manager = try await prepare()
-        // Each chunk is independent, so each gets a fresh decoder state.
-        var state = TdtDecoderState.make()
-        let result = try await manager.transcribe(samples, decoderState: &state)
-        return Self.segments(text: result.text, timings: result.tokenTimings ?? [], duration: Double(samples.count) / 16_000)
+        // One prediction at a time on the shared model: see `SerialRunner`.
+        return try await runner.run {
+            // Each chunk is independent, so each gets a fresh decoder state.
+            var state = TdtDecoderState.make()
+            let result = try await manager.transcribe(samples, decoderState: &state)
+            return Self.segments(text: result.text, timings: result.tokenTimings ?? [], duration: Double(samples.count) / 16_000)
+        }
     }
 
     /// Splits token timings into sentence segments, so a 10 s chunk becomes
