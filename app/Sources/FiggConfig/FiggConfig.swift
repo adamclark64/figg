@@ -129,6 +129,10 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         /// Put the names the meeting app shows (Zoom desktop) on the call's
         /// speakers, read from its window through Accessibility.
         public var meetingAppNames = true
+        /// On Zoom calls (desktop app), drop what the mic hears while Zoom
+        /// shows you muted, so talk in the room stays out of the notes.
+        /// Read through Accessibility, like `meetingAppNames`.
+        public var skipMicWhenMuted = true
         /// WhisperKit model name; only used when engine is "whisper".
         public var model = "large-v3-v20240930_turbo"
         /// Spoken language code, or empty to let Whisper detect it.
@@ -137,6 +141,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case engine, model, language
             case separateSpeakers = "separate_speakers"
             case meetingAppNames = "meeting_app_names"
+            case skipMicWhenMuted = "skip_mic_when_muted"
         }
     }
 
@@ -388,6 +393,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # On Zoom calls (desktop app), name the other speakers from Zoom's own window
           # instead of "Them 1", "Them 2". Needs Accessibility permission; read on this Mac only.
           meeting_app_names: \(transcription.meetingAppNames)
+          # On Zoom calls (desktop app), skip what your mic hears while Zoom shows you
+          # muted, so people talking in the room stay out of the notes. Needs Accessibility.
+          skip_mic_when_muted: \(transcription.skipMicWhenMuted)
           # WhisperKit model name, used only when engine is "whisper".
           model: \(q(transcription.model))
           # Spoken language code for Whisper; "" lets it detect. Parakeet detects automatically.
@@ -568,6 +576,7 @@ extension FiggConfig.Transcription {
         engine = try c.decodeIfPresent(String.self, forKey: .engine) ?? d.engine
         separateSpeakers = try c.decodeIfPresent(Bool.self, forKey: .separateSpeakers) ?? d.separateSpeakers
         meetingAppNames = try c.decodeIfPresent(Bool.self, forKey: .meetingAppNames) ?? d.meetingAppNames
+        skipMicWhenMuted = try c.decodeIfPresent(Bool.self, forKey: .skipMicWhenMuted) ?? d.skipMicWhenMuted
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? d.model
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? d.language
     }
