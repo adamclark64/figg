@@ -42,6 +42,7 @@ import Testing
         c.detection.enabled = false
         c.transcription.separateSpeakers = false
         c.transcription.meetingAppNames = false
+        c.transcription.skipMicWhenMuted = false
         c.detection.ignoreApps = ["com.example.app"]
         c.appearance.theme = "system"
         c.appearance.loader = "fig"
@@ -60,6 +61,22 @@ import Testing
         c.dictation.cancelSound = "Frog"
         c.dictation.pasteLastShortcut = "ctrl+shift+f5"
         #expect(try FiggConfig.parse(c.yaml()) == c)
+    }
+
+    /// A config.yaml written before this setting existed has no key for it,
+    /// so it reads as on, and a written file carries the commented line.
+    @Test func skipMicWhenMutedIsOnByDefault() throws {
+        #expect(FiggConfig().transcription.skipMicWhenMuted)
+        let c = try FiggConfig.parse("transcription:\n  meeting_app_names: false\n")
+        #expect(!c.transcription.meetingAppNames)
+        #expect(c.transcription.skipMicWhenMuted)
+        let yaml = FiggConfig().yaml()
+        #expect(yaml.contains("  # On Zoom calls (desktop app), skip what your mic hears while Zoom shows you\n"))
+        #expect(yaml.contains("\n  skip_mic_when_muted: true\n"))
+        var off = FiggConfig()
+        off.transcription.skipMicWhenMuted = false
+        #expect(off.yaml().contains("\n  skip_mic_when_muted: false\n"))
+        #expect(try FiggConfig.parse(off.yaml()) == off)
     }
 
     @Test func dictationIsOnByDefaultWithRightOption() throws {
