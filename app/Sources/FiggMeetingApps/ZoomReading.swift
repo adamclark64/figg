@@ -23,6 +23,23 @@ public enum ZoomReading {
         }
     }
 
+    /// One button as read from the meeting window, kept to find your own
+    /// mute state from the toolbar's audio button.
+    public struct Button: Sendable, Equatable {
+        /// The button's description, or its title when it has none.
+        public var label: String
+        /// Top edge, in points from the top of the meeting window.
+        public var y: Double
+        /// Inside the Participants panel, where a host sees a Mute or Unmute
+        /// button on every row.
+        public var inParticipantsPanel: Bool
+        public init(label: String, y: Double, inParticipantsPanel: Bool = false) {
+            self.label = label
+            self.y = y
+            self.inParticipantsPanel = inParticipantsPanel
+        }
+    }
+
     /// Share of the window a tile must cover to count as Speaker view's main tile.
     static let mainTileShare = 0.5
 
@@ -54,12 +71,71 @@ public enum ZoomReading {
         return parts[1]
     }
 
-    /// Who is on the call and who Zoom shows as speaking.
+    /// Toolbar candidates must start this far down the window (Zoom's
+    /// toolbar runs along the bottom edge).
+    static let toolbarTop = 0.75
+
+    /// Whether a label's first word is "mute" or "unmute", ignoring case and
+    /// punctuation. Cheap, so the reader can call it before asking Zoom for
+    /// a button's position.
+    public static func isMuteLabel(_ label: String) -> Bool {
+        let first = words(label).first
+        return first == "mute" || first == "unmute"
+    }
+
+    static func words(_ label: String) -> [String] {
+        label.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+    }
+
+    /// Your mute state from the toolbar's audio button, whose label is the
+    /// action it offers: "Unmute..." while you are muted, "Mute..." while
+    /// you are not.
+    ///
+    /// Only buttons outside the Participants panel and in the bottom quarter
+    /// of the window count, and never one naming video, everyone ("all") or
+    /// a participant. Identical labels (Zoom nests a button inside itself)
+    /// count once. Answers only when exactly one label is left, so a host's
+    /// panel rows or a layout we do not know give nil, never a false muted.
+    public static func selfMuted(fromButtons buttons: [Button], participants: [String], windowHeight: Double) -> Bool? {
+        guard windowHeight > 0 else { return nil }
+        let names = participants.map { words($0).joined(separator: " ") }.filter { !$0.isEmpty }
+        var labels = Set<String>()
+        for button in buttons where !button.inParticipantsPanel && button.y >= windowHeight * toolbarTop {
+            let w = words(button.label)
+            guard let first = w.first, first == "mute" || first == "unmute",
+                  !w.contains("video"), !w.contains("all") else { continue }
+            let joined = " " + w.joined(separator: " ") + " "
+            if names.contains(where: { joined.contains(" " + $0 + " ") }) { continue }
+            labels.insert(w.joined(separator: " "))
+        }
+        guard labels.count == 1, let only = labels.first else { return nil }
+        return only.hasPrefix("unmute")
+    }
+
+    /// Your mute state: the toolbar button first, your own tile second
+    /// (only when exactly one tile has your name). When both answer and
+    /// disagree the answer is nil, so one stray label can never be enough
+    /// to leave out what the mic heard.
+    public static func selfMuted(buttons: [Button], tiles: [Tile], selfName: String?, windowHeight: Double) -> Bool? {
+        let people = tiles.compactMap { participant(fromTileLabel: $0.label) }
+        let toolbar = selfMuted(fromButtons: buttons, participants: people.map(\.name), windowHeight: windowHeight)
+        var tile: Bool?
+        if let selfName {
+            let mine = people.filter { $0.name == selfName }
+            if mine.count == 1 { tile = mine[0].muted }
+        }
+        if let toolbar, let tile, toolbar != tile { return nil }
+        return toolbar ?? tile
+    }
+
+    /// Who is on the call, who Zoom shows as speaking, and whether you are muted.
     ///
     /// Speaking is the main tile in Speaker view, unless that is you or is
     /// muted. Otherwise, when you are known and exactly one other person is
     /// unmuted, any sound on the call can only be theirs.
-    public static func snapshot(tiles: [Tile], windowWidth: Double, windowHeight: Double, selfName: String?) -> MeetingAppSnapshot {
+    public static func snapshot(tiles: [Tile], windowWidth: Double, windowHeight: Double, selfName: String?, buttons: [Button] = []) -> MeetingAppSnapshot {
         let people = tiles.compactMap { participant(fromTileLabel: $0.label) }
         var seen = Set<String>()
         let participants = people.filter { seen.insert($0.name).inserted }
@@ -73,6 +149,7 @@ public enum ZoomReading {
             // Two people with your name (a second device of yours) make "others" unclear.
             if others.count == 1, people.filter({ $0.name == selfName }).count <= 1 { speaking = others[0].name }
         }
-        return MeetingAppSnapshot(app: "zoom", participants: participants, selfName: selfName, speaking: speaking)
+        let muted = selfMuted(buttons: buttons, tiles: tiles, selfName: selfName, windowHeight: windowHeight)
+        return MeetingAppSnapshot(app: "zoom", participants: participants, selfName: selfName, speaking: speaking, selfMuted: muted)
     }
 }

@@ -7,6 +7,9 @@ import Foundation
 /// meeting open, `read()` returns nil. Nothing is sent anywhere: this only
 /// looks at labels Zoom already shows on screen.
 ///
+/// Besides the video tiles it collects the buttons whose label starts with
+/// "Mute" or "Unmute", so `ZoomReading` can tell whether you are muted.
+///
 /// Zoom's window layout is not a public API and can change with any Zoom
 /// update, so every miss is treated as "no names right now".
 public struct ZoomReader: MeetingAppReader {
@@ -26,8 +29,10 @@ public struct ZoomReader: MeetingAppReader {
         guard let meeting = windows.first(where: { AX.string($0, "AXIdentifier") == Self.meetingWindowID }) else { return nil }
 
         var tiles: [ZoomReading.Tile] = []
+        var buttons: [ZoomReading.Button] = []
+        let windowTop = AX.position(meeting).y
         var visited = 0
-        func walk(_ e: AXUIElement, depth: Int) {
+        func walk(_ e: AXUIElement, depth: Int, inPanel: Bool) {
             visited += 1
             // Zoom's toolbar buttons nest inside themselves; cap the walk.
             guard visited < 4000 else { return }
@@ -38,12 +43,24 @@ public struct ZoomReader: MeetingAppReader {
                 }
                 return
             }
+            let description = AX.string(e, kAXDescriptionAttribute)
+            let title = AX.string(e, kAXTitleAttribute)
+            if AX.string(e, kAXRoleAttribute) == (kAXButtonRole as String) {
+                // The position is only needed for a possible mute button.
+                if let label = description ?? title, ZoomReading.isMuteLabel(label) {
+                    buttons.append(.init(label: label, y: AX.position(e).y - windowTop, inParticipantsPanel: inPanel))
+                }
+                // A button's children repeat its own label; do not descend.
+                return
+            }
+            let panel = inPanel || [description, title].contains { $0?.hasPrefix("Participants") == true }
             guard depth < 8, let kids: [AXUIElement] = AX.value(e, kAXChildrenAttribute) else { return }
-            for k in kids { walk(k, depth: depth + 1) }
+            for k in kids { walk(k, depth: depth + 1, inPanel: panel) }
         }
-        walk(meeting, depth: 0)
+        walk(meeting, depth: 0, inPanel: false)
         let window = AX.size(meeting)
-        return ZoomReading.snapshot(tiles: tiles, windowWidth: window.width, windowHeight: window.height, selfName: selfName(windows))
+        return ZoomReading.snapshot(tiles: tiles, windowWidth: window.width, windowHeight: window.height,
+                                    selfName: selfName(windows), buttons: buttons)
     }
 
     /// Your Zoom name from the main window's account button, if it is shown.
@@ -87,6 +104,17 @@ enum AX {
     static func string(_ e: AXUIElement, _ attribute: String) -> String? {
         let s: String? = value(e, attribute)
         return s?.isEmpty == false ? s : nil
+    }
+
+    /// Top-left corner in screen points (y grows downwards), or zero.
+    static func position(_ e: AXUIElement) -> CGPoint {
+        var v: CFTypeRef?
+        var point = CGPoint.zero
+        if AXUIElementCopyAttributeValue(e, kAXPositionAttribute as CFString, &v) == .success, let v,
+           CFGetTypeID(v) == AXValueGetTypeID() {
+            AXValueGetValue(v as! AXValue, .cgPoint, &point)
+        }
+        return point
     }
 
     static func size(_ e: AXUIElement) -> CGSize {
