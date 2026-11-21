@@ -22,12 +22,17 @@ public struct MeetingAppSnapshot: Sendable, Equatable {
     public var selfName: String?
     /// The remote person the app shows as speaking, or nil when it is not clear.
     public var speaking: String?
+    /// Whether you (the person at this Mac) are muted in the app; nil when
+    /// it is not clear. Only a clear answer may ever be used to leave out
+    /// what the mic heard.
+    public var selfMuted: Bool?
 
-    public init(app: String, participants: [Participant], selfName: String? = nil, speaking: String? = nil) {
+    public init(app: String, participants: [Participant], selfName: String? = nil, speaking: String? = nil, selfMuted: Bool? = nil) {
         self.app = app
         self.participants = participants
         self.selfName = selfName
         self.speaking = speaking
+        self.selfMuted = selfMuted
     }
 }
 

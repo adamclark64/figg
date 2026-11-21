@@ -56,6 +56,107 @@ import Testing
     }
 }
 
+@Suite struct ZoomSelfMuteTests {
+    /// A window 1080 points tall; the toolbar sits at y 1030.
+    let height = 1080.0
+    let people = ["Sam Lee", "Bill Ortiz", "Nora Hale"]
+
+    func toolbar(_ labels: String...) -> [ZoomReading.Button] {
+        labels.map { ZoomReading.Button(label: $0, y: 1030) }
+    }
+
+    func muted(_ buttons: [ZoomReading.Button]) -> Bool? {
+        ZoomReading.selfMuted(fromButtons: buttons, participants: people, windowHeight: height)
+    }
+
+    @Test func toolbarButtonGivesMuteState() {
+        #expect(muted(toolbar("Unmute audio")) == true)
+        #expect(muted(toolbar("Unmute my audio")) == true)
+        #expect(muted(toolbar("Unmute")) == true)
+        #expect(muted(toolbar("Mute audio")) == false)
+        #expect(muted(toolbar("Mute, my audio")) == false)
+        #expect(muted(toolbar("MUTE")) == false)
+    }
+
+    @Test func noMuteButtonIsUnknown() {
+        #expect(muted([]) == nil)
+        #expect(muted(toolbar("Join audio", "Share screen")) == nil)
+    }
+
+    @Test func otherMuteButtonsDoNotCount() {
+        #expect(muted(toolbar("Mute all")) == nil)
+        #expect(muted(toolbar("Unmute video")) == nil)
+        #expect(muted(toolbar("Mute Bill Ortiz")) == nil)
+        #expect(ZoomReading.selfMuted(fromButtons: toolbar("Mute Bill"), participants: ["Sam Lee", "Bill"], windowHeight: height) == nil)
+        #expect(muted(toolbar("Unmute audio", "Mute all", "Start video", "Mute Bill Ortiz")) == true)
+    }
+
+    @Test func bothKindsIsUnknown() {
+        #expect(muted(toolbar("Mute audio", "Unmute audio")) == nil)
+        // Two different labels are unclear even when they agree.
+        #expect(muted(toolbar("Unmute audio", "Unmute")) == nil)
+    }
+
+    @Test func duplicatedLabelCountsOnce() {
+        #expect(muted(toolbar("Unmute audio", "Unmute audio")) == true)
+        #expect(muted(toolbar("Mute audio", "mute audio.")) == false)
+    }
+
+    @Test func participantsPanelAndHighButtonsDoNotCount() {
+        let panel = [ZoomReading.Button(label: "Unmute", y: 1030, inParticipantsPanel: true)]
+        #expect(muted(panel) == nil)
+        let high = [ZoomReading.Button(label: "Unmute", y: 200)]
+        #expect(muted(high) == nil)
+        // A host's panel rows next to the real toolbar button.
+        let rows = (0..<3).map { ZoomReading.Button(label: "Mute", y: 100 + Double($0) * 40, inParticipantsPanel: true) }
+        #expect(muted(rows + toolbar("Unmute audio")) == true)
+        #expect(ZoomReading.selfMuted(fromButtons: toolbar("Unmute audio"), participants: people, windowHeight: 0) == nil)
+    }
+
+    let tiles = [
+        ZoomReading.Tile(label: "Sam Lee, Computer audio muted, Video off", width: 240, height: 135),
+        ZoomReading.Tile(label: "Bill Ortiz, Computer audio unmuted", width: 1710, height: 961),
+    ]
+
+    @Test func ownTileIsTheFallback() {
+        #expect(ZoomReading.selfMuted(buttons: [], tiles: tiles, selfName: "Sam Lee", windowHeight: height) == true)
+        let unmuted = [ZoomReading.Tile(label: "Sam Lee, Computer audio unmuted", width: 240, height: 135)]
+        #expect(ZoomReading.selfMuted(buttons: [], tiles: unmuted, selfName: "Sam Lee", windowHeight: height) == false)
+        #expect(ZoomReading.selfMuted(buttons: [], tiles: tiles, selfName: nil, windowHeight: height) == nil)
+        #expect(ZoomReading.selfMuted(buttons: [], tiles: tiles, selfName: "Ana Ruiz", windowHeight: height) == nil)
+    }
+
+    @Test func toolbarAnswersWithOrWithoutTile() {
+        #expect(ZoomReading.selfMuted(buttons: toolbar("Unmute audio"), tiles: tiles, selfName: "Sam Lee", windowHeight: height) == true)
+        #expect(ZoomReading.selfMuted(buttons: toolbar("Unmute audio"), tiles: tiles, selfName: nil, windowHeight: height) == true)
+    }
+
+    @Test func toolbarAndTileDisagreeingIsUnknown() {
+        #expect(ZoomReading.selfMuted(buttons: toolbar("Mute audio"), tiles: tiles, selfName: "Sam Lee", windowHeight: height) == nil)
+    }
+
+    @Test func twoTilesWithYourNameIsUnknown() {
+        let two = tiles + [ZoomReading.Tile(label: "Sam Lee, Computer audio muted", width: 240, height: 135)]
+        #expect(ZoomReading.selfMuted(buttons: [], tiles: two, selfName: "Sam Lee", windowHeight: height) == nil)
+    }
+
+    @Test func snapshotFillsSelfMuted() {
+        let s = ZoomReading.snapshot(tiles: tiles, windowWidth: 1710, windowHeight: height, selfName: nil, buttons: toolbar("Unmute audio"))
+        #expect(s.selfMuted == true)
+        #expect(s.speaking == "Bill Ortiz")
+        // Without buttons or a self name, as before this reading existed.
+        #expect(ZoomReading.snapshot(tiles: tiles, windowWidth: 1710, windowHeight: height, selfName: nil).selfMuted == nil)
+        #expect(ZoomReading.snapshot(tiles: tiles, windowWidth: 1710, windowHeight: height, selfName: "Sam Lee").selfMuted == true)
+    }
+
+    @Test func muteLabelCheck() {
+        #expect(ZoomReading.isMuteLabel("Unmute audio"))
+        #expect(ZoomReading.isMuteLabel("mute"))
+        #expect(!ZoomReading.isMuteLabel("Muted"))
+        #expect(!ZoomReading.isMuteLabel("Join audio"))
+    }
+}
+
 @Suite struct SpeakerTimelineTests {
     func snap(_ speaking: String?) -> MeetingAppSnapshot {
         MeetingAppSnapshot(app: "zoom", participants: [.init(name: "Bill"), .init(name: "Nora")], selfName: "Sam", speaking: speaking)
