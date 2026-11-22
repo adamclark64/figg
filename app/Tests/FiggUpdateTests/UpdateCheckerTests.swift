@@ -127,7 +127,7 @@ final class FakeHTTP: HTTPClient, @unchecked Sendable {
     }
 
     @Test func parsesReleaseNotes() async throws {
-        let (checker, _) = checker(#"{\#(Self.base), "notes": [{"version": "v0.19.2", "text": "### Bug Fixes\n\n* **widget:** keep the timer visible"}, {"version": "0.19.1", "text": "### Features\n\n* add a sample feature"}]}"#)
+        let (checker, _) = checker(####"{\####(Self.base), "notes": [{"version": "v0.19.2", "text": "### Bug Fixes\n\n* **widget:** keep the timer visible"}, {"version": "0.19.1", "text": "### Features\n\n* add a sample feature"}]}"####)
         let release = try await checker.latest()
         expectTheReleaseIsOffered(release)
         #expect(release.notes == [
@@ -147,7 +147,7 @@ final class FakeHTTP: HTTPClient, @unchecked Sendable {
         // Notes can only add to the prompt: whatever is wrong with them, the
         // update is still offered with the same version, dmg and signature.
         for notes in [
-            #""notes": "### Bug Fixes""#,
+            ####""notes": "### Bug Fixes""####,
             #""notes": {"version": "0.19.2", "text": "a fix"}"#,
             #""notes": null"#,
             #""notes": [{"version": "0.19.2"}]"#,
