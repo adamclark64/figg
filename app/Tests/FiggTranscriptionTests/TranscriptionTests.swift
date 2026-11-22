@@ -1,5 +1,6 @@
 import AVFoundation
 import FiggAudio
+import FiggMeetingApps
 import FiggStore
 @testable import FiggTranscription
 import FluidAudio
@@ -154,6 +155,165 @@ actor CountingTranscriber: Transcriber {
         try await queue.finalPass(meetingId: meeting.id)
         #expect(AudioChunk.list(in: paths.doneDir(meeting.id)).count == 2)
         try? FileManager.default.removeItem(at: base)
+    }
+}
+
+/// Returns the same given segments for every call.
+struct ScriptedTranscriber: Transcriber {
+    var segments: [TranscriptSegment]
+    func transcribe(samples: [Float]) async throws -> [TranscriptSegment] { segments }
+}
+
+/// Returns the given turns, or throws when told to.
+struct ScriptedSeparator: SpeakerSeparator {
+    struct Failed: Error {}
+    var script: [SpeakerTurn] = []
+    var fails = false
+    func turns(samples: [Float], speakerCount: Int?) async throws -> [SpeakerTurn] {
+        if fails { throw Failed() }
+        return script
+    }
+}
+
+/// Mic lines heard while you were muted on the call are left out.
+@Suite struct MutedMicTests {
+    struct Fixture {
+        let store: Store
+        let paths: FiggPaths
+        let meeting: Meeting
+        let base: URL
+
+        func save(_ timeline: SpeakerTimeline) throws {
+            try timeline.save(to: paths.meetingDir(meeting.id).appendingPathComponent(SpeakerTimeline.fileName))
+        }
+
+        func transcript() throws -> [String] {
+            try store.transcript(meetingId: meeting.id).map { "\($0.displaySpeaker): \($0.text)" }
+        }
+
+        func cleanUp() { try? FileManager.default.removeItem(at: base) }
+    }
+
+    /// A meeting with one chunk of speech per stream, each `seconds` long, at offset 0.
+    func fixture(streams: [FiggAudio.AudioStream], seconds: Int = 1) throws -> Fixture {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let paths = FiggPaths(base: base)
+        let store = try Store.inMemory()
+        let meeting = Meeting()
+        try store.save(meeting)
+        let pending = paths.pendingDir(meeting.id)
+        try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
+        let speech = (0..<(16_000 * seconds)).map { sin(Float($0) / 5) * 0.3 }
+        for stream in streams {
+            try writeChunk(speech, to: pending.appendingPathComponent(AudioChunk.fileName(stream: stream, offset: 0)))
+        }
+        return Fixture(store: store, paths: paths, meeting: meeting, base: base)
+    }
+
+    func liveRun(_ f: Fixture, skipMuted: Bool, share: @escaping @Sendable (String, Double, Double) -> Double?) async throws -> [String] {
+        let queue = TranscriptionQueue(store: f.store, paths: f.paths, transcriber: FakeTranscriber(), keepAudio: { false },
+                                       skipMuted: { skipMuted }, liveMutedShare: share, onLines: { _ in })
+        await queue.enqueuePending(meetingId: f.meeting.id)
+        await queue.drain()
+        // Chunks still move to done/, so the final pass sees every file.
+        #expect(AudioChunk.list(in: f.paths.doneDir(f.meeting.id)).count == 2)
+        return try f.transcript()
+    }
+
+    @Test func liveMicLineDroppedWhenMutedAndCallLineKept() async throws {
+        let f = try fixture(streams: [.mic, .system])
+        defer { f.cleanUp() }
+        #expect(try await liveRun(f, skipMuted: true, share: { _, _, _ in 1 }) == ["Them: hello there"])
+    }
+
+    @Test func liveMicLineUnderHalfMutedIsKept() async throws {
+        let f = try fixture(streams: [.mic, .system])
+        defer { f.cleanUp() }
+        #expect(try await liveRun(f, skipMuted: true, share: { _, _, _ in 0.4 }).sorted() == ["Me: hello there", "Them: hello there"])
+    }
+
+    @Test func liveUsesSavedTimelineWhenNoWatcherRuns() async throws {
+        // The backlog after Stop, or crash recovery: only speakers.json knows.
+        let f = try fixture(streams: [.mic, .system])
+        defer { f.cleanUp() }
+        try f.save(SpeakerTimeline(app: "zoom", muted: [.init(start: 0, end: 10)]))
+        #expect(try await liveRun(f, skipMuted: true, share: { _, _, _ in nil }) == ["Them: hello there"])
+    }
+
+    @Test func liveWithNothingMutedIsAsToday() async throws {
+        let zero = try fixture(streams: [.mic, .system])
+        defer { zero.cleanUp() }
+        let plain = try fixture(streams: [.mic, .system])
+        defer { plain.cleanUp() }
+        let withZero = try await liveRun(zero, skipMuted: true, share: { _, _, _ in 0 })
+        let queue = TranscriptionQueue(store: plain.store, paths: plain.paths, transcriber: FakeTranscriber(), keepAudio: { false }, onLines: { _ in })
+        await queue.enqueuePending(meetingId: plain.meeting.id)
+        await queue.drain()
+        #expect(withZero.sorted() == (try plain.transcript()).sorted())
+        #expect(withZero.count == 2)
+    }
+
+    @Test func liveKeepsMicLinesWhenSettingOff() async throws {
+        let f = try fixture(streams: [.mic, .system])
+        defer { f.cleanUp() }
+        try f.save(SpeakerTimeline(app: "zoom", muted: [.init(start: 0, end: 10)]))
+        #expect(try await liveRun(f, skipMuted: false, share: { _, _, _ in 1 }).sorted() == ["Me: hello there", "Them: hello there"])
+    }
+
+    // Final pass: 30 s of mic. You (voice A) talk for the first 9.5 s; then
+    // you mute and someone in the room (voice B) talks for 20 s, all but
+    // the last 2 s while you are muted.
+    let script = [
+        TranscriptSegment(start: 0, end: 4, text: "first point"),
+        TranscriptSegment(start: 5, end: 9, text: "second point"),
+        TranscriptSegment(start: 11, end: 15, text: "an aside in the room"),
+        TranscriptSegment(start: 16, end: 20, text: "another aside"),
+        TranscriptSegment(start: 27, end: 30, text: "back again"),     // a third muted: kept
+    ]
+    let voices = [SpeakerTurn(start: 0, end: 9.5, speaker: "A"), SpeakerTurn(start: 10, end: 30, speaker: "B")]
+    let mutedStretch = SpeakerTimeline(app: "zoom", muted: [.init(start: 10, end: 28)])
+    /// What the final pass gives today, with no mute information: B talks
+    /// most, so B is "Me".
+    let today = ["Guest 1: first point", "Guest 1: second point", "Me: an aside in the room", "Me: another aside", "Me: back again"]
+
+    func finalRun(timeline: SpeakerTimeline?, separator: SpeakerSeparator?, skipMuted: Bool = true) async throws -> [String] {
+        let f = try fixture(streams: [.mic], seconds: 30)
+        defer { f.cleanUp() }
+        if let timeline { try f.save(timeline) }
+        let queue = TranscriptionQueue(store: f.store, paths: f.paths, transcriber: ScriptedTranscriber(segments: script), separator: separator,
+                                       keepAudio: { false }, skipMuted: { skipMuted }, onLines: { _ in })
+        await queue.enqueuePending(meetingId: f.meeting.id)
+        await queue.drain()
+        let live = try f.transcript()
+        // Live lines are filtered too: 3 of 5 left when muted and on.
+        let mutedLive = skipMuted && !(timeline?.muted.isEmpty ?? true)
+        #expect(live.count == (mutedLive ? 3 : 5), "live: \(live)")
+        try await queue.finalPass(meetingId: f.meeting.id)
+        return try f.transcript()
+    }
+
+    @Test func finalPassDropsMutedMicLinesAndRanksMeByUnmutedTalk() async throws {
+        let out = try await finalRun(timeline: mutedStretch, separator: ScriptedSeparator(script: voices))
+        // B's muted talk no longer makes it "Me"; B stays a Guest.
+        #expect(out == ["Me: first point", "Me: second point", "Guest 1: back again"])
+    }
+
+    @Test func finalPassDropsMutedMicLinesWithoutSeparation() async throws {
+        let none = try await finalRun(timeline: mutedStretch, separator: nil)
+        #expect(none == ["Me: first point", "Me: second point", "Me: back again"])
+        let failed = try await finalRun(timeline: mutedStretch, separator: ScriptedSeparator(fails: true))
+        #expect(failed == none)
+    }
+
+    @Test func finalPassWithoutMuteInformationIsAsToday() async throws {
+        let separator = ScriptedSeparator(script: voices)
+        #expect(try await finalRun(timeline: nil, separator: separator) == today)
+        let namesOnly = SpeakerTimeline(app: "zoom", spans: [.init(start: 0, end: 30, name: "Nora Patel")])
+        #expect(try await finalRun(timeline: namesOnly, separator: separator) == today)
+    }
+
+    @Test func finalPassKeepsEveryMicLineWhenSettingOff() async throws {
+        #expect(try await finalRun(timeline: mutedStretch, separator: ScriptedSeparator(script: voices), skipMuted: false) == today)
     }
 }
 
