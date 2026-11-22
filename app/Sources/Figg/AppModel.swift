@@ -24,6 +24,11 @@ struct Banner: Identifiable, Equatable {
     var isConfigWarning = false
     /// "Up to date" or a failed check from the menu; replaced by the next one.
     var isUpdateResult = false
+    /// An update offer's release notes, for its "What's new" sheet. Only the
+    /// update banner sets them, together with `updateVersion`, so the notes
+    /// always belong to the version the banner names.
+    var releaseNotes: ReleaseNotes?
+    var updateVersion: String?
 }
 
 enum ModelState: Equatable {
@@ -694,9 +699,14 @@ final class AppModel: ObservableObject {
     /// One update banner at a time, so its button and text name one version.
     private func showUpdateBanner(_ release: ReleaseInfo) {
         banners.removeAll { $0.action == .installUpdate || $0.isUpdateResult }
-        banners.append(Banner(kind: .info,
-                              text: "figg v\(release.version) is available.",
-                              action: .installUpdate))
+        var banner = Banner(kind: .info,
+                            text: "figg v\(release.version) is available.",
+                            action: .installUpdate)
+        banner.releaseNotes = ReleaseNotes.covering(release.notes,
+                                                    installed: UpdateManager.currentVersion ?? "",
+                                                    offered: release.version)
+        banner.updateVersion = release.version
+        banners.append(banner)
     }
 
     private func showUpdateResult(_ banner: Banner) {

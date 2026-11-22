@@ -171,7 +171,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | macOS permissions (Settings > Permissions, Fix, signer change) | `app/Sources/FiggPermissions/`, `app/Sources/Figg/PermissionsView.swift` (the only place figg asks) |
 | Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
-| In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys), `app/Sources/Figg/UpdateManager.swift`, `app/scripts/publish-dmg-blob.mjs`, `docs/release-signing.md` |
+| In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys; `ReleaseNotes.swift` picks, cuts and formats the notes), `app/Sources/Figg/UpdateManager.swift`, `app/Sources/Figg/ReleaseNotesView.swift` (the banner's "What's new" sheet), `app/scripts/publish-dmg-blob.mjs`, `app/scripts/changelog-notes.mjs` (the notes in `latest.json`), `docs/release-signing.md` |
 | Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/v1/bug-report.ts` |
 | HTTP API (figg-api.vercel.app) | `api/` (see `api/README.md`) |
 | Colours, fonts, theme | `app/Sources/Figg/Theme.swift` |

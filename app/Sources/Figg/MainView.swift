@@ -1,5 +1,6 @@
 import FiggCalendar
 import FiggStore
+import FiggUpdate
 import FiggWidget
 import SwiftUI
 
@@ -191,6 +192,8 @@ struct BannerStack: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The update banner whose "What's new" sheet is open.
+    @State private var notesBanner: UUID?
 
     var body: some View {
         UpdateProgressBanner(updates: model.updates)
@@ -199,6 +202,9 @@ struct BannerStack: View {
                 HStack(alignment: .top) {
                     Image(systemName: icon(banner.kind)).foregroundStyle(color(banner.kind))
                     Text(banner.text).foregroundStyle(theme.ink).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                    if banner.releaseNotes != nil {
+                        Button("What's new") { notesBanner = banner.id }.buttonStyle(.borderless)
+                    }
                     if let action = banner.action {
                         Button(label(action)) { model.perform(action); model.dismiss(banner) }
                     }
@@ -214,6 +220,31 @@ struct BannerStack: View {
         .padding(.top, model.banners.isEmpty ? 0 : 8)
         // Banners slide in and out instead of shoving the page.
         .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: model.banners.map(\.id))
+        // Open only while its banner is still shown: a newer offer replaces the
+        // banner and so closes the sheet, and "Update now" here can never
+        // install a version whose notes it did not show.
+        .sheet(isPresented: Binding(
+            get: { notesBannerShown != nil },
+            set: { if !$0 { notesBanner = nil } }
+        )) {
+            if let banner = notesBannerShown, let notes = banner.releaseNotes {
+                ReleaseNotesSheet(
+                    version: banner.updateVersion ?? "",
+                    notes: notes,
+                    update: {
+                        notesBanner = nil
+                        if let action = banner.action { model.perform(action) }
+                        model.dismiss(banner)
+                    },
+                    later: { notesBanner = nil }
+                )
+            }
+        }
+    }
+
+    private var notesBannerShown: Banner? {
+        guard let id = notesBanner else { return nil }
+        return model.banners.first { $0.id == id && $0.releaseNotes != nil }
     }
 
     func icon(_ k: Banner.Kind) -> String {
