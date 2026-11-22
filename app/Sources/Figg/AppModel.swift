@@ -110,6 +110,7 @@ final class AppModel: ObservableObject {
         }
         dictation = DictationController(store: store, transcriber: transcriber, settings: settings)
         let keepAudio = settings.keepAudio
+        let skipMicWhenMuted = settings.skipMicWhenMuted
         queue = TranscriptionQueue(
             store: store,
             paths: paths,
@@ -117,6 +118,8 @@ final class AppModel: ObservableObject {
             separator: t.separateSpeakers ? FluidSpeakerSeparator() : nil,
             keepAudio: { keepAudio.value },
             liveName: { [liveSpeakers] id, start, end in liveSpeakers.name(meetingId: id, start: start, end: end) },
+            skipMuted: { skipMicWhenMuted.value },
+            liveMutedShare: { [liveSpeakers] id, start, end in liveSpeakers.mutedShare(meetingId: id, start: start, end: end) },
             onLines: { [weak self] _ in
                 Task { @MainActor in self?.transcriptVersion += 1 }
             })
@@ -386,22 +389,25 @@ final class AppModel: ObservableObject {
 
     private var silenceWatch = SilenceWatch()
 
-    /// Watches Zoom for who is speaking, when the setting is on. Without
-    /// Accessibility it says once, while a Zoom meeting is open, how to
-    /// turn names on, and otherwise records as before.
+    /// Watches Zoom for who is speaking and whether you are muted, when
+    /// either setting is on. Without Accessibility it says once, while a
+    /// Zoom meeting is open, how to turn it on, and otherwise records as before.
     private func startSpeakerNames(meetingId id: String, recorder: Recorder) {
-        guard settings.config.transcription.meetingAppNames else { return }
+        let t = settings.config.transcription
+        let plan = MeetingAppWatch.plan(names: t.meetingAppNames, skipMuted: t.skipMicWhenMuted)
+        guard plan.start else { return }
         let zoomOpen = !NSRunningApplication.runningApplications(withBundleIdentifier: ZoomReader.bundleID).isEmpty
         guard AccessibilityAccess.isGranted else {
-            if zoomOpen, !askedForAccessibility {
+            if zoomOpen, !askedForAccessibility, let text = plan.bannerText {
                 askedForAccessibility = true
-                banners.append(Banner(kind: .info, text: "figg can put Zoom's names on the people talking, instead of \"Them 1\", \"Them 2\". It needs Accessibility permission to read Zoom's window; nothing leaves this Mac.", action: .fixPermissions))
+                banners.append(Banner(kind: .info, text: text, action: .fixPermissions))
             }
             return
         }
         let watcher = SpeakerWatcher(
             meetingId: id, app: "zoom", reader: ZoomReader(),
             file: paths.meetingDir(id).appendingPathComponent(SpeakerTimeline.fileName),
+            names: plan.names,
             clock: { [recorder] in recorder.elapsed })
         watcher.start()
         speakerWatcher = watcher

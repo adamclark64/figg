@@ -28,6 +28,8 @@ final class AppSettings: ObservableObject {
 
     /// Read from the transcription queue's background task.
     nonisolated let keepAudio = AtomicFlag()
+    /// `transcription.skip_mic_when_muted`, read off the main actor by the transcription queue.
+    nonisolated let skipMicWhenMuted = AtomicFlag()
 
     init(configURL: URL = FiggConfig.defaultURL) {
         self.configURL = configURL
@@ -51,6 +53,7 @@ final class AppSettings: ObservableObject {
             loadError = "\(configURL.path) could not be read, so figg is using defaults: \(error)"
         }
         keepAudio.value = config.recording.keepAudio
+        skipMicWhenMuted.value = config.transcription.skipMicWhenMuted
         loadLLMKeys()
     }
 
@@ -76,6 +79,7 @@ final class AppSettings: ObservableObject {
 
     private func save() {
         keepAudio.value = config.recording.keepAudio
+        skipMicWhenMuted.value = config.transcription.skipMicWhenMuted
         guard loadError == nil else { return }
         do {
             try config.save(to: configURL)

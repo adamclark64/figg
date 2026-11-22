@@ -42,6 +42,10 @@ macOS permissions, or Bedrock.
 - [ ] Same call: `meetings/<id>/speakers.json` lists the participants and speaking spans
 - [ ] Gallery view with two others unmuted: lines fall back to Them 1 / Them 2 (no wrong names)
 - [ ] Zoom quits mid-call: recording carries on, earlier names stay
+- [ ] "Skip my mic while I'm muted on Zoom" on: mute in Zoom and talk in the room, unmute and talk, mute again and talk; after Stop only the unmuted speech is in the transcript as "Me", and the other side's lines are all there
+- [ ] Same call: `meetings/<id>/speakers.json` has `muted` stretches matching when you were muted (the toolbar's mute label was read; with the meeting toolbar hidden too)
+- [ ] Same call with "Name speakers on Zoom calls" off: mute still skips the mic, and `speakers.json` has no names
+- [ ] Quit figg, set `skip_mic_when_muted: true` in config.yaml by hand, relaunch: the toggle shows on; set it to `false`, bring figg to the front: the toggle shows off and a muted stretch is kept
 
 ## Meeting detection
 - [ ] Join a Zoom/Teams/Meet call: "X is using your microphone" card appears within ~5 s, top-right, without taking focus
