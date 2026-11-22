@@ -27,20 +27,29 @@ With no notes the banner is exactly today's.
 
 New `app/scripts/changelog-notes.mjs`, no dependencies, ES module:
 
-- `export function sections(changelog: string): {version, text}[]` splits
-  on lines matching `^## \[?(\d+\.\d+\.\d+)\]?` (release-please writes
-  `## [0.19.2](compare-url) (date)`; the oldest entries are `## 0.4.0`).
-  `text` is everything up to the next `## ` line, with the heading line
-  removed and surrounding blank lines trimmed. A version heading that
-  appears twice throws (two sections for one version would make "the
-  offered version's notes" ambiguous).
+- `export function sections(changelog: string): {version, text}[]`: every
+  line starting `## ` ends the section before it. A `## ` line matching
+  `^## \[?(\d+\.\d+\.\d+)\]?` starts a version section (release-please
+  writes `## [0.19.2](compare-url) (date)`; the older entries, `## 0.6.0`
+  down to `## 0.0.1`, are bare). Any other `## ` section (for example
+  `## Unreleased`) is ignored. `text` is the lines after the heading up to
+  the next `## ` line, with surrounding blank lines trimmed.
 - `export function notesFor(changelog, version, { max = 15 } = {})`
   returns `sections()` filtered to versions at or below `version`
   (numeric compare, not file order), dropping empty texts of older
-  versions, sorted newest first, first `max` kept. Throws
+  versions, sorted newest first, first `max` kept. A repeated version keeps
+  its first occurrence, except that it throws when the repeated version is
+  one of those emitted (that is where it would make the notes ambiguous),
+  so an old duplicate outside the window never blocks a release. Throws
   `no CHANGELOG.md section for <version>` when that exact version has no
   section or its text is empty. The first entry is therefore always the
   published version.
+- `export function feedFor({ version, dmgURL, size, signature, changelog })`
+  returns `{ feed, logLine }` or throws (from `notesFor`). `feed` is the
+  exact JSON text uploaded, with the old four fields first and in today's
+  order, then `notes`. `logLine` is the feed without `notes` plus
+  `notes for N versions (newest X)`. Keeping this pure is what lets the
+  wiring be tested without `@vercel/blob` or a real release.
 - Older versions are included so a user several releases behind sees
   every change (spec outcome 2). Fifteen covers months of releases and
   keeps the file small (today's changelog sections average a few hundred
@@ -54,19 +63,22 @@ Changed `app/scripts/publish-dmg-blob.mjs`:
 
 - Right after the argument checks and before reading the dmg, reads
   `CHANGELOG.md` at `new URL("../../CHANGELOG.md", import.meta.url)` (so it
-  works from any working directory) and calls `notesFor`. On any error
-  prints `not published: <message>` and exits 1. Nothing is signed or
-  uploaded, and the `latest.json` already in the store stays as it was.
-- The feed becomes
-  `{version, dmg_url, size, signature, notes}`. Field order keeps the old
-  four first. The closing log line prints the feed without `notes` plus
-  `notes for N versions (newest X)`, so the log stays readable.
+  works from any working directory) and calls `notesFor` once as a check.
+  On any error prints `not published: <message>` and exits 1. Nothing is
+  signed or uploaded, and the `latest.json` already in the store stays as
+  it was.
+- After the dmg uploads, builds the version file with `feedFor` and
+  uploads `feed`, printing `logLine` (so the log stays readable and holds
+  no note text). The feed becomes `{version, dmg_url, size, signature, notes}`.
 
 Changed `.github/workflows/ci.yml`: one step in the existing Linux `gates`
 job, `node --test app/scripts/changelog-notes.test.mjs` (ubuntu-latest
 ships Node with `node:test`). This is the CI check the acceptance
-criterion asks for, and it runs on every PR, so a changelog edit that
-breaks extraction is caught before a release rather than during one.
+criterion asks for. It guards hand edits to the changelog and the
+extraction code. It does not run on release-please's own Release PR
+(opened with `GITHUB_TOKEN`, which starts no workflows), so a new
+version's section is first checked by the `publish` job itself, which
+fails loudly before publishing anything, as the spec requires.
 
 The release workflows themselves do not change: `release-please.yml`'s
 `publish` job and `publish-dmg-blob.yml` both check out the repository and
@@ -118,17 +130,22 @@ public struct ReleaseNotes: Equatable, Sendable {
   when nothing is left (the prompt then looks as it does today). A non-
   numeric installed or offered version yields nil, matching `isNewer`'s
   "a broken version can only suppress, not nag" rule.
-- The cut: walk sections newest first, adding each section's text length.
-  When the next section would pass `limit`, keep its lines up to the last
-  whole line that fits (a single line longer than the limit is cut at the
-  limit and ends with an ellipsis), drop everything after, set `isCut`.
-  The offered version's first line is always kept, so a cut never shows
-  an empty sheet.
-- `isCut` is also set when the file had entries but none at or below the
-  installed version and the file held 15 or more entries: the user is
-  further behind than the file reaches, so older changes are not shown
-  and the "full changelog" link says so. (With fewer than 15 entries the
-  file holds the whole changelog, so nothing is missing.)
+- The cut counts what the user reads, not Markdown source: each line's
+  length is the character count of its rendered `inline(...)` text, so
+  the issue and commit URLs release-please puts on every bullet do not use
+  up the budget. Walk sections newest first, line by line; when the next
+  line would pass `limit`, drop it and everything after and set `isCut`.
+  Lines are kept or dropped whole, so a cut never leaves half a
+  `[x](https://...` showing. The offered version's first line is always
+  kept; if that one line alone passes the limit it is shown as plain text
+  (formatting dropped) cut at the limit with an ellipsis, so a cut never
+  shows an empty sheet or broken link syntax.
+- `isCut` is also set when no entry in the file is at or below the
+  installed version: the user is further behind than the file reaches
+  (15 versions), so older changes are not shown and the "full changelog"
+  link says so. This needs no knowledge of the script's window size. It
+  can also show the link when malformed entries were dropped, the safe
+  direction.
 - `blocks` reads line by line: `#`-prefixed lines become `heading` with
   the hashes stripped, lines starting `* `, `- ` or `+ ` (after leading
   spaces) become `bullet`, blank lines are skipped, anything else is a
@@ -182,7 +199,14 @@ button; it sets a `@State` banner id that presents `ReleaseNotesSheet`.
 The sheet's "Update now" runs the same `model.perform(.installUpdate)` and
 `model.dismiss(banner)` as the banner's button, so recording guards and the
 pending-update path are unchanged. A banner without notes renders exactly
-as today.
+as today. The sheet's binding is true only while its banner id is still in
+`model.banners`: when an automatic check replaces the update banner with
+one for a newer version, the sheet closes, so "Update now" in the sheet
+can never install a version whose notes it did not show.
+
+Settings' `UpdateStatusView` ("Update to vX" in Settings > Recording) is
+deliberately unchanged: the spec asks for notes in the update prompt, which
+is the banner.
 
 Docs: `docs/release-signing.md` documents `notes` (shape, that it is not
 signed, that the app treats it as display text only, and that the publish
@@ -224,7 +248,8 @@ gains steps under `## Updates`; the "In-app updates" row in AGENTS.md's
 |---|---|
 | `latest.json` has no `notes` (published before this change, or republished by an old script) | Banner as today, no "What's new" button. |
 | `notes` is the wrong type, or some entries are malformed | Malformed entries dropped; if none survive, banner as today. Update still offered and installs. |
-| Notes are huge | Sheet shows the newest notes up to 6,000 characters and "See the full changelog". |
+| Notes are huge | Sheet shows the newest notes up to 6,000 rendered characters and "See the full changelog". |
+| A newer update is found while the sheet is open | The banner is replaced and the sheet closes; the new banner's "What's new" shows the new notes. |
 | User is more versions behind than the file covers | Sheet shows what the file has and "See the full changelog". |
 | An entry's version is newer than the offered one (bad publish) | Entry ignored by `covering`. |
 | Notes contain `javascript:`, `file:`, `http:` links, images or HTML | Shown as plain text (link removed, image as alt text, HTML literal). |
@@ -232,7 +257,7 @@ gains steps under `## Updates`; the "In-app updates" row in AGENTS.md's
 | Markdown fails to parse | Line shown as plain text. |
 | Installed build has no version (dev build) | No update is offered at all today, so no notes either. |
 | Release has no `CHANGELOG.md` section for its version | `publish` job fails with `not published: no CHANGELOG.md section for X.Y.Z`; nothing uploaded, users keep being offered the previous release. Fix the changelog and run "publish dmg to blob" for the tag. |
-| Changelog has a version heading twice | Same as above, with a message naming the version. |
+| Changelog repeats a version inside the 15 published | Same as above, with a message naming the version. A repeat outside the window keeps its first occurrence and publishes. |
 | Someone with the store token edits the notes | They can change the text shown, never what is installed: the dmg signature and the version check after mounting are unchanged. Links stay `https` and open only on click. |
 
 ## Hard rules
@@ -259,10 +284,10 @@ runs the Node test. Nothing is built locally.
 |---|---|
 | Parses a file with notes; `ReleaseInfo` exposes them | `UpdateCheckerTests.parsesReleaseNotes` (`FakeHTTP` body with two entries, `v` prefix dropped) |
 | No notes / malformed notes still give a `ReleaseInfo` with no notes and the update is offered | `UpdateCheckerTests.aVersionFileWithoutNotesHasNone`, `malformedNotesAreDropped` (`notes` as a string, as an object, entries missing `text`, numeric `version`, blank text, one good entry among bad ones), each also checking `version`, `dmgURL` and `signature` are unchanged; `UpdateCheckerTests.notesNeverMakeTheFileUnreadable` (a 1 MB `text`) |
-| Several releases behind: every version after installed up to offered, newest first, excluding installed and older | `ReleaseNotesTests.coversVersionsAfterTheInstalledOne` (installed 0.17.0, offered 0.19.2, entries 0.16.0 to 0.20.0 shuffled: expects 0.19.2, 0.19.1, 0.19.0, 0.18.0), `ignoresVersionsNewerThanOffered`, `nilWhenNothingIsNewer`, `nilForNonNumericVersions` |
-| Notes over the limit are cut and the cut is visible | `ReleaseNotesTests.cutsAtTheLimitOnALineBoundary` (`isCut` true, kept text at most the limit, ends on a whole line), `cutsAnOverlongSingleLine`, `marksCutWhenTheFileDoesNotReachTheInstalledVersion`, `notCutWhenItFits`; the sheet shows "See the full changelog" whenever `isCut` (manual step) |
-| Publish writes the offered version's notes from `CHANGELOG.md` and fails without a section | `changelog-notes.test.mjs`: release-please and bare headings, newest-first order by version not file order, `max`, newer versions excluded, missing section throws, empty section throws, duplicate heading throws, and the repository's `CHANGELOG.md` yields a first entry equal to `.release-please-manifest.json`'s version |
-| Prompt shows notes when present, unchanged when absent | Manual steps in `docs/manual-test-checklist.md`; plus `ReleaseNotesTests.blocksSplitHeadingsBulletsParagraphs`, `inlineKeepsOnlyHttpsLinks`, `inlineDropsImages`, `inlineFallsBackToPlainText` for what the sheet renders |
+| Several releases behind: every version after installed up to offered, newest first, excluding installed and older | `ReleaseNotesTests.coversVersionsAfterTheInstalledOne` (installed 0.17.0, offered 0.19.2, entries 0.16.0 to 0.20.0 shuffled: expects 0.19.2, 0.19.1, 0.19.0, 0.18.0), `ignoresVersionsNewerThanOffered`, `nilWhenNothingIsNewer`, `nilForNoNotes`, `nilForNonNumericVersions` |
+| Notes over the limit are cut and the cut is visible | `ReleaseNotesTests.cutsAtTheLimitOnALineBoundary` (`isCut` true, rendered text at most the limit, only whole lines kept), `limitCountsRenderedTextNotURLs` (bullets with long link URLs all fit), `cutsAnOverlongSingleLineAsPlainText`, `marksCutWhenTheFileDoesNotReachTheInstalledVersion`, `notCutWhenItFits`; the sheet shows "See the full changelog" whenever `isCut` (manual step) |
+| Publish writes the offered version's notes from `CHANGELOG.md` and fails without a section | `changelog-notes.test.mjs`: release-please and bare headings, a non-version `## Unreleased` section ignored and ending the section before it, newest-first order by version not file order, `max`, newer versions excluded, missing section throws, empty section throws, a duplicate inside the window throws and one outside it does not; `feedFor` keeps the old four fields first with today's values, puts the published version first in `notes`, throws without a section, and its `logLine` holds no note text; and the repository's `CHANGELOG.md` yields a first entry equal to `.release-please-manifest.json`'s version |
+| Prompt shows notes when present, unchanged when absent | Manual steps in `docs/manual-test-checklist.md` (including the sheet closing when a newer update replaces the banner); plus `ReleaseNotesTests.nilForNoNotes`, `blocksSplitHeadingsBulletsParagraphs`, `inlineKeepsOnlyHttpsLinks`, `inlineDropsImages`, `inlineKeepsTheTextOfBadMarkdown` for what the sheet renders. The plain-text fallback when `AttributedString(markdown:)` throws is hard to trigger with `.returnPartiallyParsedIfPossible` and is left untested |
 | `latest.json` field documented | `docs/release-signing.md`, reviewed on the final PR |
 
 Existing `UpdateCheckerTests` (including `fieldsThisVersionDoesNotKnowAreIgnored`)
@@ -271,7 +296,27 @@ strict decode installed copies use still accepts the new file.
 
 ## Open questions
 
-None that block the build. The limit (6,000 characters) and the version
-count (15) are judgement calls and easy to change later.
+None that block the build. The limit (6,000 rendered characters) and the
+version count (15) are judgement calls and easy to change later.
 
 ## Review notes
+
+The design-critic found no blockers in one round (one major, nine minor);
+all were taken:
+
+- Major: the publish wiring was untested. Feed assembly moved into the pure
+  `feedFor` in `changelog-notes.mjs`, tested in `gates`.
+- The sheet now closes when a newer update replaces its banner.
+- `isCut` no longer hard-codes the script's 15-version window.
+- A duplicate changelog heading outside the published window no longer
+  blocks a release.
+- Corrected the claim that CI catches a release's missing section; the
+  `publish` job is where that fails.
+- The untestable markdown-throws fallback test was replaced and the gap
+  stated.
+- Corrected the heading example; non-version `## ` sections are ignored.
+- The limit counts rendered text, and cuts keep whole lines only.
+- Added `nilForNoNotes`.
+- Stated that Settings' "Update to vX" button is unchanged.
+
+No second round was run, since round one found no blocker.
