@@ -114,4 +114,69 @@ final class FakeHTTP: HTTPClient, @unchecked Sendable {
         // The same store the website's download button uses.
         #expect(UpdateChecker().feed.absoluteString == "https://3gwgc5ir6t6yxpzh.public.blob.vercel-storage.com/latest.json")
     }
+
+    /// The fields every test below expects to come through untouched,
+    /// whatever `notes` holds.
+    private static let base = #""version": "0.19.2", "dmg_url": "https://store.example.com/releases/figg-0.19.2.dmg", "size": 12345, "signature": "c2ln""#
+
+    private func expectTheReleaseIsOffered(_ release: ReleaseInfo) {
+        #expect(release.version == "0.19.2")
+        #expect(release.dmgURL.absoluteString == "https://store.example.com/releases/figg-0.19.2.dmg")
+        #expect(release.dmgSize == 12345)
+        #expect(release.signature == "c2ln")
+    }
+
+    @Test func parsesReleaseNotes() async throws {
+        let (checker, _) = checker(####"{\####(Self.base), "notes": [{"version": "v0.19.2", "text": "### Bug Fixes\n\n* **widget:** keep the timer visible"}, {"version": "0.19.1", "text": "### Features\n\n* add a sample feature"}]}"####)
+        let release = try await checker.latest()
+        expectTheReleaseIsOffered(release)
+        #expect(release.notes == [
+            ReleaseNote(version: "0.19.2", text: "### Bug Fixes\n\n* **widget:** keep the timer visible"),
+            ReleaseNote(version: "0.19.1", text: "### Features\n\n* add a sample feature"),
+        ])
+    }
+
+    @Test func aVersionFileWithoutNotesHasNone() async throws {
+        let (checker, _) = checker(#"{\#(Self.base)}"#)
+        let release = try await checker.latest()
+        expectTheReleaseIsOffered(release)
+        #expect(release.notes.isEmpty)
+    }
+
+    @Test func malformedNotesAreDropped() async throws {
+        // Notes can only add to the prompt: whatever is wrong with them, the
+        // update is still offered with the same version, dmg and signature.
+        for notes in [
+            ####""notes": "### Bug Fixes""####,
+            #""notes": {"version": "0.19.2", "text": "a fix"}"#,
+            #""notes": null"#,
+            #""notes": [{"version": "0.19.2"}]"#,
+            #""notes": [{"version": 0.19, "text": "a fix"}]"#,
+            #""notes": [{"version": "0.19.2", "text": "  \n "}]"#,
+            #""notes": [{"version": "next", "text": "a fix"}]"#,
+            #""notes": [1, "two", null, []]"#,
+        ] {
+            let (checker, _) = checker(#"{\#(Self.base), \#(notes)}"#)
+            let release = try await checker.latest()
+            expectTheReleaseIsOffered(release)
+            #expect(release.notes.isEmpty, "\(notes)")
+        }
+
+        // One good entry among bad ones is kept, in place.
+        let (checker, _) = checker(#"{\#(Self.base), "notes": [{"version": "0.19.2"}, 7, {"version": "0.19.1", "text": "* a fix"}, {"version": "0.19.0", "text": ""}, {"text": "* orphan"}]}"#)
+        let release = try await checker.latest()
+        expectTheReleaseIsOffered(release)
+        #expect(release.notes == [ReleaseNote(version: "0.19.1", text: "* a fix")])
+    }
+
+    @Test func notesNeverMakeTheFileUnreadable() async throws {
+        // A huge note is carried as is (ReleaseNotes cuts what is shown) and
+        // does not stop the file being read.
+        let huge = String(repeating: "a", count: 1_000_000)
+        let (checker, _) = checker(#"{\#(Self.base), "notes": [{"version": "0.19.2", "text": "\#(huge)"}]}"#)
+        let release = try await checker.latest()
+        expectTheReleaseIsOffered(release)
+        #expect(release.notes.count == 1)
+        #expect(release.notes.first?.text.count == 1_000_000)
+    }
 }
