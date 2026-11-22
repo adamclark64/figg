@@ -23,6 +23,44 @@ do when the key has to change.
 - The earlier check stays: the DMG must come over HTTPS from the same host
   as `latest.json`.
 
+## Release notes in latest.json
+
+`latest.json` also carries `notes`, the release notes the update prompt
+shows:
+
+```json
+{
+  "version": "0.19.2",
+  "dmg_url": "https://.../releases/figg-0.19.2.dmg",
+  "size": 12345678,
+  "signature": "...",
+  "notes": [
+    { "version": "0.19.2", "text": "### Bug Fixes\n\n* ..." },
+    { "version": "0.19.1", "text": "### Reverts\n\n* ..." }
+  ]
+}
+```
+
+- Each entry is one version's section of `CHANGELOG.md` as release-please
+  wrote it (Markdown, without the `## ` heading). The first entry is the
+  published version, then up to 14 older versions, newest first, so a copy
+  several releases behind can show everything since the version it runs.
+  `app/scripts/changelog-notes.mjs` cuts them out; CI's `gates` job tests
+  it, including against the repository's own changelog.
+- The notes are not signed. The signature still covers only the DMG, and
+  the app treats `notes` as display text: it never decides whether an
+  update is offered, verified or installed. Missing, malformed or oversized
+  notes give an update prompt without notes (or with them cut), and the
+  update installs as before. Copies that do not know the field ignore it.
+- The `publish` job fails with `not published: no CHANGELOG.md section for
+  X.Y.Z` when the version has no section (or an empty one), before
+  anything is signed or uploaded, so the `latest.json` already in the
+  store stays as it was. It also fails when a version it would include
+  appears twice in the changelog. Fix `CHANGELOG.md` and run "publish dmg
+  to blob" for the tag.
+- The job's log prints the version file without the note text, plus how
+  many versions' notes it carries.
+
 ## What this protects, and what it does not
 
 The download store's write token (`BLOB_READ_WRITE_TOKEN`) is no longer
