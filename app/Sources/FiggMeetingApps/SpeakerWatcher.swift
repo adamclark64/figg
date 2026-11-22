@@ -10,20 +10,24 @@ public final class SpeakerWatcher: @unchecked Sendable {
     private let clock: @Sendable () -> Double
     private let file: URL
     private let interval: Double
+    private let names: Bool
     private let queue = DispatchQueue(label: "figg.speaker-watcher", qos: .utility)
     private let lock = NSLock()
     private var timeline: SpeakerTimeline
+    private var tracker = MuteTracker()
     private var timer: DispatchSourceTimer?
     private var lastSave = 0.0
 
     /// - Parameters:
     ///   - clock: seconds since the recording started (`Recorder.elapsed`).
     ///   - file: where the timeline is saved, normally `<meeting>/speakers.json`.
-    public init(meetingId: String, app: String, reader: MeetingAppReader, file: URL, interval: Double = 0.5, clock: @escaping @Sendable () -> Double) {
+    ///   - names: false keeps only your mute state, no names of other people.
+    public init(meetingId: String, app: String, reader: MeetingAppReader, file: URL, interval: Double = 0.5, names: Bool = true, clock: @escaping @Sendable () -> Double) {
         self.meetingId = meetingId
         self.reader = reader
         self.file = file
         self.interval = interval
+        self.names = names
         self.clock = clock
         timeline = SpeakerTimeline.load(from: file) ?? SpeakerTimeline(app: app)
     }
@@ -53,20 +57,20 @@ public final class SpeakerWatcher: @unchecked Sendable {
         let time = clock()
         let snapshot = reader.read()
         lock.lock()
-        timeline.record(snapshot, at: time, interval: interval)
+        timeline.record(snapshot, at: time, interval: interval, names: names, tracker: &tracker)
         lock.unlock()
         if time - lastSave >= 5 { save(); lastSave = time }
     }
 
     private func save() {
         let t = current
-        guard !t.spans.isEmpty || !t.participants.isEmpty else { return }
+        guard !t.spans.isEmpty || !t.participants.isEmpty || !t.muted.isEmpty else { return }
         do { try t.save(to: file) } catch { NSLog("figg: could not save speaker names: \(error.localizedDescription)") }
     }
 }
 
 /// Holds the running recording's watcher where the transcription queue's
-/// background task can ask it for live names.
+/// background task can ask it for live names and mute state.
 public final class SpeakerWatcherSlot: @unchecked Sendable {
     private let lock = NSLock()
     private var watcher: SpeakerWatcher?
@@ -85,5 +89,16 @@ public final class SpeakerWatcherSlot: @unchecked Sendable {
         lock.unlock()
         guard let w, w.meetingId == meetingId else { return nil }
         return w.current.name(start: start, end: end)
+    }
+
+    /// The share of [start, end] you were muted in that meeting, or nil when
+    /// no watcher is running for it (the caller then falls back to the saved
+    /// `speakers.json`).
+    public func mutedShare(meetingId: String, start: Double, end: Double) -> Double? {
+        lock.lock()
+        let w = watcher
+        lock.unlock()
+        guard let w, w.meetingId == meetingId else { return nil }
+        return w.current.mutedShare(start: start, end: end)
     }
 }
