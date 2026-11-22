@@ -11,12 +11,18 @@ public struct ReleaseInfo: Equatable, Sendable {
     /// gave it. Nil when the file had none; `UpdateVerifier` then refuses
     /// the download.
     public var signature: String?
+    /// Release notes the version file carried, as given (`ReleaseNotes`
+    /// picks and cuts what to show). Empty when the file had none or they
+    /// could not be read; that never stops the update being offered.
+    public var notes: [ReleaseNote]
 
-    public init(version: String, dmgURL: URL, dmgSize: Int, signature: String? = nil) {
+    public init(version: String, dmgURL: URL, dmgSize: Int, signature: String? = nil,
+                notes: [ReleaseNote] = []) {
         self.version = version
         self.dmgURL = dmgURL
         self.dmgSize = dmgSize
         self.signature = signature
+        self.notes = notes
     }
 }
 
@@ -47,7 +53,13 @@ public enum UpdateError: LocalizedError, Equatable {
 /// download store, next to the dmg:
 ///
 ///     {"version": "0.5.1", "dmg_url": "https://<store>/releases/figg-0.5.1.dmg", "size": 22151932,
-///      "signature": "<base64 Ed25519 signature over the dmg>"}
+///      "signature": "<base64 Ed25519 signature over the dmg>",
+///      "notes": [{"version": "0.5.1", "text": "### Bug Fixes\n\n* ..."}, ...]}
+///
+/// `notes` holds CHANGELOG.md sections, newest first. It is read apart from
+/// the other fields and leniently: missing or malformed notes give a
+/// release with no notes, never an unreadable file, so they can only add
+/// to the prompt and never stop an update.
 ///
 /// The signature is only carried from here to `UpdateInstaller`, which
 /// checks it against the downloaded file (`UpdateVerifier`). A file without
@@ -98,7 +110,40 @@ public struct UpdateChecker: Sendable {
         }
         let version = latest.version.hasPrefix("v") ? String(latest.version.dropFirst()) : latest.version
         return ReleaseInfo(version: version, dmgURL: latest.dmgURL, dmgSize: latest.size,
-                           signature: latest.signature)
+                           signature: latest.signature, notes: Self.notes(in: data))
+    }
+
+    /// The `notes` entries of the version file that have a numeric version
+    /// (a leading v dropped) and non-blank text, in file order. Decoded on
+    /// its own, after the strict decode above, so nothing in `notes` can
+    /// make the file unreadable: any problem with the field as a whole
+    /// gives no notes, and a bad entry is skipped.
+    static func notes(in data: Data) -> [ReleaseNote] {
+        /// One entry, or nil when it is not `{"version": String, "text": String}`.
+        /// Its init never throws, so one bad entry cannot stop the array
+        /// decoding the entries after it.
+        struct Entry: Decodable {
+            var note: ReleaseNote?
+            enum CodingKeys: String, CodingKey { case version, text }
+            init(from decoder: Decoder) {
+                guard let c = try? decoder.container(keyedBy: CodingKeys.self),
+                      let version = try? c.decode(String.self, forKey: .version),
+                      let text = try? c.decode(String.self, forKey: .text) else { return }
+                note = ReleaseNote(version: version, text: text)
+            }
+        }
+        struct NotesFeed: Decodable {
+            var notes: [Entry]?
+        }
+
+        guard let entries = (try? JSONDecoder().decode(NotesFeed.self, from: data))?.notes else { return [] }
+        return entries.compactMap { entry in
+            guard var note = entry.note else { return nil }
+            if note.version.hasPrefix("v") { note.version = String(note.version.dropFirst()) }
+            guard ReleaseNotes.isNumeric(note.version),
+                  !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return note
+        }
     }
 
     /// Strict numeric dot-component compare. Anything non-numeric (prerelease
