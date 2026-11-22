@@ -19,12 +19,24 @@ public actor TranscriptionQueue {
     private let keepAudio: @Sendable () -> Bool
     /// Who the meeting app shows speaking over a stretch of a live meeting, if anyone.
     private let liveName: @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String?
+    /// Whether to leave out mic lines heard while you were muted
+    /// (`transcription.skip_mic_when_muted`), read at the time of use.
+    private let skipMuted: @Sendable () -> Bool
+    /// The share of a stretch of a live meeting you were muted for, from the
+    /// running watcher; nil when no watcher is running for that meeting.
+    private let liveMutedShare: @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> Double?
     private let onLines: @Sendable ([TranscriptLine]) -> Void
 
     private var queue: [(meetingId: String, chunk: AudioChunk)] = []
     private var running = false
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
+    /// The last `speakers.json` loaded for live filtering, for one meeting.
+    private var savedMute: (meetingId: String, timeline: SpeakerTimeline)?
 
+    /// - Parameters:
+    ///   - skipMuted: default off, so callers that do not pass it keep every mic line.
+    ///   - liveMutedShare: when it gives nil, the meeting's saved
+    ///     `speakers.json` is used instead (the backlog after Stop, crash recovery).
     public init(
         store: Store,
         paths: FiggPaths,
@@ -32,6 +44,8 @@ public actor TranscriptionQueue {
         separator: SpeakerSeparator? = nil,
         keepAudio: @escaping @Sendable () -> Bool,
         liveName: @escaping @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String? = { _, _, _ in nil },
+        skipMuted: @escaping @Sendable () -> Bool = { false },
+        liveMutedShare: @escaping @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> Double? = { _, _, _ in nil },
         onLines: @escaping @Sendable ([TranscriptLine]) -> Void
     ) {
         self.store = store
@@ -40,6 +54,8 @@ public actor TranscriptionQueue {
         self.separator = separator
         self.keepAudio = keepAudio
         self.liveName = liveName
+        self.skipMuted = skipMuted
+        self.liveMutedShare = liveMutedShare
         self.onLines = onLines
     }
 
@@ -87,6 +103,9 @@ public actor TranscriptionQueue {
                 if chunk.stream == .system {
                     for i in lines.indices { lines[i].speakerLabel = liveName(meetingId, lines[i].start, lines[i].end) }
                 }
+                if chunk.stream == .mic, !lines.isEmpty, skipMuted() {
+                    lines = lines.filter { mutedShare(meetingId, $0.start, $0.end) < MuteFilter.minShare }
+                }
                 if !lines.isEmpty {
                     let stored = try store.append(lines)
                     onLines(stored)
@@ -97,6 +116,27 @@ public actor TranscriptionQueue {
             // Leave the file in pending/ so recovery can retry it later.
             NSLog("figg: transcription failed for \(chunk.url.lastPathComponent): \(error)")
         }
+    }
+
+    /// How much of [start, end] you were muted for: from the running watcher,
+    /// else from the meeting's saved `speakers.json`, else 0. The chunk is
+    /// still moved to done/ either way, so the final pass sees every file.
+    private func mutedShare(_ meetingId: String, _ start: Double, _ end: Double) -> Double {
+        if let share = liveMutedShare(meetingId, start, end) { return share }
+        return savedTimeline(meetingId)?.mutedShare(start: start, end: end) ?? 0
+    }
+
+    /// The meeting's saved timeline, loaded once per meeting. A missing file
+    /// is not remembered, so one written later (at Stop) is still found.
+    private func savedTimeline(_ meetingId: String) -> SpeakerTimeline? {
+        if let savedMute, savedMute.meetingId == meetingId { return savedMute.timeline }
+        guard let loaded = SpeakerTimeline.load(from: timelineURL(meetingId)) else { return nil }
+        savedMute = (meetingId, loaded)
+        return loaded
+    }
+
+    private func timelineURL(_ meetingId: String) -> URL {
+        paths.meetingDir(meetingId).appendingPathComponent(SpeakerTimeline.fileName)
     }
 
     static func lines(from segments: [TranscriptSegment], chunk: AudioChunk, meetingId: String) -> [TranscriptLine] {
@@ -136,9 +176,11 @@ public actor TranscriptionQueue {
         let chunks = AudioChunk.list(in: done)
         guard !chunks.isEmpty, !fm.fileExists(atPath: finalMarker(meetingId).path) else { return }
 
+        let saved = SpeakerTimeline.load(from: timelineURL(meetingId))
         // Names the meeting app showed while recording (Zoom), if any.
-        let timeline = SpeakerTimeline.load(from: paths.meetingDir(meetingId).appendingPathComponent(SpeakerTimeline.fileName))
-            .flatMap { $0.spans.isEmpty ? nil : $0 }
+        let timeline = saved.flatMap { $0.spans.isEmpty ? nil : $0 }
+        // When you were muted, if any and if the setting is on now.
+        let muted = skipMuted() ? saved.flatMap { $0.muted.isEmpty ? nil : $0 } : nil
 
         var lines: [TranscriptLine] = []
         for stream in AudioStream.allCases {
@@ -174,11 +216,17 @@ public actor TranscriptionQueue {
                     // One person in the room: nothing to separate on the mic.
                     let joined = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
                     let turns = RecordingRuns.wallClock(joined, runs: runs, base: first.offset)
-                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset, timeline: timeline)
+                    // Talk while muted does not count towards choosing "Me".
+                    let rankTurns: [SpeakerTurn]? = stream == .mic && muted != nil
+                        ? MuteFilter.unmutedTurns(turns, muted: muted, offset: first.offset) : nil
+                    streamLines = SpeakerLabels.apply(turns, to: streamLines, stream: stream, offset: first.offset, timeline: timeline, rankTurns: rankTurns)
                 } catch {
                     NSLog("figg: speaker separation failed: \(error)")
                 }
             }
+            // Outside the separator block, so it also applies with speaker
+            // separation off or failed.
+            if stream == .mic { streamLines = MuteFilter.drop(streamLines, muted: muted) }
             if stream == .system, let timeline { streamLines = SpeakerLabels.nameLines(streamLines, timeline: timeline) }
             lines += streamLines
         }

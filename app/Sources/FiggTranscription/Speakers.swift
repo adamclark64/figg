@@ -68,12 +68,24 @@ public enum SpeakerLabels {
     /// Mic: the speaker who talks most is assumed to be the person at the
     /// Mac ("Me"); others in the room become "Guest 1", "Guest 2"...
     /// System audio: "Them 1", "Them 2"... in order of talk time.
-    public static func labels(for turns: [SpeakerTurn], stream: FiggAudio.AudioStream) -> [String: String]? {
-        var talk: [String: Double] = [:]
-        for t in turns { talk[t.speaker, default: 0] += max(0, t.end - t.start) }
+    /// - Parameter rankTurns: mic only. When given, "Me" is the voice that
+    ///   talks most in these turns (the turns with muted stretches cut out)
+    ///   instead of in `turns`. Which voices count, the 2 s noise floor and
+    ///   the Guest N order still come from `turns`, so a room voice that was
+    ///   mostly muted stays a Guest rather than vanishing.
+    public static func labels(for turns: [SpeakerTurn], stream: FiggAudio.AudioStream, rankTurns: [SpeakerTurn]? = nil) -> [String: String]? {
+        let talk = talkTime(turns)
         // Ignore speakers with under 2 s total; usually noise or a cough.
-        let ranked = talk.filter { $0.value >= 2 }.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.map(\.key)
+        var ranked = talk.filter { $0.value >= 2 }.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.map(\.key)
         guard ranked.count > 1 else { return nil }
+        if stream == .mic, let rankTurns {
+            let unmuted = talkTime(rankTurns)
+            // Ties keep the original order, so unchanged turns change nothing.
+            var me = ranked[0]
+            for id in ranked where unmuted[id, default: 0] > unmuted[me, default: 0] { me = id }
+            ranked.removeAll { $0 == me }
+            ranked.insert(me, at: 0)
+        }
         var out: [String: String] = [:]
         for (i, id) in ranked.enumerated() {
             switch stream {
@@ -82,6 +94,12 @@ public enum SpeakerLabels {
             }
         }
         return out
+    }
+
+    private static func talkTime(_ turns: [SpeakerTurn]) -> [String: Double] {
+        var talk: [String: Double] = [:]
+        for t in turns { talk[t.speaker, default: 0] += max(0, t.end - t.start) }
+        return talk
     }
 
     /// The speaker whose turns overlap the line most; if none overlap, the
@@ -105,8 +123,11 @@ public enum SpeakerLabels {
     /// - Parameter timeline: for the system audio, who the meeting app
     ///   showed as speaking. A voice that one name covers for most of its
     ///   talk time gets that name instead of "Them N".
-    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double, timeline: SpeakerTimeline? = nil) -> [TranscriptLine] {
-        var names = labels(for: turns, stream: stream)
+    /// - Parameter rankTurns: for the mic, the turns used to choose "Me"
+    ///   (see `labels(for:stream:rankTurns:)`); nil uses `turns`. Lines are
+    ///   always matched to voices with `turns`.
+    public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double, timeline: SpeakerTimeline? = nil, rankTurns: [SpeakerTurn]? = nil) -> [TranscriptLine] {
+        var names = labels(for: turns, stream: stream, rankTurns: rankTurns)
         if stream == .system, let timeline {
             let named = appNames(for: turns, timeline: timeline, offset: offset)
             if !named.isEmpty { names = (names ?? [:]).merging(named) { _, app in app } }

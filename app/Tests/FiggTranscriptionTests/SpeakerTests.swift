@@ -46,6 +46,33 @@ import Testing
         let out = SpeakerLabels.apply(room, to: lines, stream: .mic, offset: 0)
         #expect(out.map(\.displaySpeaker) == ["Me", "Guest 1"])
     }
+
+    @Test func applyRanksMeByRankTurnsButLabelsByTurns() {
+        // A talked most, but only 1 s of it was unmuted; B then talks most.
+        let cut = [
+            SpeakerTurn(start: 0, end: 1, speaker: "A"),
+            SpeakerTurn(start: 10, end: 14, speaker: "B"),
+            SpeakerTurn(start: 14, end: 17, speaker: "C"),
+            SpeakerTurn(start: 17, end: 18, speaker: "D"),
+        ]
+        // A stays a Guest (under 2 s once cut, but counted from `room`), and
+        // the Guest order follows the original talk time.
+        #expect(SpeakerLabels.labels(for: room, stream: .mic, rankTurns: cut) == ["B": "Me", "A": "Guest 1", "C": "Guest 2"])
+        let lines = [
+            // Only `room` has A here; with `cut` this line would match no voice.
+            TranscriptLine(meetingId: "m", speaker: .me, start: 5, end: 9, text: "earlier"),
+            TranscriptLine(meetingId: "m", speaker: .me, start: 11, end: 13, text: "later"),
+        ]
+        let out = SpeakerLabels.apply(room, to: lines, stream: .mic, offset: 0, rankTurns: cut)
+        #expect(out.map(\.displaySpeaker) == ["Guest 1", "Me"])
+    }
+
+    @Test func rankTurnsEqualToTurnsChangeNothing() {
+        #expect(SpeakerLabels.labels(for: room, stream: .mic, rankTurns: room) == SpeakerLabels.labels(for: room, stream: .mic))
+        // Call audio ignores them.
+        let cut = [SpeakerTurn(start: 10, end: 14, speaker: "B")]
+        #expect(SpeakerLabels.labels(for: room, stream: .system, rankTurns: cut) == SpeakerLabels.labels(for: room, stream: .system))
+    }
 }
 
 @Suite struct MeetingAppNameTests {
