@@ -161,7 +161,10 @@ struct RecordingSettings: View {
             Text("Use headphones: on laptop speakers your mic also hears the other side, so some of their speech can show up as \"Me\".")
                 .settingsCaption()
             Toggle("Name speakers on Zoom calls", isOn: $settings.config.transcription.meetingAppNames)
-            MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames)
+            MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames || settings.config.transcription.skipMicWhenMuted)
+            Toggle("Skip my mic while I'm muted on Zoom", isOn: $settings.config.transcription.skipMicWhenMuted)
+            Text("While the Zoom desktop app shows you muted, figg leaves what your mic hears out of the transcript, so people talking in the room with you are not written down. It reads Zoom's mute state with the same Accessibility permission; nothing leaves this Mac.")
+                .settingsCaption()
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: $settings.config.updates.autoCheck)
                 HStack {

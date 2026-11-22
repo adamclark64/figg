@@ -166,6 +166,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
 | Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
+| Skip the mic while muted on Zoom | `ZoomReading.selfMuted` (toolbar button, own tile as fallback), `SpeakerTimeline.muted` and `MuteTracker`, `MeetingAppWatch` (when the watcher starts, banner text), `FiggTranscription/MuteFilter.swift` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | macOS permissions (Settings > Permissions, Fix, signer change) | `app/Sources/FiggPermissions/`, `app/Sources/Figg/PermissionsView.swift` (the only place figg asks) |
@@ -240,6 +241,15 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   late Zoom's tile follows the speaker. Gallery view has no speaking cue,
   so there it only works when one other person is unmuted. Zoom in the
   browser, Meet, Teams and Slack are not read.
+- With `transcription.skip_mic_when_muted` (on by default, same
+  Accessibility permission, starts the Zoom watcher even with names off),
+  mic lines at least half inside a stretch where Zoom showed you muted are
+  left out, live and in the final pass; call audio is never dropped. Mute
+  is read from the toolbar's audio button, with your own tile as a
+  fallback, and the two disagreeing reads as unknown. The toolbar's real
+  labels and position are guesses, and the feature has not been tried on
+  a real call yet; a non-English Zoom or a changed label reads as unknown,
+  so nothing is dropped. The audio itself is kept as before.
 - If System Audio Recording permission is missing, macOS delivers silence
   rather than an error; figg only warns after 30 s of exact silence.
 - Live lines come from 10 s chunks and can be rough at the cuts; the final

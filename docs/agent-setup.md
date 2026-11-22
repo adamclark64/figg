@@ -511,6 +511,9 @@ When both checks pass, figg is set up. Tell the human:
   Accessibility permission (Privacy & Security > Accessibility); the human
   turns it on in Settings > Permissions, or clicks **Fix permissions** on
   the banner figg shows during the first Zoom recording. Speaker view gives the best names.
+  With the same permission, "Skip my mic while I'm muted on Zoom" (on by
+  default, `transcription.skip_mic_when_muted` in config.yaml) leaves what
+  the mic hears out of the transcript while Zoom shows them muted.
 - Which provider is active, and, if it uses a free model, the warning from
   rule 6 once more.
 
