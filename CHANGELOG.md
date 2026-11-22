@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.0](https://github.com/adamclark64/figg/compare/v0.19.2...v0.20.0) (2026-11-22)
+
+
+### Features
+
+* **transcription:** skip your mic while you are muted on Zoom ([#133](https://github.com/adamclark64/figg/issues/133)) ([fce6cd6](https://github.com/adamclark64/figg/commit/fce6cd620418c4fc55bd418bb1b59c3ec852607b))
+* **update:** show what's new in an update before you install it ([#139](https://github.com/adamclark64/figg/issues/139)) ([7ee716e](https://github.com/adamclark64/figg/commit/7ee716e35a4ff212c58a12761811274860e4e4d1))
+
 ## [0.19.2](https://github.com/adamclark64/figg/compare/v0.19.1...v0.19.2) (2026-11-20)
 
 
