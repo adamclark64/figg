@@ -75,6 +75,11 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: scripts/factory/check-words.sh "$BASE" "$HEAD"
 
+      # The release notes the publish step puts in latest.json, including a
+      # run against this repository's CHANGELOG.md. Needs only Node.
+      - name: Changelog notes
+        run: node --test app/scripts/changelog-notes.test.mjs
+
       # Pinned and checksummed: the latest-release lookup is not reachable
       # from every agent environment, and an unpinned download could change
       # under us.

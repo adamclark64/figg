@@ -10,6 +10,10 @@
 // (UpdateVerifier), so the store's token alone no longer decides what they
 // run. See docs/release-signing.md.
 //
+// It also carries release notes: this version's section of CHANGELOG.md and
+// those of a few older versions (changelog-notes.mjs). A version with no
+// section fails here, before anything is signed or uploaded.
+//
 // This uses the @vercel/blob SDK rather than `vercel blob put`: the Vercel
 // CLI refuses to run any command without a Vercel login, even when the blob
 // token is set, and the release job has only the store's read-write token.
@@ -18,6 +22,7 @@
 // here is part of the app.
 import { readFile } from "node:fs/promises";
 import { put } from "@vercel/blob";
+import { feedFor, notesFor } from "./changelog-notes.mjs";
 import { loadSigningKey, publicKeyOf, signBytes, trustedKeys } from "./update-signature.mjs";
 
 const [file, version] = process.argv.slice(2);
@@ -33,6 +38,17 @@ if (!process.env.BLOB_READ_WRITE_TOKEN) {
 if (!process.env.FIGG_UPDATE_SIGNING_KEY) {
   console.error("FIGG_UPDATE_SIGNING_KEY is not set: without a signature no installed copy would take this release");
   process.exit(2);
+}
+
+// Check the notes before reading the dmg, so a missing changelog section
+// publishes nothing and the latest.json already in the store stays as it is.
+let changelog;
+try {
+  changelog = await readFile(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
+  notesFor(changelog, version);
+} catch (error) {
+  console.error(`not published: ${error.message}`);
+  process.exit(1);
 }
 
 const body = await readFile(file);
@@ -74,8 +90,9 @@ console.log(`published ${latest.pathname} -> ${latest.url}`);
 // (UpdateChecker) reads this to learn of a release, and downloads the
 // versioned copy rather than figg.dmg, which can be a few minutes stale.
 // Copies installed before signatures existed (0.7.0 and earlier) ignore the
-// field they do not know.
-const feed = JSON.stringify({ version, dmg_url: versioned.url, size: body.length, signature }) + "\n";
+// fields they do not know (signature, notes). The notes are display text
+// only: they are not signed and never change what is installed.
+const { feed, logLine } = feedFor({ version, dmgURL: versioned.url, size: body.length, signature, changelog });
 const published = await put("latest.json", feed, {
   access: "public",
   addRandomSuffix: false,
@@ -83,4 +100,4 @@ const published = await put("latest.json", feed, {
   contentType: "application/json",
   cacheControlMaxAge: 300,
 });
-console.log(`published ${published.pathname} -> ${published.url}: ${feed.trim()}`);
+console.log(`published ${published.pathname} -> ${published.url}: ${logLine}`);
