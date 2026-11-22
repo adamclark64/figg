@@ -80,7 +80,10 @@ import Testing
         let lines = (1...5).map { "* **ui:** fix part \($0) ([#\($0)](\(url)))" }
         let text = lines.joined(separator: "\n")
         #expect(text.count > 600)
-        let shown = ReleaseNotes.covering([ReleaseNote(version: "0.19.0", text: text)],
+        // The installed version's own entry shows the file reaches back to it,
+        // so only the limit could set isCut.
+        let shown = ReleaseNotes.covering([ReleaseNote(version: "0.19.0", text: text),
+                                           ReleaseNote(version: "0.18.0", text: "* an older fix")],
                                           installed: "0.18.0", offered: "0.19.0", limit: 200)
         let notes = try #require(shown)
         #expect(notes.sections.first?.blocks.count == 5)
