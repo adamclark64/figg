@@ -121,6 +121,12 @@ macOS permissions, or Bedrock.
   mic + system-audio permissions survive without re-approval.
 - [ ] "Check for Updates…" in the menu bar menu and in the figg app menu shows a banner in the main window: "is available", "is up to date", or the error. Choosing it again replaces the result banner rather than adding another
 - [ ] While the update downloads, a banner shows the 3D fig newton being extruded from its back with a percentage, then hopping beside "Installing the update"; Settings shows the same
+- [ ] Release notes: run a figg a few releases behind a release whose `latest.json` has `notes`. The update banner shows a "What's new" button before "Update now"; it opens a sheet titled "What's new in figg v<offered>" listing every version after the installed one up to the offered one, newest first, and none older
+- [ ] In the "What's new" sheet, hovering a link changes nothing and nothing opens until it is clicked; a click opens it in the default browser
+- [ ] "Update now" in the "What's new" sheet closes the sheet and the banner and installs as the banner's own "Update now" does (while recording, it says the update will install after you stop); "Later" closes only the sheet
+- [ ] With a figg far enough behind (or a long changelog) that the notes are cut, the sheet ends with "See the full changelog", which opens CHANGELOG.md on GitHub
+- [ ] With the "What's new" sheet open, choose "Check for Updates…" once a newer release is out: the banner is replaced and the sheet closes, and the new banner's "What's new" shows the newer notes
+- [ ] An offer from a `latest.json` without `notes` (a release published before notes were added) shows the banner exactly as before: no "What's new" button
 
 ## Report a Bug
 - [ ] Help > Report a Bug… opens the window with a "Send Report" button, an optional email field and no setup
