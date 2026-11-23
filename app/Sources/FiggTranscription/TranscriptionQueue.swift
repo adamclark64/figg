@@ -169,7 +169,8 @@ public actor TranscriptionQueue {
     /// so a later call can retry. Afterwards the audio is deleted unless
     /// "keep audio" is on.
     /// - Parameter roomSpeakers: how many people share the mic, if the user
-    ///   said; nil lets the diarizer decide. Call audio is always automatic.
+    ///   said; nil lets the diarizer decide. Call audio is automatic, capped
+    ///   at the people the meeting app showed on the call, if any.
     public func finalPass(meetingId: String, roomSpeakers: Int? = nil) async throws {
         let fm = FileManager.default
         let done = paths.doneDir(meetingId)
@@ -213,8 +214,9 @@ public actor TranscriptionQueue {
             if let separator {
                 do {
                     let count = stream == .mic ? roomSpeakers : nil
+                    let limit = stream == .system ? saved?.callSpeakerLimit : nil
                     // One person in the room: nothing to separate on the mic.
-                    let joined = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count)
+                    let joined = count == 1 ? [] : try await separator.turns(samples: samples, speakerCount: count, maxSpeakers: limit)
                     let turns = RecordingRuns.wallClock(joined, runs: runs, base: first.offset)
                     // Talk while muted does not count towards choosing "Me".
                     let rankTurns: [SpeakerTurn]? = stream == .mic && muted != nil

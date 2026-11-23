@@ -126,13 +126,17 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var engine = "parakeet"
         /// Tell apart several people on one stream (in the room, or on the call).
         public var separateSpeakers = true
-        /// Put the names the meeting app shows (Zoom desktop) on the call's
-        /// speakers, read from its window through Accessibility.
+        /// Put the names the meeting app shows on the call's speakers, read
+        /// from its window through Accessibility.
         public var meetingAppNames = true
-        /// On Zoom calls (desktop app), drop what the mic hears while Zoom
-        /// shows you muted, so talk in the room stays out of the notes.
-        /// Read through Accessibility, like `meetingAppNames`.
+        /// Drop what the mic hears while the meeting app shows you muted, so
+        /// talk in the room stays out of the notes. Read through
+        /// Accessibility, like `meetingAppNames`.
         public var skipMicWhenMuted = true
+        /// The meeting apps figg may read for the two settings above, by
+        /// profile id. Unknown ids are ignored, so a newer config still loads.
+        public var meetingApps = Self.allMeetingApps
+        public static let allMeetingApps = ["zoom", "meet", "teams", "slack"]
         /// WhisperKit model name; only used when engine is "whisper".
         public var model = "large-v3-v20240930_turbo"
         /// Spoken language code, or empty to let Whisper detect it.
@@ -142,6 +146,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case separateSpeakers = "separate_speakers"
             case meetingAppNames = "meeting_app_names"
             case skipMicWhenMuted = "skip_mic_when_muted"
+            case meetingApps = "meeting_apps"
         }
     }
 
@@ -390,12 +395,15 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Label different people on the same stream: "Me", "Guest 1"... in the room,
           # "Them 1", "Them 2"... on the call. Runs once, after you press Stop.
           separate_speakers: \(transcription.separateSpeakers)
-          # On Zoom calls (desktop app), name the other speakers from Zoom's own window
-          # instead of "Them 1", "Them 2". Needs Accessibility permission; read on this Mac only.
+          # Name the other speakers from the meeting app's own window instead of
+          # "Them 1", "Them 2". Needs Accessibility permission; read on this Mac only.
           meeting_app_names: \(transcription.meetingAppNames)
-          # On Zoom calls (desktop app), skip what your mic hears while Zoom shows you
-          # muted, so people talking in the room stay out of the notes. Needs Accessibility.
+          # Skip what your mic hears while the meeting app shows you muted, so people
+          # talking in the room stay out of the notes. Needs Accessibility.
           skip_mic_when_muted: \(transcription.skipMicWhenMuted)
+          # Meeting apps figg may read for the two settings above: zoom (desktop app),
+          # meet (Google Meet in Chrome, Arc, Edge or Safari), teams (new Teams), slack (huddles).
+          meeting_apps: [\(transcription.meetingApps.map(q).joined(separator: ", "))]
           # WhisperKit model name, used only when engine is "whisper".
           model: \(q(transcription.model))
           # Spoken language code for Whisper; "" lets it detect. Parakeet detects automatically.
@@ -577,6 +585,7 @@ extension FiggConfig.Transcription {
         separateSpeakers = try c.decodeIfPresent(Bool.self, forKey: .separateSpeakers) ?? d.separateSpeakers
         meetingAppNames = try c.decodeIfPresent(Bool.self, forKey: .meetingAppNames) ?? d.meetingAppNames
         skipMicWhenMuted = try c.decodeIfPresent(Bool.self, forKey: .skipMicWhenMuted) ?? d.skipMicWhenMuted
+        meetingApps = try c.decodeIfPresent([String].self, forKey: .meetingApps) ?? d.meetingApps
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? d.model
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? d.language
     }

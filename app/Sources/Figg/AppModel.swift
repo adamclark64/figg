@@ -71,6 +71,18 @@ final class AppModel: ObservableObject {
     private var recorder: Recorder?
     /// Reads Zoom's window for speaker names during a recording.
     private var speakerWatcher: SpeakerWatcher?
+    /// Looks for the meeting app until one shows a meeting; cancelled on Stop.
+    private var speakerSearch: Task<Void, Never>?
+    /// Who the meeting app shows on the call, for the recording strip;
+    /// nil when figg is not reading a meeting app.
+    @Published private(set) var callRoster: CallRoster?
+    private var rosterRefresh: Task<Void, Never>?
+
+    struct CallRoster: Equatable {
+        var app: String
+        var people: [String]
+        var speaking: String?
+    }
     private nonisolated let liveSpeakers = SpeakerWatcherSlot()
     /// The Accessibility hint is shown once per launch.
     private var askedForAccessibility = false
@@ -394,29 +406,74 @@ final class AppModel: ObservableObject {
 
     private var silenceWatch = SilenceWatch()
 
-    /// Watches Zoom for who is speaking and whether you are muted, when
-    /// either setting is on. Without Accessibility it says once, while a
-    /// Zoom meeting is open, how to turn it on, and otherwise records as before.
+    /// Watches the meeting app (Zoom, Google Meet, Teams, Slack huddles)
+    /// for who is speaking and whether you are muted, when either setting is
+    /// on. The app is the one holding the mic that shows a meeting; until one
+    /// does (a call joined after Record, or Chrome still building its web
+    /// tree) figg looks again, after 3 s and then every 10 s. Without
+    /// Accessibility it says once, naming the app, how to turn it on, and
+    /// otherwise records as before.
     private func startSpeakerNames(meetingId id: String, recorder: Recorder) {
         let t = settings.config.transcription
-        let plan = MeetingAppWatch.plan(names: t.meetingAppNames, skipMuted: t.skipMicWhenMuted)
-        guard plan.start else { return }
-        let zoomOpen = !NSRunningApplication.runningApplications(withBundleIdentifier: ZoomReader.bundleID).isEmpty
+        guard MeetingAppWatch.plan(names: t.meetingAppNames, skipMuted: t.skipMicWhenMuted).start else { return }
+        let enabled = Set(t.meetingApps)
+        let registry = MeetingAppRegistry()
         guard AccessibilityAccess.isGranted else {
-            if zoomOpen, !askedForAccessibility, let text = plan.bannerText {
+            if !askedForAccessibility, let app = registry.runningAppName(micHolders: Self.micHolders(), enabled: enabled),
+               let text = MeetingAppWatch.plan(names: t.meetingAppNames, skipMuted: t.skipMicWhenMuted, app: app).bannerText {
                 askedForAccessibility = true
                 banners.append(Banner(kind: .info, text: text, action: .fixPermissions))
             }
             return
         }
+        speakerSearch?.cancel()
+        speakerSearch = Task { [weak self, registry] in
+            var delay: UInt64 = 0
+            while !Task.isCancelled {
+                if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
+                delay = delay == 0 ? 3_000_000_000 : 10_000_000_000
+                let holders = Self.micHolders()
+                // Accessibility calls can block for a moment; keep them off the main actor.
+                let choice = await Task.detached { registry.chooseRunning(micHolders: holders, enabled: enabled) }.value
+                guard let self, !Task.isCancelled, self.recordingId == id else { return }
+                if let choice {
+                    self.startWatcher(meetingId: id, recorder: recorder, choice: choice)
+                    return
+                }
+            }
+        }
+    }
+
+    private func startWatcher(meetingId id: String, recorder: Recorder, choice: MeetingAppRegistry.Choice) {
+        let t = settings.config.transcription
+        let plan = MeetingAppWatch.plan(names: t.meetingAppNames, skipMuted: t.skipMicWhenMuted, app: choice.profile.displayName)
         let watcher = SpeakerWatcher(
-            meetingId: id, app: "zoom", reader: ZoomReader(),
+            meetingId: id, app: choice.profile.id,
+            reader: AccessibilityMeetingReader(profile: choice.profile, bundleID: choice.bundleID),
             file: paths.meetingDir(id).appendingPathComponent(SpeakerTimeline.fileName),
             names: plan.names,
             clock: { [recorder] in recorder.elapsed })
         watcher.start()
         speakerWatcher = watcher
         liveSpeakers.set(watcher)
+        let app = choice.profile.displayName
+        callRoster = plan.names ? CallRoster(app: app, people: []) : nil
+        guard plan.names else { return }
+        rosterRefresh = Task { [weak self, watcher, recorder] in
+            while !Task.isCancelled {
+                let now = watcher.current.others(at: recorder.elapsed)
+                let roster = CallRoster(app: app, people: now.people, speaking: now.speaking)
+                guard let self else { return }
+                if self.callRoster != roster { self.callRoster = roster }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    /// Apps holding the mic now, helpers folded into their app.
+    private nonisolated static func micHolders() -> [String] {
+        guard #available(macOS 14.2, *) else { return [] }
+        return MicUsage.appsUsingInput().map(MeetingDetector.parentBundleID).sorted()
     }
 
     private func checkSystemSilence(peak: Float) {
@@ -488,6 +545,11 @@ final class AppModel: ObservableObject {
         recorder.stop()
         self.recorder = nil
         isPaused = false
+        speakerSearch?.cancel()
+        speakerSearch = nil
+        rosterRefresh?.cancel()
+        rosterRefresh = nil
+        callRoster = nil
         speakerWatcher?.stop()
         speakerWatcher = nil
         liveSpeakers.set(nil)

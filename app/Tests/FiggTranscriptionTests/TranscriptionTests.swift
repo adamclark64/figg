@@ -317,6 +317,45 @@ struct ScriptedSeparator: SpeakerSeparator {
     }
 }
 
+/// Records the limits each stream was separated with.
+final class LimitRecordingSeparator: SpeakerSeparator, @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var calls: [(count: Int?, max: Int?)] = []
+    func turns(samples: [Float], speakerCount: Int?) async throws -> [SpeakerTurn] { [] }
+    func turns(samples: [Float], speakerCount: Int?, maxSpeakers: Int?) async throws -> [SpeakerTurn] {
+        lock.lock(); defer { lock.unlock() }
+        calls.append((speakerCount, maxSpeakers))
+        return []
+    }
+}
+
+/// The people the meeting app showed cap how many voices the call holds.
+@Suite struct CallSpeakerLimitTests {
+    @Test func limitIsEveryoneButYou() {
+        #expect(SpeakerTimeline(app: "meet").callSpeakerLimit == nil)
+        #expect(SpeakerTimeline(app: "meet", participants: ["Sam Lee", "Bill Ortiz", "Nora Hale"], selfName: "Sam Lee").callSpeakerLimit == 2)
+        #expect(SpeakerTimeline(app: "meet", participants: ["Bill Ortiz", "Nora Hale"]).callSpeakerLimit == 2)
+        #expect(SpeakerTimeline(app: "meet", participants: ["Sam Lee"], selfName: "Sam Lee").callSpeakerLimit == nil)
+    }
+
+    @Test func finalPassCapsTheCallStream() async throws {
+        let f = try MutedMicTests().fixture(streams: [.mic, .system], seconds: 30)
+        defer { f.cleanUp() }
+        try f.save(SpeakerTimeline(app: "meet", participants: ["Sam Lee", "Bill Ortiz", "Nora Hale"], selfName: "Sam Lee"))
+        let separator = LimitRecordingSeparator()
+        let queue = TranscriptionQueue(store: f.store, paths: f.paths,
+                                       transcriber: ScriptedTranscriber(segments: [TranscriptSegment(start: 1, end: 3, text: "hello")]),
+                                       separator: separator, keepAudio: { false }, skipMuted: { true }, onLines: { _ in })
+        await queue.enqueuePending(meetingId: f.meeting.id)
+        await queue.drain()
+        try await queue.finalPass(meetingId: f.meeting.id, roomSpeakers: 2)
+        // The mic keeps the room count; the call gets the cap, not a count.
+        #expect(separator.calls.count == 2)
+        #expect(separator.calls.contains { $0.count == 2 && $0.max == nil })
+        #expect(separator.calls.contains { $0.count == nil && $0.max == 2 })
+    }
+}
+
 @Suite struct ParakeetSegmentTests {
     @Test func splitsTokensIntoSentences() {
         func t(_ s: String, _ a: Double, _ b: Double) -> TokenTiming {

@@ -47,3 +47,15 @@ import Testing
 extension Participant {
     func with(muted: Bool?) -> Participant { Participant(name: name, muted: muted) }
 }
+
+@Suite struct TimelineOthersTests {
+    @Test func othersAndWhoIsTalkingNow() {
+        let t = SpeakerTimeline(app: "slack", spans: [.init(start: 10, end: 12, name: "Bill Ortiz")],
+                                participants: ["Sam Lee", "Bill Ortiz", "Nora Hale"], selfName: "Sam Lee")
+        #expect(t.others(at: 11).people == ["Bill Ortiz", "Nora Hale"])
+        #expect(t.others(at: 11).speaking == "Bill Ortiz")
+        #expect(t.others(at: 13).speaking == "Bill Ortiz")
+        #expect(t.others(at: 20).speaking == nil)
+        #expect(SpeakerTimeline(app: "meet").others(at: 0).people.isEmpty)
+    }
+}

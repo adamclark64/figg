@@ -160,11 +160,13 @@ struct RecordingSettings: View {
                 .settingsCaption()
             Text("Use headphones: on laptop speakers your mic also hears the other side, so some of their speech can show up as \"Me\".")
                 .settingsCaption()
-            Toggle("Name speakers on Zoom calls", isOn: $settings.config.transcription.meetingAppNames)
+            Toggle("Name speakers from the meeting app", isOn: $settings.config.transcription.meetingAppNames)
             MeetingAppNamesStatus(enabled: settings.config.transcription.meetingAppNames || settings.config.transcription.skipMicWhenMuted)
-            Toggle("Skip my mic while I'm muted on Zoom", isOn: $settings.config.transcription.skipMicWhenMuted)
-            Text("While the Zoom desktop app shows you muted, figg leaves what your mic hears out of the transcript, so people talking in the room with you are not written down. It reads Zoom's mute state with the same Accessibility permission; nothing leaves this Mac.")
+            Toggle("Skip my mic while I'm muted in the meeting app", isOn: $settings.config.transcription.skipMicWhenMuted)
+            Text("While the meeting app shows you muted, figg leaves what your mic hears out of the transcript, so people talking in the room with you are not written down. It reads the mute state with the same Accessibility permission; nothing leaves this Mac.")
                 .settingsCaption()
+            MeetingAppsPicker(apps: $settings.config.transcription.meetingApps)
+                .disabled(!settings.config.transcription.meetingAppNames && !settings.config.transcription.skipMicWhenMuted)
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: $settings.config.updates.autoCheck)
                 HStack {
@@ -292,14 +294,41 @@ struct SharingSettings: View {
     }
 }
 
-/// Whether figg can read Zoom's window, with a way to allow it.
+/// Which meeting apps figg may read, one checkbox each.
+private struct MeetingAppsPicker: View {
+    @Binding var apps: [String]
+    static let choices: [(id: String, label: String)] = [
+        ("zoom", "Zoom (desktop app)"),
+        ("meet", "Google Meet (Chrome, Arc, Edge, Safari)"),
+        ("teams", "Microsoft Teams (new Teams)"),
+        ("slack", "Slack huddles"),
+    ]
+
+    var body: some View {
+        LabeledContent("Meeting apps") {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Self.choices, id: \.id) { choice in
+                    Toggle(choice.label, isOn: Binding(
+                        get: { apps.contains(choice.id) },
+                        set: { on in
+                            if on, !apps.contains(choice.id) { apps.append(choice.id) }
+                            if !on { apps.removeAll { $0 == choice.id } }
+                        }))
+                    .toggleStyle(.checkbox)
+                }
+            }
+        }
+    }
+}
+
+/// Whether figg can read the meeting app's window, with a way to allow it.
 private struct MeetingAppNamesStatus: View {
     let enabled: Bool
     @State private var granted = AccessibilityAccess.isGranted
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("In the Zoom desktop app, figg reads who Zoom shows as talking and uses their Zoom names instead of \"Them 1\", \"Them 2\". Works best in Speaker view. It needs Accessibility permission to read Zoom's window; only names are read, on this Mac.")
+            Text("figg reads who is on the call and who the meeting app shows as talking, and uses their names instead of \"Them 1\", \"Them 2\". Zoom works best in Speaker view, Google Meet with captions on; Teams shows no talking cue, so its names are matched from who is unmuted. It needs Accessibility permission to read only the meeting's window (in a browser, only the Meet tab); only names are read, on this Mac.")
                 .settingsCaption()
             if enabled {
                 HStack {

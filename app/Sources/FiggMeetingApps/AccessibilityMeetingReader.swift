@@ -63,3 +63,40 @@ public struct AccessibilityMeetingReader: MeetingAppReader {
         return nil
     }
 }
+
+extension MeetingAppRegistry {
+    /// Picks the meeting to watch from what is open on this Mac now: the
+    /// running apps, and each candidate's windows read through
+    /// Accessibility (only titles, identifiers and web area URLs). Slow
+    /// apps cost up to 250 ms a call, so call it off the main thread.
+    /// Sets each candidate's web accessibility switch first; Chromium needs
+    /// about 2 s after that, so an early miss is worth retrying.
+    public func chooseRunning(micHolders: [String], enabled: Set<String>) -> Choice? {
+        guard AXIsProcessTrusted() else { return nil }
+        let supported = profiles.filter { enabled.contains($0.id) }
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)
+            .filter { id in supported.contains { $0.reads(bundleID: id) } })
+        return choose(micHolders: micHolders, running: running, enabled: enabled) { bundleID, profile in
+            guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else { return [] }
+            let root = AXUIElementCreateApplication(app.processIdentifier)
+            AXUIElementSetMessagingTimeout(root, 0.25)
+            for name in profile.accessibilitySwitches(for: bundleID) {
+                AXUIElementSetAttributeValue(root, name as CFString, kCFBooleanTrue)
+            }
+            return AXTreeCapture.windows(of: root, findsWebAreas: profile.policy.findsWebAreas).summaries
+        }
+    }
+
+    /// The display name of the first enabled meeting app running now, for
+    /// the Accessibility banner (which cannot look inside windows yet).
+    public func runningAppName(micHolders: [String], enabled: Set<String>) -> String? {
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        let usable = profiles.filter { enabled.contains($0.id) }
+        for holder in micHolders.map(Self.owningApp) {
+            if let p = usable.first(where: { $0.reads(bundleID: holder) }) { return p.displayName }
+        }
+        // Browsers, Slack and Teams stay open all day, so only Zoom running
+        // is a sign of a meeting on its own (as before other apps existed).
+        return usable.first { p in p.id == "zoom" && running.contains { p.reads(bundleID: $0) } }?.displayName
+    }
+}

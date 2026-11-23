@@ -23,13 +23,24 @@ public struct SpeakerTurn: Sendable, Equatable {
 public protocol SpeakerSeparator: Sendable {
     /// - Parameter speakerCount: exact number of people when known, else nil (auto).
     func turns(samples: [Float], speakerCount: Int?) async throws -> [SpeakerTurn]
+    /// - Parameter maxSpeakers: at most this many voices, when known (the
+    ///   people the meeting app showed on the call); the count itself stays
+    ///   automatic, since some of them may never speak.
+    func turns(samples: [Float], speakerCount: Int?, maxSpeakers: Int?) async throws -> [SpeakerTurn]
+}
+
+extension SpeakerSeparator {
+    /// Separators that cannot take a limit ignore it.
+    public func turns(samples: [Float], speakerCount: Int?, maxSpeakers: Int?) async throws -> [SpeakerTurn] {
+        try await turns(samples: samples, speakerCount: speakerCount)
+    }
 }
 
 /// FluidAudio's offline pipeline (pyannote segmentation + VBx clustering).
 /// Models download once into FluidAudio's shared cache.
 public actor FluidSpeakerSeparator: SpeakerSeparator {
-    /// One manager per speaker-count setting (the count is baked into its config).
-    private var managers: [Int: OfflineDiarizerManager] = [:]
+    /// One manager per speaker-count setting (the counts are baked into its config).
+    private var managers: [String: OfflineDiarizerManager] = [:]
     private let threshold: Double?
 
     /// - Parameter threshold: clustering distance; lower splits voices more
@@ -40,19 +51,24 @@ public actor FluidSpeakerSeparator: SpeakerSeparator {
     }
 
     public func turns(samples: [Float], speakerCount: Int?) async throws -> [SpeakerTurn] {
-        let manager = try await prepared(speakerCount)
+        try await turns(samples: samples, speakerCount: speakerCount, maxSpeakers: nil)
+    }
+
+    public func turns(samples: [Float], speakerCount: Int?, maxSpeakers: Int?) async throws -> [SpeakerTurn] {
+        let manager = try await prepared(speakerCount, maxSpeakers: maxSpeakers)
         let result = try await manager.process(audio: samples)
         return result.segments.map {
             SpeakerTurn(start: Double($0.startTimeSeconds), end: Double($0.endTimeSeconds), speaker: $0.speakerId)
         }
     }
 
-    private func prepared(_ speakerCount: Int?) async throws -> OfflineDiarizerManager {
-        let key = speakerCount ?? 0
+    private func prepared(_ speakerCount: Int?, maxSpeakers: Int?) async throws -> OfflineDiarizerManager {
+        let key = "\(speakerCount ?? 0)/\(maxSpeakers ?? 0)"
         if let m = managers[key] { return m }
         var config = OfflineDiarizerConfig.default
         if let threshold { config.clustering.threshold = threshold }
         if let speakerCount { config.clustering.numSpeakers = speakerCount }
+        else if let maxSpeakers { config.clustering.maxSpeakers = maxSpeakers }
         let m = OfflineDiarizerManager(config: config)
         try await m.prepareModels()
         managers[key] = m

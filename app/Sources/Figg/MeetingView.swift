@@ -381,6 +381,28 @@ struct NotesTabs: View {
     }
 }
 
+/// "On Google Meet: Bill Ortiz (talking), Nora Hale", from the meeting app's
+/// window. Kept short in the strip; the full list is in the tooltip.
+struct CallRosterLabel: View {
+    @Environment(\.theme) private var theme
+    let roster: AppModel.CallRoster
+
+    var body: some View {
+        let shown = roster.people.prefix(3).map { $0 == roster.speaking ? "\($0) (talking)" : $0 }
+        let more = roster.people.count > 3 ? " +\(roster.people.count - 3)" : ""
+        HStack(spacing: 4) {
+            Image(systemName: roster.speaking == nil ? "person.2" : "person.wave.2")
+                .foregroundStyle(theme.inkMuted)
+            Text(roster.people.isEmpty ? "Reading \(roster.app)..." : shown.joined(separator: ", ") + more)
+                .foregroundStyle(theme.ink)
+                .lineLimit(1)
+        }
+        .help(roster.people.isEmpty
+              ? "figg found the meeting in \(roster.app) and is waiting to see who is on the call."
+              : "On \(roster.app): \(roster.people.joined(separator: ", ")). Read from \(roster.app)'s window on this Mac; these names go on their lines when you stop.")
+    }
+}
+
 struct RecordingStrip: View {
     @Environment(\.theme) private var theme
     @ObservedObject var model: AppModel
@@ -403,12 +425,17 @@ struct RecordingStrip: View {
             Spacer()
             Button(model.isPaused ? "Resume" : "Pause") { model.togglePause() }
                 .controlSize(.small)
+            if let roster = model.callRoster {
+                CallRosterLabel(roster: roster)
+            }
             Picker("People in the room", selection: $roomSpeakers) {
                 Text("Auto").tag(0)
                 ForEach(1...6, id: \.self) { Text("\($0)").tag($0) }
             }
             .fixedSize()
-            .help("How many people share this Mac's mic (not counting the call). Helps figg tell voices apart when you stop.")
+            .help(model.callRoster == nil
+                  ? "How many people share this Mac's mic (not counting the call). Helps figg tell voices apart when you stop."
+                  : "How many people share this Mac's mic with you. The meeting app can't see them; the people on the call are counted from \(model.callRoster!.app) already.")
             .onChange(of: roomSpeakers) { _, n in model.setRoomSpeakers(meetingId, n == 0 ? nil : n) }
             Button(copied ? "Copied" : "Copy consent message") {
                 model.copyConsentSnippet()

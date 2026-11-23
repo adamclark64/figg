@@ -43,6 +43,7 @@ import Testing
         c.transcription.separateSpeakers = false
         c.transcription.meetingAppNames = false
         c.transcription.skipMicWhenMuted = false
+        c.transcription.meetingApps = ["meet", "slack"]
         c.detection.ignoreApps = ["com.example.app"]
         c.appearance.theme = "system"
         c.appearance.loader = "fig"
@@ -71,12 +72,25 @@ import Testing
         #expect(!c.transcription.meetingAppNames)
         #expect(c.transcription.skipMicWhenMuted)
         let yaml = FiggConfig().yaml()
-        #expect(yaml.contains("  # On Zoom calls (desktop app), skip what your mic hears while Zoom shows you\n"))
+        #expect(yaml.contains("  # Skip what your mic hears while the meeting app shows you muted, so people\n"))
         #expect(yaml.contains("\n  skip_mic_when_muted: true\n"))
         var off = FiggConfig()
         off.transcription.skipMicWhenMuted = false
         #expect(off.yaml().contains("\n  skip_mic_when_muted: false\n"))
         #expect(try FiggConfig.parse(off.yaml()) == off)
+    }
+
+    /// Without the key every app is on; an empty list turns them all off;
+    /// a written file carries the commented line.
+    @Test func meetingAppsDefaultToAll() throws {
+        #expect(FiggConfig().transcription.meetingApps == ["zoom", "meet", "teams", "slack"])
+        #expect(try FiggConfig.parse("transcription:\n  meeting_app_names: true\n").transcription.meetingApps == FiggConfig.Transcription.allMeetingApps)
+        #expect(try FiggConfig.parse("transcription:\n  meeting_apps: []\n").transcription.meetingApps.isEmpty)
+        let some = try FiggConfig.parse("transcription:\n  meeting_apps: [zoom, webex]\n")
+        #expect(some.transcription.meetingApps == ["zoom", "webex"])
+        let yaml = FiggConfig().yaml()
+        #expect(yaml.contains("\n  # Meeting apps figg may read for the two settings above: zoom (desktop app),\n"))
+        #expect(yaml.contains("\n  meeting_apps: [\"zoom\", \"meet\", \"teams\", \"slack\"]\n"))
     }
 
     @Test func dictationIsOnByDefaultWithRightOption() throws {

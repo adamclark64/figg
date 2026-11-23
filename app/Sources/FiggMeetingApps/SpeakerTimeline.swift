@@ -62,6 +62,24 @@ public struct SpeakerTimeline: Codable, Sendable, Equatable {
 
     public static let fileName = "speakers.json"
 
+    /// The other people on the call, and who the app shows talking at
+    /// `time` (a span still open within `grace` seconds), for the recording
+    /// strip. Empty when the app showed nobody.
+    public func others(at time: Double, grace: Double = 1.5) -> (people: [String], speaking: String?) {
+        let people = participants.filter { $0 != selfName }
+        let speaking = spans.last.flatMap { $0.end + grace >= time && $0.start <= time ? $0.name : nil }
+        return (people, speaking)
+    }
+
+    /// The most voices the call audio can hold: everyone the meeting app
+    /// showed, less you (your voice is on the mic, not the call). nil when
+    /// the app showed nobody. An upper bound, never a count: some people
+    /// never speak, and a second device of yours shows twice.
+    public var callSpeakerLimit: Int? {
+        let others = participants.filter { $0 != selfName }
+        return others.isEmpty ? nil : others.count
+    }
+
     /// Adds one reading taken at `time`. A reading counts for `interval`
     /// seconds (the poll period); readings of the same speaker less than
     /// `maxGap` apart join into one span.

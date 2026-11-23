@@ -6,7 +6,7 @@ import Testing
         let p = MeetingAppWatch.plan(names: true, skipMuted: false)
         #expect(p.start)
         #expect(p.names)
-        #expect(p.bannerText == MeetingAppWatch.namesText)
+        #expect(p.bannerText == MeetingAppWatch.namesText("Zoom"))
         #expect(p.bannerText?.contains("\"Them 1\"") == true)
         #expect(p.bannerText?.contains("muted") == false)
     }
@@ -15,7 +15,7 @@ import Testing
         let p = MeetingAppWatch.plan(names: false, skipMuted: true)
         #expect(p.start)
         #expect(!p.names)
-        #expect(p.bannerText == MeetingAppWatch.muteText)
+        #expect(p.bannerText == MeetingAppWatch.muteText("Zoom"))
         #expect(p.bannerText?.hasPrefix("figg can leave out what your mic hears while you are muted on Zoom") == true)
         #expect(p.bannerText?.contains("Them 1") == false)
     }
@@ -24,7 +24,7 @@ import Testing
         let p = MeetingAppWatch.plan(names: true, skipMuted: true)
         #expect(p.start)
         #expect(p.names)
-        #expect(p.bannerText == MeetingAppWatch.bothText)
+        #expect(p.bannerText == MeetingAppWatch.bothText("Zoom"))
         #expect(p.bannerText?.contains("names") == true)
         #expect(p.bannerText?.contains("muted") == true)
     }
@@ -34,6 +34,13 @@ import Testing
         #expect(!p.start)
         #expect(!p.names)
         #expect(p.bannerText == nil)
+    }
+
+    @Test func bannerNamesTheMeetingApp() {
+        let p = MeetingAppWatch.plan(names: true, skipMuted: true, app: "Google Meet")
+        #expect(p.bannerText?.contains("Google Meet's names") == true)
+        #expect(p.bannerText?.contains("muted on Google Meet") == true)
+        #expect(p.bannerText?.contains("Zoom") == false)
     }
 
     @Test func everyBannerSaysNothingLeavesTheMac() {
