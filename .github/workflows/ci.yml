@@ -1,5 +1,6 @@
 # Build and test on pull requests. macOS runners are slow, so this is
-# PR-only; pushes to main go straight to release-please. PRs into a
+# PR-only, and skipped for PRs that only change the website (site/);
+# pushes to main go straight to release-please. PRs into a
 # factory integration branch (factory/<id>, issue 89) run it too, so each
 # small agent PR is tested before it lands there.
 name: ci
@@ -16,7 +17,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether the PR touches the app at all. A PR that only changes
+  # the website (site/) needs no Swift build, and macOS runners are slow
+  # and sometimes not available, so `test` skips itself for those. A job
+  # skipped by its `if:` counts as passing for the required `test` check;
+  # a workflow that did not run at all would leave the PR blocked.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      app: ${{ steps.files.outputs.app }}
+    steps:
+      - name: Does the PR change anything outside site/?
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename') || files=""
+          printf '%s\n' "$files"
+          # An empty list (the API failed) is treated as an app change.
+          if [[ -n "$files" ]] && ! grep -qv '^site/' <<<"$files"; then
+            echo "app=false" >> "$GITHUB_OUTPUT"
+            echo "Website only: skipping the macOS build and tests."
+          else
+            echo "app=true" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: changes
+    # Runs unless `changes` positively found a website-only PR, so a failed
+    # lookup can never skip the tests.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.app != 'false') }}
     runs-on: macos-26
     defaults:
       run:
