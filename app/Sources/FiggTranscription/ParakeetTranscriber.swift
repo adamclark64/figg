@@ -42,9 +42,13 @@ public actor ParakeetTranscriber: Transcriber {
     }
 
     public func transcribe(samples: [Float]) async throws -> [TranscriptSegment] {
+        try await transcribe(samples: samples, urgent: false)
+    }
+
+    public func transcribe(samples: [Float], urgent: Bool) async throws -> [TranscriptSegment] {
         let manager = try await prepare()
         // One prediction at a time on the shared model: see `SerialRunner`.
-        return try await runner.run {
+        return try await runner.run(urgent: urgent) {
             // Each chunk is independent, so each gets a fresh decoder state.
             var state = TdtDecoderState.make()
             let result = try await manager.transcribe(samples, decoderState: &state)

@@ -23,11 +23,17 @@ public protocol Transcriber: Sendable {
     /// True if the model files are already on disk, so loading needs no download.
     func isDownloaded() async -> Bool
     func transcribe(samples: [Float]) async throws -> [TranscriptSegment]
+    /// The same, for audio someone is waiting on (dictation): an engine that
+    /// runs one job at a time lets an urgent one go ahead of waiting work.
+    func transcribe(samples: [Float], urgent: Bool) async throws -> [TranscriptSegment]
 }
 
 public extension Transcriber {
     func load() async throws {}
     func isDownloaded() async -> Bool { true }
+    func transcribe(samples: [Float], urgent: Bool) async throws -> [TranscriptSegment] {
+        try await transcribe(samples: samples)
+    }
 }
 
 /// Skips chunks with no speech worth sending to Whisper, which otherwise

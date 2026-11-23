@@ -108,7 +108,9 @@ changing engines or chunking.
 `swift run --package-path app -c release figg-asr-bench --dictation` times the
 dictation path: the text step (`DictationText.prepare`, spoken punctuation
 off and on) in microseconds, and Parakeet on short, medium and long spoken
-utterances with the text step beside it. Run it before and after any change
+utterances with the text step beside it, then how long the final pass waits
+behind a live preview pass or behind waiting meeting chunks (predictions run
+one at a time, see `SerialRunner`). Run it before and after any change
 to what happens between letting go of the key and the text being typed
 (`BENCH_TEXT_ONLY=1` skips the model).
 
@@ -228,6 +230,10 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   (`figg-asr-bench --dictation`): no real voice yet, and a typed line break
   (Shift+Return; a space in terminals and one-line fields) has not been
   tried in any live app.
+  The live preview transcribes only the last 15 s (`DictationPreview`) and
+  dictation's passes go ahead of waiting meeting chunks; both are measured
+  on synthetic speech in the bench, not yet in the app during a real
+  meeting.
   A dictation during a meeting recording is also heard by the meeting's mic
   and lands in its transcript as "Me". fn's own action (emoji, macOS
   dictation) still fires unless the user sets "Press 🌐 key to" to Do
