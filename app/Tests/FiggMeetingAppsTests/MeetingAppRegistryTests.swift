@@ -7,7 +7,9 @@ struct FakeWebProfile: MeetingAppProfile {
     let id = "web"
     let displayName = "Web Call"
     let bundleIDs: Set<String> = ["com.google.Chrome", "com.apple.Safari"]
-    var needsWebAccessibility: Bool { true }
+    func accessibilitySwitches(for bundleID: String) -> [String] {
+        bundleID == "com.apple.Safari" ? [] : [AccessibilitySwitch.enhancedUserInterface]
+    }
     var policy: CapturePolicy { CapturePolicy(findsWebAreas: true) }
     func target(in windows: [AXWindowSummary]) -> AXTarget? {
         for w in windows {

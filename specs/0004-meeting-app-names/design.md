@@ -28,7 +28,7 @@ public protocol MeetingAppProfile: Sendable {
     var id: String { get }            // "zoom", "meet", ... (speakers.json, config)
     var displayName: String { get }   // "Zoom", "Google Meet", ... (banners, Settings)
     var bundleIDs: Set<String> { get } // a web meeting lists every browser it supports
-    var needsWebAccessibility: Bool { get } // set AXManualAccessibility first
+    func accessibilitySwitches(for bundleID: String) -> [String] // web tree switches per app
     var policy: CapturePolicy { get } // node/depth caps, where to descend, where frames are needed
     func target(in windows: [AXWindowSummary]) -> AXTarget?
     func snapshot(from capture: MeetingAppCapture) -> MeetingAppSnapshot?
@@ -70,41 +70,56 @@ sources that disagree give nil.
 
 ## Per-app profiles
 
-Everything below other than Zoom is a working hypothesis until plan P4
-replaces it with what the apps' published markup shows (the selectors and
-ARIA labels open-source Meet and Teams bots and extensions rely on), noted
-as "from <source>, <date>" the way `ZoomReading` says what it was checked
-against.
+Found from published markup (November 2026). Two limits shape every
+profile: Accessibility shows a web element's role, aria-label (as
+description or title), aria-pressed (as value), text, DOM id
+(`AXDOMIdentifier`) and DOM classes (`AXDOMClassList`), but **no `data-*`
+or `jsname` attributes**, which most scrapers key on; and anything drawn
+with CSS (speaking rings as `::before` opacity) is invisible. Sources:
+Chromium `ui/accessibility/platform/ax_platform_node_cocoa.mm`, Electron
+`shell/browser/mac/electron_application.mm`, Chrome
+`chrome/browser/chrome_browser_application_mac.mm`.
+
+**Turning the web tree on.** Electron (Slack) accepts `AXManualAccessibility`
+or `AXEnhancedUserInterface`. Chrome, Edge and Arc accept only
+`AXEnhancedUserInterface`. Both build the tree about 2 s after the switch,
+so the first readings are gaps. Safari needs nothing. Each profile names
+the switches per app in `accessibilitySwitches(for:)`, and the reader sets
+them only on the app that holds the meeting. Helper processes own no
+windows; the registry maps them to the main app, whose pid is read.
 
 | | Zoom | Google Meet | Teams (new) | Slack huddle |
 |---|---|---|---|---|
 | Apps | `us.zoom.xos` | Chrome `com.google.Chrome`, Arc `company.thebrowser.Browser`, Edge `com.microsoft.edgemac`, Safari `com.apple.Safari` | `com.microsoft.teams2` | `com.tinyspeck.slackmacgap` |
-| Mic holder | Zoom | the browser or its helper process | Teams | Slack |
-| Target | window `zm.meeting.window.main` | web area with `AXURL` host `meet.google.com` and a meeting code path | the call window (not the chat window) | the huddle window or the huddle panel in the main window |
-| Web accessibility | no | yes for Chromium browsers; Safari exposes it already | to check (WebKit or WebView2) | yes (Electron) |
-| Roster | video tile labels | tile name labels, or the People panel when open | tile labels, or the People panel | huddle avatars or the participant list |
-| Speaking cue | main tile in Speaker view | to find: tile speaking indicator; failing that, captions ("Name" above each caption) when captions are on | to find: tile "speaking" state in its label or a selected/ring element | to find; may have none, then rules 2 and 3 |
-| Self mute | toolbar button, own tile | toolbar mic button label ("Turn on microphone" while muted) | toolbar Mic button | huddle mic button |
-| Self name | account button | "You" tile, or the account button | "(You)" in the roster | "(you)" in the participant list |
+| Switch | none | `AXEnhancedUserInterface` (Chromium), none (Safari) | both, until its engine is known | `AXManualAccessibility` |
+| Target | window `zm.meeting.window.main` | web area with host `meet.google.com` and a meeting code path | the call window | the huddle window or panel |
+| Name | video tile labels | tile name text with class `notranslate`; People panel rows: `listitem` with the name as label inside region "In call" | tile label `"<Name>, video is on, ..."`, first comma part | tile (gridcell, class `p-huddle_peer_tile`) label `View <Name>'s profile` (straight or curly apostrophe) |
+| Speaking cue | main tile in Speaker view | no stable AX cue (the tile's audio indicator only churns obfuscated classes); **captions** region `Captions`: each turn `div.nMcdL` holding the name (`.NWpY1d`) and words | none visible to AX (speaking ring is CSS opacity); captions are `data-tid` only | child with class `p-huddle_peer_tile__overlay--active_speaker` while that person talks |
+| Self mute | toolbar button, own tile | mic button label `Turn on microphone...` while muted, `Turn off microphone...` while live (shortcut suffix varies: match the prefix) | DOM id `mic-button`; label `Unmute mic` while muted, `Mute mic` while live (web client; desktop unverified) | button `Unmute microphone` while muted, `Mute microphone` while live; tile class `p-huddle_peer_tile__name_overlay--muted` |
+| Self name | account button | "(You)" beside your row in the People panel; captions label your lines "You" | unknown | gridcell DOM id contains `-self_` |
+| Confidence | checked on Zoom 7.1.9 | medium (names, captions high, mute high) | low to medium | medium to high |
 
 Notes per app:
 
-- **Meet captions** are a strong cue where the tiles are not: Meet writes
-  the speaker's name above each caption line. Reading them is text from a
-  window already on screen and stays on the Mac, but captions are on only
-  if the user turned them on, so they are a bonus cue, never required.
-  Caption text itself is not stored; only the name and the time are.
-- **Safari** exposes web content without the switch; Chromium needs
-  `AXManualAccessibility = true` set on the app element (the switch
-  Chromium documents for assistive tools). It is set once per recording,
-  only on the browser that holds the meeting, and never
-  `AXEnhancedUserInterface`, which changes window animations.
-- **Teams** has a classic app (`com.microsoft.teams`) that is retired; it
-  is not supported.
-- **Slack** may show no speaking cue at all. Then a huddle with one other
-  person is still fully named (rule 3), and larger huddles get the roster
-  as hints, which is still better than Them 1 / Them 2 because the final
-  pass can name a voice when the timeline shows one person for most of it.
+- **Meet** names people reliably but shows who is talking only through
+  captions, so captions are the speaking cue when on, and without them
+  Meet falls back to the shared rules (one unmuted other, one-to-one).
+  Caption text is not stored; only the name and the time are. Meet's
+  obfuscated class names (`nMcdL`, `NWpY1d`) change between Meet builds,
+  so the profile also accepts a caption turn found by shape (an image, a
+  short text, a longer text inside the "Captions" region).
+- **Teams** gives names and self mute but no speaking cue through
+  Accessibility; it relies on the shared rules until captions are mapped.
+  Whether it is WebKit or WebView2 on the Mac is unresolved (list
+  `Microsoft Teams.app/Contents/Frameworks`); setting both switches covers
+  either.
+- **Slack** has the best cue of the three: a class present only on the
+  speaking tile.
+- **Prior art:** `r3dbars/transcripted` (`Sources/Meeting/CallSpeaker/`) is
+  a Swift Accessibility reader for the same four apps, marked unverified;
+  worth reading before P5 to P7. The selectors above come from Vexa,
+  vibeconf, openclaw, mova-flow, recall.ai's open-source caption extension,
+  teams-for-linux and LokalBot, dated 2025-11 to 2026-11.
 
 ## Choosing the profile
 
@@ -190,9 +205,9 @@ are made with test accounts named after the existing fixture people.
 
 ## Open questions
 
-- Which element, if any, carries the speaking cue in Meet, Teams and Slack
-  (answered by P4 from published markup).
+- Whether Meet's tile audio indicator is in the Accessibility tree at all
+  (if it is, a class change per poll could be a second cue).
 - Whether new Teams on macOS is WebKit or WebView2 under the hood, which
-  decides `needsWebAccessibility`.
-- Whether setting `AXManualAccessibility` on Chrome costs noticeable CPU
+  decides its switch (both are set until then).
+- Whether setting `AXEnhancedUserInterface` on Chrome costs noticeable CPU
   on a long call (worth one Activity Monitor check on a real call).

@@ -28,11 +28,10 @@ public struct AccessibilityMeetingReader: MeetingAppReader {
         let root = AXUIElementCreateApplication(app.processIdentifier)
         // A hung app must not hang the poll: give up on any call after 250 ms.
         AXUIElementSetMessagingTimeout(root, 0.25)
-        if profile.needsWebAccessibility {
-            // Asks Chromium and Electron to build their web Accessibility
-            // tree; a no-op once it is on. Never AXEnhancedUserInterface,
-            // which also changes how windows animate.
-            AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        // Asks Chromium and Electron to build their web Accessibility tree;
+        // a no-op once it is on.
+        for name in profile.accessibilitySwitches(for: app.bundleIdentifier ?? "") {
+            AXUIElementSetAttributeValue(root, name as CFString, kCFBooleanTrue)
         }
         let policy = profile.policy
         let windows = AXTreeCapture.windows(of: root, findsWebAreas: policy.findsWebAreas)

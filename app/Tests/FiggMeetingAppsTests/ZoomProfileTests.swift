@@ -63,6 +63,6 @@ import Testing
         #expect(p.maxDepth == 8 && p.maxNodes == 4000 && p.otherWindowsDepth == 1)
         #expect(!p.descend(tile) && !p.descend(mute) && !p.descend(video) && p.descend(group))
         #expect(p.wantsFrame(tile) && p.wantsFrame(mute) && !p.wantsFrame(video) && !p.wantsFrame(group))
-        #expect(!zoom.needsWebAccessibility)
+        #expect(zoom.accessibilitySwitches(for: ZoomProfile.bundleID).isEmpty)
     }
 }

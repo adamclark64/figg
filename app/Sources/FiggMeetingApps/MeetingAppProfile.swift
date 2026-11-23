@@ -14,9 +14,13 @@ public protocol MeetingAppProfile: Sendable {
     var displayName: String { get }
     /// Apps this profile can read. A web meeting lists every browser it supports.
     var bundleIDs: Set<String> { get }
-    /// Chromium and Electron apps keep web content out of Accessibility
-    /// until a client sets AXManualAccessibility; true makes the reader set it.
-    var needsWebAccessibility: Bool { get }
+    /// Attributes the reader sets to true on the app before reading it.
+    /// Chromium and Electron keep web content out of Accessibility until a
+    /// client asks, and they accept different switches: Electron apps take
+    /// `manualAccessibility`, Chrome, Edge and Arc only `enhancedUserInterface`
+    /// (both build the tree about 2 s later, so the first readings are gaps).
+    /// Safari and native apps need none.
+    func accessibilitySwitches(for bundleID: String) -> [String]
     /// How much of the target to copy, and where positions are needed.
     var policy: CapturePolicy { get }
     /// The part of the app to copy, or nil when no window is a meeting.
@@ -28,8 +32,18 @@ public protocol MeetingAppProfile: Sendable {
     func snapshot(from capture: MeetingAppCapture) -> MeetingAppSnapshot?
 }
 
+/// The attributes `MeetingAppProfile.accessibilitySwitches(for:)` can return.
+public enum AccessibilitySwitch {
+    /// Electron's switch (Slack). Changes nothing but the Accessibility tree.
+    public static let manualAccessibility = "AXManualAccessibility"
+    /// The switch Chromium browsers honour. It is the one screen readers set;
+    /// some window managers report it slows window animations, so it is set
+    /// only on the browser that holds the meeting, never on other apps.
+    public static let enhancedUserInterface = "AXEnhancedUserInterface"
+}
+
 extension MeetingAppProfile {
-    public var needsWebAccessibility: Bool { false }
+    public func accessibilitySwitches(for bundleID: String) -> [String] { [] }
 
     /// Whether this profile reads the app with this bundle ID, ignoring case
     /// (helper processes are sometimes reported in lower case).
