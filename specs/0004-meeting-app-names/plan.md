@@ -1,9 +1,11 @@
 # Plan: real names on transcript lines for every meeting app
 
-Status: P1 to P7 built (PR 140). P4's fixtures are hand-built from
-published markup: `slack-huddle.json`, `meet-chrome-captions.json`,
-`teams-meeting.json`. Left: P8 (wire the registry into the app), P9
-(name provenance), P10 (docs and a real-call check).
+Status: P1 to P8 built (PR 140), and P10's docs. P4's fixtures are
+hand-built from published markup: `slack-huddle.json`,
+`meet-chrome-captions.json`, `teams-meeting.json`. P8 also caps the call
+stream's separation at the number of people the app showed, and the
+recording strip shows who is on the call. Left: P9 (name provenance) and
+the real-call check in P10.
 
 P1 to P3 are the protocol and the Zoom port; P4 builds fixtures from each
 app's published markup; P5, P6 and P7 are one app each and can be built in

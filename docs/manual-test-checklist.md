@@ -35,16 +35,22 @@ macOS permissions, or Bedrock.
 - [ ] Call with 2+ remote people: lines show Them 1 / Them 2
 - [ ] Solo call: plain Me / Them
 
-## Zoom speaker names
+## Meeting app speaker names
 - [ ] First Zoom recording without Accessibility: one info banner with **Allow**; Allow shows macOS's prompt and opens Privacy & Security > Accessibility
 - [ ] Settings shows "Accessibility: allowed" after granting it and coming back to figg
 - [ ] Zoom call, Speaker view, 2+ remote people taking turns: after Stop their lines show their Zoom names, not Them 1 / Them 2
 - [ ] Same call: `meetings/<id>/speakers.json` lists the participants and speaking spans
 - [ ] Gallery view with two others unmuted: lines fall back to Them 1 / Them 2 (no wrong names)
 - [ ] Zoom quits mid-call: recording carries on, earlier names stay
-- [ ] "Skip my mic while I'm muted on Zoom" on: mute in Zoom and talk in the room, unmute and talk, mute again and talk; after Stop only the unmuted speech is in the transcript as "Me", and the other side's lines are all there
+- [ ] "Skip my mic while I'm muted in the meeting app" on: mute in Zoom and talk in the room, unmute and talk, mute again and talk; after Stop only the unmuted speech is in the transcript as "Me", and the other side's lines are all there
 - [ ] Same call: `meetings/<id>/speakers.json` has `muted` stretches matching when you were muted (the toolbar's mute label was read; with the meeting toolbar hidden too)
-- [ ] Same call with "Name speakers on Zoom calls" off: mute still skips the mic, and `speakers.json` has no names
+- [ ] Same call with "Name speakers from the meeting app" off: mute still skips the mic, and `speakers.json` has no names
+- [ ] While recording any supported call, the strip shows who is on the call, with "(talking)" on the person the app shows speaking
+- [ ] Google Meet in Chrome, captions on, 2+ others taking turns: after Stop their lines show their Meet names; with captions off and one other person, the one person is named
+- [ ] Google Meet in Safari: same as Chrome; Meet in a background tab gives no names while hidden and the recording carries on
+- [ ] Teams call with 2+ others, one of them unmuted at a time: their lines show their Teams names; you muted in Teams skips the mic
+- [ ] Slack huddle with 2+ others: names on lines after Stop; muting in the huddle skips the mic
+- [ ] Settings > Meeting apps with Meet unticked: a Meet call stays Them 1 / Them 2
 - [ ] Quit figg, set `skip_mic_when_muted: true` in config.yaml by hand, relaunch: the toggle shows on; set it to `false`, bring figg to the front: the toggle shows off and a muted stretch is kept
 
 ## Meeting detection

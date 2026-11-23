@@ -165,8 +165,8 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
 | Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
-| Zoom speaker names (Accessibility) | `app/Sources/FiggMeetingApps/` (`ZoomReader`, `ZoomReading` parses tile labels, `SpeakerTimeline`), `SpeakerLabels.appNames` |
-| Skip the mic while muted on Zoom | `ZoomReading.selfMuted` (toolbar button, own tile as fallback), `SpeakerTimeline.muted` and `MuteTracker`, `MeetingAppWatch` (when the watcher starts, banner text), `FiggTranscription/MuteFilter.swift` |
+| Meeting app speaker names (Accessibility) | `app/Sources/FiggMeetingApps/`: `MeetingAppProfile` (one per app: `ZoomProfile`, `MeetProfile`, `TeamsProfile`, `SlackHuddleProfile`), `AXTreeCapture` (the only AX walk), `MeetingAppRegistry` (which app), `SpeakingRules`, `SpeakerTimeline`; fixtures in `app/Tests/FiggMeetingAppsTests/Fixtures/`; `SpeakerLabels.appNames`; spec `specs/0004-meeting-app-names/` |
+| Skip the mic while muted in the meeting app | each profile's `selfMuted`, `SpeakerTimeline.muted` and `MuteTracker`, `MeetingAppWatch` (when the watcher starts, banner text), `FiggTranscription/MuteFilter.swift` |
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | macOS permissions (Settings > Permissions, Fix, signer change) | `app/Sources/FiggPermissions/`, `app/Sources/Figg/PermissionsView.swift` (the only place figg asks) |
@@ -231,22 +231,29 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
 - Speaker labels are automatic and "Me" is assumed to be the most talkative
   person on the mic. With the calendar on, attendee names are prompt hints
   and a transcript context menu renames speakers by hand.
-- On Zoom desktop calls (`transcription.meeting_app_names`, needs
-  Accessibility), `ZoomReader` reads Zoom's video tiles twice a second:
-  names, mute state, and Speaker view's big tile as the active speaker.
+- Meeting app names (`transcription.meeting_app_names`, apps in
+  `transcription.meeting_apps`, needs Accessibility): during a recording
+  `MeetingAppRegistry` picks the app holding the mic that shows a meeting
+  (Zoom desktop, Google Meet in a browser tab, new Teams, a Slack huddle),
+  looking again after 3 s and every 10 s until one does, and its profile
+  reads the window twice a second: names, mute state and the speaking cue.
   The timeline goes to `meetings/<id>/speakers.json`; after Stop a call
-  voice takes the Zoom name shown for at least 60% of its talk time. Tile
-  labels and the big tile were seen on Zoom 7.1.9, but the names have not
-  been checked end to end on a real call with other people yet, nor how
-  late Zoom's tile follows the speaker. Gallery view has no speaking cue,
-  so there it only works when one other person is unmuted. Zoom in the
-  browser, Meet, Teams and Slack are not read.
+  voice takes the name shown for at least 60% of its talk time, and the
+  call stream is separated into at most as many voices as people shown.
+  Cues: Zoom's Speaker view big tile (seen on Zoom 7.1.9), Slack's
+  active-speaker tile class, Meet's newest caption (captions must be on),
+  none for Teams (only "one other person unmuted" and one-to-one calls).
+  Meet, Teams and Slack are built from published markup and fixtures only;
+  none has been checked on a real call yet, nor whether Teams on the Mac is
+  WebKit or Chromium. A browser shows only its front tab, so a Meet tab in
+  the background reads as a gap. People in the room with you are never
+  visible to a meeting app: "People in the room" stays a manual count.
 - With `transcription.skip_mic_when_muted` (on by default, same
-  Accessibility permission, starts the Zoom watcher even with names off),
-  mic lines at least half inside a stretch where Zoom showed you muted are
-  left out, live and in the final pass; call audio is never dropped. Mute
-  is read from the toolbar's audio button, with your own tile as a
-  fallback, and the two disagreeing reads as unknown. The toolbar's real
+  Accessibility permission, starts the watcher even with names off),
+  mic lines at least half inside a stretch where the app showed you muted are
+  left out, live and in the final pass; call audio is never dropped. On
+  Zoom mute is read from the toolbar's audio button, with your own tile as
+  a fallback, and the two disagreeing reads as unknown. The toolbar's real
   labels and position are guesses, and the feature has not been tried on
   a real call yet; a non-English Zoom or a changed label reads as unknown,
   so nothing is dropped. The audio itself is kept as before.

@@ -506,14 +506,18 @@ When both checks pass, figg is set up. Tell the human:
 - figg offers to record by itself when a meeting app starts using the mic.
 - Headphones give the cleanest transcript; on laptop speakers the mic also
   hears the other side.
-- On Zoom calls in the Zoom desktop app, figg can name the other speakers
-  from Zoom's window ("Name speakers on Zoom calls" in Settings). It needs
-  Accessibility permission (Privacy & Security > Accessibility); the human
-  turns it on in Settings > Permissions, or clicks **Fix permissions** on
-  the banner figg shows during the first Zoom recording. Speaker view gives the best names.
-  With the same permission, "Skip my mic while I'm muted on Zoom" (on by
-  default, `transcription.skip_mic_when_muted` in config.yaml) leaves what
-  the mic hears out of the transcript while Zoom shows them muted.
+- On calls in the Zoom desktop app, Google Meet (Chrome, Arc, Edge or
+  Safari), the new Microsoft Teams app and Slack huddles, figg can name the
+  other speakers from the meeting app's window ("Name speakers from the
+  meeting app" in Settings, with a checkbox per app; `transcription.meeting_apps`
+  in config.yaml). It needs Accessibility permission (Privacy & Security >
+  Accessibility); the human turns it on in Settings > Permissions, or clicks
+  **Fix permissions** on the banner figg shows during the first such
+  recording. Zoom's Speaker view and Meet with captions on give the best
+  names; while recording, the strip shows who is on the call.
+  With the same permission, "Skip my mic while I'm muted in the meeting app"
+  (on by default, `transcription.skip_mic_when_muted` in config.yaml) leaves
+  what the mic hears out of the transcript while the app shows them muted.
 - Which provider is active, and, if it uses a free model, the warning from
   rule 6 once more.
 
