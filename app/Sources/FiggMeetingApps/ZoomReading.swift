@@ -126,8 +126,7 @@ public enum ZoomReading {
             let mine = people.filter { $0.name == selfName }
             if mine.count == 1 { tile = mine[0].muted }
         }
-        if let toolbar, let tile, toolbar != tile { return nil }
-        return toolbar ?? tile
+        return SpeakingRules.agree(toolbar, tile)
     }
 
     /// Who is on the call, who Zoom shows as speaking, and whether you are muted.
@@ -140,15 +139,9 @@ public enum ZoomReading {
         var seen = Set<String>()
         let participants = people.filter { seen.insert($0.name).inserted }
         let windowArea = windowWidth * windowHeight
-        var speaking: String?
         let main = tiles.filter { windowArea > 0 && $0.width * $0.height >= windowArea * mainTileShare }
-        if main.count == 1, let p = participant(fromTileLabel: main[0].label), p.name != selfName, p.muted != true {
-            speaking = p.name
-        } else if let selfName {
-            let others = participants.filter { $0.name != selfName && $0.muted == false }
-            // Two people with your name (a second device of yours) make "others" unclear.
-            if others.count == 1, people.filter({ $0.name == selfName }).count <= 1 { speaking = others[0].name }
-        }
+        let cue = main.count == 1 ? participant(fromTileLabel: main[0].label) : nil
+        let speaking = SpeakingRules.speaking(cue: cue, people: people, selfName: selfName)
         let muted = selfMuted(buttons: buttons, tiles: tiles, selfName: selfName, windowHeight: windowHeight)
         return MeetingAppSnapshot(app: "zoom", participants: participants, selfName: selfName, speaking: speaking, selfMuted: muted)
     }

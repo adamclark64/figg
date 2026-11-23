@@ -1,0 +1,47 @@
+{
+  "width": 1710,
+  "height": 1080,
+  "tree": {
+    "role": "AXWindow",
+    "title": "Zoom Meeting",
+    "identifier": "zm.meeting.window.main",
+    "frame": { "x": 0, "y": 0, "width": 1710, "height": 1080 },
+    "children": [
+      {
+        "role": "AXGroup",
+        "children": [
+          { "role": "AXGroup", "roleDescription": "Video render", "description": "Bill Ortiz, Computer audio unmuted", "frame": { "x": 0, "y": 40, "width": 1710, "height": 961 } },
+          { "role": "AXGroup", "roleDescription": "Video render", "description": "Sam Lee, Computer audio muted, Video off", "frame": { "x": 1460, "y": 40, "width": 240, "height": 135 } },
+          { "role": "AXGroup", "roleDescription": "Video render", "description": "Nora Hale, Computer audio muted", "frame": { "x": 1460, "y": 180, "width": 240, "height": 135 } }
+        ]
+      },
+      {
+        "role": "AXGroup",
+        "description": "Participants (3)",
+        "children": [
+          { "role": "AXButton", "description": "Mute", "frame": { "x": 1500, "y": 1040, "width": 60, "height": 24 } }
+        ]
+      },
+      {
+        "role": "AXGroup",
+        "description": "Meeting controls",
+        "children": [
+          {
+            "role": "AXButton", "description": "Unmute audio", "frame": { "x": 20, "y": 1030, "width": 80, "height": 50 },
+            "children": [ { "role": "AXButton", "description": "Unmute audio" } ]
+          },
+          { "role": "AXButton", "description": "Start video", "title": "Start video" }
+        ]
+      }
+    ]
+  },
+  "otherWindows": [
+    {
+      "role": "AXWindow",
+      "title": "Zoom Workplace",
+      "children": [
+        { "role": "AXButton", "description": "Zoom, Sam Lee, In a Zoom Meeting, Basic account" }
+      ]
+    }
+  ]
+}
