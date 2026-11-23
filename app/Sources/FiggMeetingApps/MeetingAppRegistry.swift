@@ -8,7 +8,7 @@ public struct MeetingAppRegistry: Sendable {
     public var profiles: [MeetingAppProfile]
 
     /// Every profile figg ships.
-    public static let all: [MeetingAppProfile] = [ZoomProfile()]
+    public static let all: [MeetingAppProfile] = [ZoomProfile(), TeamsProfile(), MeetProfile(), SlackHuddleProfile()]
 
     public init(profiles: [MeetingAppProfile] = MeetingAppRegistry.all) {
         self.profiles = profiles

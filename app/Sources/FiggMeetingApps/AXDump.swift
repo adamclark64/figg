@@ -7,7 +7,8 @@ import Foundation
 ///
 /// The dump is scrubbed before it is written: every `replacements` pair
 /// ("Real Name" to "Person A") is applied to all text, `value` text (text
-/// fields, captions) becomes x's of the same length unless `keepValues`,
+/// fields, captions, messages) becomes x's of the same length unless
+/// `keepValues` or it is a short text holding a replaced name,
 /// and URL paths keep their shape with letters and digits as x. It is
 /// still for a person to read before it is committed: a name the
 /// replacements missed stays in.
@@ -62,7 +63,11 @@ public enum AXDump {
             n.roleDescription = text(n.roleDescription)
             n.identifier = text(n.identifier)
             n.domID = text(n.domID)
-            n.value = keepValues ? text(n.value) : n.value.map(blank)
+            // Values are blanked, except a short one that was a replaced name
+            // (static text holds names in its value, and fixtures need them).
+            let value = text(n.value)
+            let isName = value.map { v in v.count <= 60 && replacements.contains { v.contains($0.1) } } ?? false
+            n.value = keepValues || isName ? value : n.value.map(blank)
             n.url = n.url.map(scrubURL)
             n.children = n.children.map(node)
             return n

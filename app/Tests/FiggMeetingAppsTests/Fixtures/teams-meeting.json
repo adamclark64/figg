@@ -1,0 +1,21 @@
+{
+  "width": 1280, "height": 820,
+  "tree": {
+    "role": "AXWebArea", "url": "https://teams.microsoft.com/v2/",
+    "frame": { "x": 0, "y": 0, "width": 1280, "height": 820 },
+    "children": [
+      { "role": "AXGroup", "description": "Meeting stage", "children": [
+        { "role": "AXGroup", "description": "Sam Lee (You), video is off, muted" },
+        { "role": "AXGroup", "description": "Bill Ortiz, video is on, unmuted", "children": [
+          { "role": "AXStaticText", "value": "Bill Ortiz" } ] },
+        { "role": "AXGroup", "description": "Hale, Nora, video is off, muted" }
+      ] },
+      { "role": "AXToolbar", "description": "Meeting controls", "children": [
+        { "role": "AXButton", "domID": "roster-button", "description": "People" },
+        { "role": "AXButton", "domID": "mic-button", "description": "Unmute mic" },
+        { "role": "AXButton", "domID": "video-button", "description": "Turn camera on" },
+        { "role": "AXButton", "domID": "hangup-button", "description": "Leave" }
+      ] }
+    ]
+  }
+}

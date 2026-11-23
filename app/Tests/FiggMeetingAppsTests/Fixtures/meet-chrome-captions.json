@@ -1,0 +1,44 @@
+{
+  "width": 1440, "height": 860,
+  "tree": {
+    "role": "AXWebArea", "title": "Meet - abc-defg-hij", "url": "https://meet.google.com/abc-defg-hij",
+    "frame": { "x": 0, "y": 0, "width": 1440, "height": 860 },
+    "children": [
+      { "role": "AXGroup", "children": [
+        { "role": "AXGroup", "children": [
+          { "role": "AXStaticText", "domClasses": ["notranslate"], "value": "Bill Ortiz" },
+          { "role": "AXButton", "description": "More options for Bill Ortiz" } ] },
+        { "role": "AXGroup", "children": [
+          { "role": "AXStaticText", "domClasses": ["notranslate"], "value": "Nora Hale" },
+          { "role": "AXButton", "description": "More options for Nora Hale" } ] },
+        { "role": "AXGroup", "children": [
+          { "role": "AXStaticText", "domClasses": ["notranslate"], "value": "Sam Lee" },
+          { "role": "AXButton", "description": "More options for Sam Lee" } ] }
+      ] },
+      { "role": "AXGroup", "subrole": "AXLandmarkRegion", "description": "Captions", "children": [
+        { "role": "AXGroup", "domClasses": ["nMcdL"], "children": [
+          { "role": "AXImage" },
+          { "role": "AXGroup", "domClasses": ["NWpY1d"], "children": [ { "role": "AXStaticText", "value": "Nora Hale" } ] },
+          { "role": "AXGroup", "domClasses": ["ygicle"], "children": [ { "role": "AXStaticText", "value": "xxxx xx xxxx" } ] } ] },
+        { "role": "AXGroup", "domClasses": ["nMcdL"], "children": [
+          { "role": "AXImage" },
+          { "role": "AXGroup", "domClasses": ["NWpY1d"], "children": [ { "role": "AXStaticText", "value": "Bill Ortiz" } ] },
+          { "role": "AXGroup", "domClasses": ["ygicle"], "children": [ { "role": "AXStaticText", "value": "xx xxx xxxx xx" } ] } ] }
+      ] },
+      { "role": "AXGroup", "subrole": "AXLandmarkRegion", "description": "In call", "children": [
+        { "role": "AXGroup", "description": "Sam Lee", "children": [
+          { "role": "AXStaticText", "value": "Sam Lee" }, { "role": "AXStaticText", "value": "(You)" } ] },
+        { "role": "AXGroup", "description": "Bill Ortiz", "children": [ { "role": "AXStaticText", "value": "Bill Ortiz" } ] },
+        { "role": "AXGroup", "description": "Nora Hale", "children": [ { "role": "AXStaticText", "value": "Nora Hale" } ] }
+      ] },
+      { "role": "AXGroup", "description": "Call controls", "children": [
+        { "role": "AXStaticText", "domClasses": ["notranslate"], "value": "abc-defg-hij" },
+        { "role": "AXButton", "description": "Turn on microphone (⌘ + d)" },
+        { "role": "AXButton", "description": "Turn off camera (⌘ + e)" },
+        { "role": "AXButton", "description": "Turn off captions", "value": "1" },
+        { "role": "AXButton", "description": "People" },
+        { "role": "AXButton", "description": "Leave call" }
+      ] }
+    ]
+  }
+}

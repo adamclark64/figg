@@ -78,7 +78,7 @@ struct FakeWebProfile: MeetingAppProfile {
         #expect(registry.choose(micHolders: [], running: ["com.apple.Safari"], enabled: all, windows: windows) == nil)
     }
 
-    @Test func shipsZoom() {
+    @Test func shipsTheProfiles() {
         #expect(MeetingAppRegistry().profile(id: "zoom") is ZoomProfile)
         #expect(MeetingAppRegistry().profile(id: "nope") == nil)
     }
@@ -104,6 +104,8 @@ struct FakeWebProfile: MeetingAppProfile {
         #expect(out.tree.children[0].title == "Person A")
         #expect(out.tree.value == "xxxxxx xxxx")
         #expect(out.tree.url == "https://meet.example/xxx-xxxx-xxx")
+        let text = AXNode(role: "AXStaticText", value: "Bill Ortiz")
+        #expect(AXDump.scrub(MeetingAppCapture(tree: text, width: 1, height: 1), replacements: [("Bill Ortiz", "Person A")], keepValues: false).tree.value == "Person A")
         let kept = AXDump.scrub(MeetingAppCapture(tree: tree, width: 1, height: 1), replacements: [], keepValues: true)
         #expect(kept.tree.value == "secret plan")
     }

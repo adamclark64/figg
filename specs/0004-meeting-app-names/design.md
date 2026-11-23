@@ -121,6 +121,19 @@ Notes per app:
   vibeconf, openclaw, mova-flow, recall.ai's open-source caption extension,
   teams-for-linux and LokalBot, dated 2025-11 to 2026-11.
 
+Limits found while building P5 to P7:
+
+- A browser exposes only the visible tab's web area, so Meet in a
+  background tab reads as a gap until it is in front again.
+- Slack's huddle is often a panel in the main window, and Teams may give
+  the meeting no window title to tell it from chat, so for those two the
+  copy can include the main window's other content. It stays in memory for
+  the one poll, is never saved or logged, and `--ax-dump` blanks every text
+  value that is not a replaced name. Do not run `--ax-dump` on them with
+  `--keep-values`.
+- Meet knows who you are only while the People panel is open (the "(You)"
+  row); without it, only the captions cue names a speaker.
+
 ## Choosing the profile
 
 `MeetingAppRegistry.profile(micHolders:running:windows:enabled:)`:
