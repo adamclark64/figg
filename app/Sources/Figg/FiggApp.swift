@@ -1,6 +1,7 @@
 import AppKit
 import FiggAudio
 import FiggFeedback
+import FiggMeetingApps
 import FiggWidget
 import SwiftUI
 
@@ -108,11 +109,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var hotKey: HotKey?
 
     /// `open build/Figg.app --args --probe-audio` runs the capture probe with
-    /// figg's own permissions and writes the report to /tmp/figg-probe.txt.
+    /// figg's own permissions and writes the report to /tmp/figg-probe.txt;
+    /// `--ax-dump <profile id>` saves a scrubbed meeting app capture.
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Screenshots a bug report left for pasting into the browser.
         ScreenshotHandoff.removeOldFolders(
             in: ScreenshotHandoff.root(bundleIdentifier: Bundle.main.bundleIdentifier))
+        if let dump = AXDump.arguments(CommandLine.arguments) {
+            // `--ax-dump <profile id>`: saves what figg reads of that meeting
+            // app, scrubbed, for test fixtures (see AXDump).
+            let line = AXDump.run(profileID: dump.id, replacements: dump.replacements, keepValues: dump.keepValues)
+            NSLog("figg ax-dump: %@", line)
+            try? (line + "\n").write(toFile: "/tmp/figg-ax-dump.txt", atomically: true, encoding: .utf8)
+        }
         guard CommandLine.arguments.contains("--probe-audio") else { return }
         try? "probe starting\n".write(toFile: "/tmp/figg-probe.txt", atomically: true, encoding: .utf8)
         Task {
