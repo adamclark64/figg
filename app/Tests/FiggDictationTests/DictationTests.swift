@@ -245,3 +245,118 @@ import Testing
         #expect(KeyCombo(setting: "ctrl+space")!.clash() == "the input source switcher")
     }
 }
+
+@Suite struct SpokenPunctuationTests {
+    func say(_ text: String, after: Character? = nil) -> String {
+        DictationText.prepare([text], precedingCharacter: after, spokenPunctuation: true)
+    }
+
+    @Test func offByDefaultAndTextWithoutCommandsIsUntouched() {
+        #expect(DictationText.prepare(["hello comma world"]) == "hello comma world")
+        let plain = "Thanks for the notes.  I read them, and the plan looks good."
+        #expect(say(plain) == DictationText.prepare([plain]))
+    }
+
+    @Test func marksSitAgainstTheWordBefore() {
+        #expect(say("hi Sam comma thanks for the notes period") == "hi Sam, thanks for the notes.")
+        #expect(say("can we meet on Tuesday question mark") == "can we meet on Tuesday?")
+        #expect(say("great exclamation mark") == "great!")
+        #expect(say("great exclamation point") == "great!")
+        #expect(say("three things colon tables semicolon snacks") == "three things: tables; snacks")
+        #expect(say("that is all full stop") == "that is all.")
+        #expect(say("really question mark exclamation mark") == "really?!")
+    }
+
+    @Test func theNextWordIsCapitalisedAfterASentenceEnd() {
+        #expect(say("it works period now ship it") == "it works. Now ship it")
+        #expect(say("ready question mark yes") == "ready? Yes")
+        #expect(say("one comma two") == "one, two")
+    }
+
+    @Test func theTranscribersOwnPunctuationIsReplaced() {
+        // Parakeet hears the pause and writes its own marks around the words.
+        #expect(say("Hi Sam, comma, thanks for the notes. Period.") == "Hi Sam, thanks for the notes.")
+        #expect(say("Can we meet on Tuesday? Question mark.") == "Can we meet on Tuesday?")
+        #expect(say("Hello comma. How are you") == "Hello, how are you")
+        #expect(say("Hello comma. I think so") == "Hello, I think so")
+        #expect(say("Ask comma. NASA knows") == "Ask, NASA knows")
+    }
+
+    @Test func breaks() {
+        #expect(say("first line new line second line") == "first line\nSecond line")
+        #expect(say("Dear Sam, new paragraph. Thanks for the notes.") == "Dear Sam,\n\nThanks for the notes.")
+        #expect(say("done period new paragraph next") == "done.\n\nNext")
+        #expect(say("one new line new line two") == "one\n\nTwo")
+        #expect(say("one newline two") == "one\nTwo")
+    }
+
+    @Test func quotesBracketsDashAndHyphen() {
+        #expect(say("she said open quote hello close quote and left") == "she said \"hello\" and left")
+        #expect(say("the fair open parenthesis on Saturday close parenthesis is on") == "the fair (on Saturday) is on")
+        #expect(say("see open bracket one close bracket.") == "see [one].")
+        #expect(say("tables dash snacks") == "tables - snacks")
+        #expect(say("a well hyphen known place") == "a well-known place")
+    }
+
+    @Test func emojiNeedTheWordEmoji() {
+        #expect(say("thank you heart emoji") == "thank you ❤️")
+        #expect(say("nice thumbs up emoji.") == "nice 👍.")
+        #expect(say("my heart is full") == "my heart is full")
+    }
+
+    @Test func talkingAboutAMarkKeepsTheWords() {
+        #expect(say("remove the comma after Sam") == "remove the comma after Sam")
+        #expect(say("it was a period of calm") == "it was a period of calm")
+        #expect(say("after a long period of rain") == "after a long period of rain")
+        #expect(say("put a question mark there") == "put a question mark there")
+        #expect(say("the trial period ends on Friday") == "the trial period ends on Friday")
+        #expect(say("there is an extra full stop") == "there is an extra full stop")
+        #expect(say("I will dash to the shop") == "I will dash to the shop")
+        #expect(say("a dash of salt") == "a dash of salt")
+        #expect(say("start a new paragraph") == "start a new paragraph")
+    }
+
+    @Test func onlyWholeWordsAndWholePhrasesMatch() {
+        #expect(say("three periods and two commas") == "three periods and two commas")
+        #expect(say("the periodic table") == "the periodic table")
+        #expect(say("a good question. Mark agrees") == "a good question. Mark agrees")
+        #expect(say("that is new") == "that is new")
+        #expect(say("open the door") == "open the door")
+    }
+
+    @Test func sentenceFinalWordsStillGetTheirMark() {
+        #expect(say("did you see that question mark") == "did you see that?")
+        #expect(say("thanks for your time period") == "thanks for your time.")
+        #expect(say("which one question mark") == "which one?")
+    }
+
+    @Test func aMarkSaidFirstJoinsTheTextBeforeTheCursor() {
+        #expect(say("period", after: "x") == ".")
+        #expect(say("Period.", after: "x") == ".")
+        #expect(say("new line and more", after: "x") == "\nAnd more")
+        #expect(say("comma and more", after: "x") == ", and more")
+        #expect(say("open quote hi", after: "x") == " \"hi")
+        #expect(say("hello", after: "x") == " hello")
+    }
+
+    @Test func aTableForAnotherLanguageWorksTheSameWay() {
+        let german = SpokenPunctuation(rules: [
+            SpokenRule(["punkt"], .mark(".", endsSentence: true)),
+            SpokenRule(["neue zeile"], .lineBreak("\n")),
+        ])
+        let words = "das ist gut punkt neue zeile danke".split(separator: " ")
+        #expect(german.apply(words) == "das ist gut.\nDanke")
+    }
+
+    @Test func oneLineFieldsAndTerminalsGetASpaceForABreak() {
+        #expect(DictationText.singleLine("one.\n\nTwo\nthree") == "one. Two three")
+        #expect(DictationText.singleLine("no breaks") == "no breaks")
+        let slack = FocusedField(bundleID: "com.tinyspeck.slackmacgap", role: "AXTextArea")
+        #expect(InsertionRouter.typedLineBreak(for: slack) == .shiftReturn)
+        #expect(InsertionRouter.typedLineBreak(for: FocusedField(bundleID: "com.apple.Terminal", role: "AXTextArea")) == .space)
+        #expect(InsertionRouter.typedLineBreak(for: FocusedField(bundleID: "com.google.Chrome", role: "AXTextField")) == .space)
+        #expect(InsertionRouter.typedLineBreak(for: FocusedField(bundleID: "com.unknown.app")) == .shiftReturn)
+        #expect(InsertionRouter.isSingleLine(FocusedField(bundleID: "com.apple.finder", role: "AXTextField")))
+        #expect(!InsertionRouter.isSingleLine(FocusedField(bundleID: "com.apple.TextEdit", role: "AXTextArea")))
+    }
+}

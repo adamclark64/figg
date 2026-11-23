@@ -49,7 +49,7 @@ let package = Package(
             ]
         ),
         .executableTarget(name: "figg-audio-probe", dependencies: ["FiggAudio"]),
-        .executableTarget(name: "figg-asr-bench", dependencies: ["FiggTranscription", "FiggStore", "FiggAudio"]),
+        .executableTarget(name: "figg-asr-bench", dependencies: ["FiggTranscription", "FiggStore", "FiggAudio", "FiggDictation"]),
         .testTarget(name: "FiggMeetingAppsTests", dependencies: ["FiggMeetingApps"]),
         .testTarget(name: "FiggStoreTests", dependencies: ["FiggStore"]),
         .testTarget(name: "FiggLLMTests", dependencies: ["FiggLLM"]),

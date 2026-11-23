@@ -205,6 +205,12 @@ struct DictationSettings: View {
             }
             Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
                 .settingsCaption()
+            Section("Spoken punctuation") {
+                Toggle("Type marks and line breaks when I say them", isOn: $settings.config.dictation.spokenPunctuation)
+                    .disabled(!settings.config.dictation.enabled)
+                Text("Say \"comma\", \"period\", \"question mark\", \"new line\" or \"new paragraph\" and figg types the mark or the break, not the words. Also exclamation mark, colon, semicolon, open and close quote, open and close bracket, dash, and a few emoji (\"heart emoji\"). Talking about a mark (\"remove the comma\") stays as words. A new line is typed as a space in terminals and one-line fields.")
+                    .settingsCaption()
+            }
             Section("Sounds") {
                 Toggle("Play a sound when listening starts and stops", isOn: $settings.config.dictation.sounds)
                 Group {

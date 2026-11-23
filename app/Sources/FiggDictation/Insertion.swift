@@ -37,6 +37,14 @@ public struct FocusedField: Equatable, Sendable {
     }
 }
 
+/// What figg types for a line break in dictated text.
+public enum TypedLineBreak: Equatable, Sendable {
+    /// Shift+Return: a new line in chat apps, browsers and editors alike.
+    case shiftReturn
+    /// A space: the field holds one line, or it is a terminal.
+    case space
+}
+
 /// Picks an insertion method. The AX write is tried first only in apps
 /// where it is known to work; elsewhere figg types. A failed AX write falls
 /// back to typing (see `TextInserter`).
@@ -62,6 +70,28 @@ public enum InsertionRouter {
         // No text element visible to AX: typing still reaches whatever has focus.
         guard field.role != nil else { return .keystrokes }
         return .accessibility
+    }
+
+    /// Terminals, where a line break would run what has been typed so far.
+    public static let terminalApps: [String] = [
+        "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp", "com.mitchellh.ghostty",
+        "net.kovidgoyal.kitty", "io.alacritty",
+    ]
+
+    /// Fields that hold one line: a line break has nowhere to go, and Return
+    /// in them does something else (search, open the address).
+    static let singleLineRoles: Set<String> = ["AXTextField", "AXComboBox", "AXSearchField"]
+
+    public static func isSingleLine(_ field: FocusedField) -> Bool {
+        field.role.map(singleLineRoles.contains) ?? false
+    }
+
+    /// How a line break is typed as keystrokes. Never a bare Return: in chat
+    /// apps that sends the message half way through a dictation.
+    public static func typedLineBreak(for field: FocusedField) -> TypedLineBreak {
+        if isSingleLine(field) { return .space }
+        if let bundleID = field.bundleID, terminalApps.contains(where: { bundleID.hasPrefix($0) }) { return .space }
+        return .shiftReturn
     }
 
     /// Whether a field's value after the AX write shows the text went in.
@@ -100,14 +130,28 @@ public enum KeystrokeChunks {
 public enum DictationText {
     /// Joins segments, squeezes whitespace and adds a leading space when the
     /// text before the cursor ends in a letter or punctuation, so a second
-    /// dictation does not run into the first.
-    public static func prepare(_ segments: [String], precedingCharacter: Character? = nil) -> String {
-        let joined = segments.joined(separator: " ")
-            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        guard !joined.isEmpty else { return "" }
-        if let prev = precedingCharacter, !prev.isWhitespace, !"([{\"'".contains(prev) {
+    /// dictation does not run into the first. With `spokenPunctuation`,
+    /// spoken marks and breaks ("comma", "new paragraph") become the marks
+    /// themselves; the result can then hold line breaks.
+    public static func prepare(
+        _ segments: [String], precedingCharacter: Character? = nil, spokenPunctuation: Bool = false
+    ) -> String {
+        let words = segments.flatMap { $0.split(whereSeparator: \.isWhitespace) }
+        guard !words.isEmpty else { return "" }
+        let joined = spokenPunctuation ? SpokenPunctuation.english.apply(words) : words.joined(separator: " ")
+        guard let first = joined.first else { return "" }
+        // A mark or a break said first belongs to the text already there.
+        let hugsLeft = spokenPunctuation && (first.isNewline || ".,?!:;)]".contains(first))
+        if !hugsLeft, let prev = precedingCharacter, !prev.isWhitespace, !"([{\"'".contains(prev) {
             return " " + joined
         }
         return joined
+    }
+
+    /// The text with each line break turned into a space, for places that
+    /// hold one line: a search field, a terminal prompt, the dictation panel.
+    public static func singleLine(_ text: String) -> String {
+        guard text.contains(where: \.isNewline) else { return text }
+        return text.split(whereSeparator: \.isNewline).joined(separator: " ")
     }
 }
