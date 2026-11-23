@@ -135,6 +135,7 @@ final class AppModel: ObservableObject {
             separator: t.separateSpeakers ? FluidSpeakerSeparator() : nil,
             keepAudio: { keepAudio.value },
             liveName: { [liveSpeakers] id, start, end in liveSpeakers.name(meetingId: id, start: start, end: end) },
+            liveApp: { [liveSpeakers] id in liveSpeakers.app(meetingId: id) },
             skipMuted: { skipMicWhenMuted.value },
             liveMutedShare: { [liveSpeakers] id, start, end in liveSpeakers.mutedShare(meetingId: id, start: start, end: end) },
             onLines: { [weak self] _ in
@@ -343,8 +344,10 @@ final class AppModel: ObservableObject {
     }
 
     /// Renames a displayed speaker across this meeting's transcript.
-    func renameSpeaker(_ id: String, from: String, to: String) {
-        try? store.renameSpeaker(meetingId: id, from: from, to: to)
+    /// - Parameter source: `SpeakerSource.typed` or `.calendar`, shown as
+    ///   the line's name marker.
+    func renameSpeaker(_ id: String, from: String, to: String, source: String = SpeakerSource.typed) {
+        try? store.renameSpeaker(meetingId: id, from: from, to: to, source: source)
         transcriptVersion += 1
     }
 

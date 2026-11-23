@@ -103,6 +103,11 @@ public final class Store: @unchecked Sendable {
             }
         }
         registerDictationMigrations(&m)
+        // Named v8 rather than the design's v4: migrations run in the order
+        // registered, and v4 to v7 are taken.
+        m.registerMigration("v8-speaker-source") { db in
+            try db.alter(table: "transcriptLine") { t in t.add(column: "speakerSource", .text) }
+        }
         return m
     }
 
@@ -177,9 +182,13 @@ public final class Store: @unchecked Sendable {
     }
 
     /// Swaps a meeting's lines for a new set in one transaction (final pass).
+    /// Names a person chose (typed, or picked from the calendar) on the old
+    /// lines win over the new labels: see `TranscriptLine.keepingHumanNames`.
     @discardableResult
     public func replaceTranscript(meetingId: String, with lines: [TranscriptLine]) throws -> [TranscriptLine] {
         try db.write { db in
+            let old = try TranscriptLine.filter(Column("meetingId") == meetingId).fetchAll(db)
+            let lines = TranscriptLine.keepingHumanNames(from: old, in: lines)
             try TranscriptLine.filter(Column("meetingId") == meetingId).deleteAll(db)
             return try lines.map { line in
                 var line = line
@@ -191,15 +200,17 @@ public final class Store: @unchecked Sendable {
 
     /// Renames one displayed speaker ("Guest 1", "Me", a previous rename)
     /// across a meeting's transcript, e.g. to a calendar attendee's name.
-    public func renameSpeaker(meetingId: String, from: String, to: String) throws {
+    /// - Parameter source: `SpeakerSource.typed` for a typed name,
+    ///   `SpeakerSource.calendar` for an attendee picked from the menu.
+    public func renameSpeaker(meetingId: String, from: String, to: String, source: String = SpeakerSource.typed) throws {
         let to = to.trimmingCharacters(in: .whitespaces)
         guard !to.isEmpty, to != from else { return }
         try db.write {
             try $0.execute(sql: """
-                UPDATE transcriptLine SET speakerLabel = ?
+                UPDATE transcriptLine SET speakerLabel = ?, speakerSource = ?
                 WHERE meetingId = ?
                   AND COALESCE(speakerLabel, CASE speaker WHEN 'me' THEN 'Me' ELSE 'Them' END) = ?
-                """, arguments: [to, meetingId, from])
+                """, arguments: [to, source, meetingId, from])
         }
     }
 

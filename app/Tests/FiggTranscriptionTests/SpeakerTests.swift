@@ -112,6 +112,19 @@ import Testing
         #expect(SpeakerLabels.apply(call, to: lines, stream: .system, offset: 100, timeline: timeline).map(\.displaySpeaker) == ["Bill", "Them 2"])
     }
 
+    @Test func appNamesCarryTheirAppAsSource() {
+        let timeline = SpeakerTimeline(app: "meet", spans: [.init(start: 100, end: 116, name: "Avery Lane")])
+        let call = [SpeakerTurn(start: 0, end: 10, speaker: "A"), SpeakerTurn(start: 12, end: 20, speaker: "B")]
+        let lines = [
+            TranscriptLine(meetingId: "m", speaker: .them, start: 101, end: 105, text: "one"),
+            TranscriptLine(meetingId: "m", speaker: .them, start: 113, end: 119, text: "two"),
+        ]
+        // The name from Meet is marked; the automatic "Them 2" is not.
+        #expect(SpeakerLabels.apply(call, to: lines, stream: .system, offset: 100, timeline: timeline).map(\.speakerSource) == ["app:meet", nil])
+        let unlabelled = TranscriptLine(meetingId: "m", speaker: .them, start: 101, end: 105, text: "one")
+        #expect(SpeakerLabels.nameLines([unlabelled], timeline: timeline).map(\.speakerSource) == ["app:meet"])
+    }
+
     @Test func oneVoiceOnTheCallGetsItsName() {
         let timeline = SpeakerTimeline(app: "zoom", spans: [.init(start: 0, end: 30, name: "Bill")])
         let one = [SpeakerTurn(start: 0, end: 30, speaker: "A")]
@@ -181,6 +194,7 @@ struct FakeSeparator: SpeakerSeparator {
         await queue.drain()
         try await queue.finalPass(meetingId: meeting.id)
         #expect(try store.transcript(meetingId: meeting.id).map(\.displaySpeaker) == ["Bill Ortiz"])
+        #expect(try store.transcript(meetingId: meeting.id).map(\.speakerSource) == ["app:zoom"])
         try? FileManager.default.removeItem(at: base)
     }
 
@@ -194,10 +208,12 @@ struct FakeSeparator: SpeakerSeparator {
         try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: true)
         try writeChunk((0..<48_000).map { sin(Float($0) / 5) * 0.3 }, to: pending.appendingPathComponent(AudioChunk.fileName(stream: .system, offset: 0)))
         let queue = TranscriptionQueue(store: store, paths: paths, transcriber: CountingTranscriber(), keepAudio: { false },
-                                       liveName: { id, _, _ in id == meeting.id ? "Bill Ortiz" : nil }, onLines: { _ in })
+                                       liveName: { id, _, _ in id == meeting.id ? "Bill Ortiz" : nil },
+                                       liveApp: { id in id == meeting.id ? "teams" : nil }, onLines: { _ in })
         await queue.enqueuePending(meetingId: meeting.id)
         await queue.drain()
         #expect(try store.transcript(meetingId: meeting.id).map(\.displaySpeaker) == ["Bill Ortiz"])
+        #expect(try store.transcript(meetingId: meeting.id).map(\.speakerSource) == ["app:teams"])
         try? FileManager.default.removeItem(at: base)
     }
 

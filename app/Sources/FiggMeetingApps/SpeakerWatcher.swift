@@ -91,6 +91,15 @@ public final class SpeakerWatcherSlot: @unchecked Sendable {
         return w.current.name(start: start, end: end)
     }
 
+    /// The id of the app being watched for that meeting ("zoom"), if it is the one being watched.
+    public func app(meetingId: String) -> String? {
+        lock.lock()
+        let w = watcher
+        lock.unlock()
+        guard let w, w.meetingId == meetingId else { return nil }
+        return w.current.app
+    }
+
     /// The share of [start, end] you were muted in that meeting, or nil when
     /// no watcher is running for it (the caller then falls back to the saved
     /// `speakers.json`).

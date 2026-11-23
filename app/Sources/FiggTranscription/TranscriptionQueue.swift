@@ -19,6 +19,9 @@ public actor TranscriptionQueue {
     private let keepAudio: @Sendable () -> Bool
     /// Who the meeting app shows speaking over a stretch of a live meeting, if anyone.
     private let liveName: @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String?
+    /// The id of the meeting app being watched for a live meeting ("zoom"),
+    /// saved with each line it names as `app:<id>`.
+    private let liveApp: @Sendable (_ meetingId: String) -> String?
     /// Whether to leave out mic lines heard while you were muted
     /// (`transcription.skip_mic_when_muted`), read at the time of use.
     private let skipMuted: @Sendable () -> Bool
@@ -44,6 +47,7 @@ public actor TranscriptionQueue {
         separator: SpeakerSeparator? = nil,
         keepAudio: @escaping @Sendable () -> Bool,
         liveName: @escaping @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> String? = { _, _, _ in nil },
+        liveApp: @escaping @Sendable (_ meetingId: String) -> String? = { _ in nil },
         skipMuted: @escaping @Sendable () -> Bool = { false },
         liveMutedShare: @escaping @Sendable (_ meetingId: String, _ start: Double, _ end: Double) -> Double? = { _, _, _ in nil },
         onLines: @escaping @Sendable ([TranscriptLine]) -> Void
@@ -54,6 +58,7 @@ public actor TranscriptionQueue {
         self.separator = separator
         self.keepAudio = keepAudio
         self.liveName = liveName
+        self.liveApp = liveApp
         self.skipMuted = skipMuted
         self.liveMutedShare = liveMutedShare
         self.onLines = onLines
@@ -101,7 +106,11 @@ public actor TranscriptionQueue {
                 let segments = try await transcriber.transcribe(samples: samples)
                 var lines = Self.lines(from: segments, chunk: chunk, meetingId: meetingId)
                 if chunk.stream == .system {
-                    for i in lines.indices { lines[i].speakerLabel = liveName(meetingId, lines[i].start, lines[i].end) }
+                    for i in lines.indices {
+                        guard let name = liveName(meetingId, lines[i].start, lines[i].end) else { continue }
+                        lines[i].speakerLabel = name
+                        lines[i].speakerSource = SpeakerSource.app(liveApp(meetingId) ?? "")
+                    }
                 }
                 if chunk.stream == .mic, !lines.isEmpty, skipMuted() {
                     lines = lines.filter { mutedShare(meetingId, $0.start, $0.end) < MuteFilter.minShare }
