@@ -16,22 +16,15 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, extname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SOURCES } from './sources.mjs';
 
 const SITE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(SITE, '..');
 const OUT = join(SITE, 'dist');
 
-/** What gets published, in sidebar order. `file` is one repo path; `dir`
-    publishes every .md in a folder.
-    Nothing outside this list reaches the website. */
-const SOURCES = [
-  { group: 'Guides', file: 'README.md', url: '/docs', label: 'How figg works' },
-  { group: 'Guides', file: 'docs/agent-setup.md', url: '/docs/agent-setup', label: 'Set up with an agent', agentPrompt: true },
-];
-
 /** Files in site/ that are part of the build, not of the website. */
 const NOT_STATIC = new Set([
-  'build.mjs', 'docs-template.html', 'package.json', 'package-lock.json',
+  'build.mjs', 'sources.mjs', 'ignore-build.mjs', 'docs-template.html', 'package.json', 'package-lock.json',
   'vercel.json', 'node_modules', 'dist', '.vercel', '.DS_Store',
 ]);
 
