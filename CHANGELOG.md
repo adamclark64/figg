@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/adamclark64/figg/compare/v0.20.0...v0.21.0) (2026-11-23)
+
+
+### Features
+
+* **meeting-apps:** name speakers on google meet, teams and slack calls ([#140](https://github.com/adamclark64/figg/issues/140)) ([639549a](https://github.com/adamclark64/figg/commit/639549a6bea505539f0367d473cd21395228f20e))
+* **transcript:** show where each speaker name came from ([#142](https://github.com/adamclark64/figg/issues/142)) ([#143](https://github.com/adamclark64/figg/issues/143)) ([755b34c](https://github.com/adamclark64/figg/commit/755b34cac315e0d50d179ef87003241d7b916887))
+
 ## [0.20.0](https://github.com/adamclark64/figg/compare/v0.19.2...v0.20.0) (2026-11-22)
 
 
