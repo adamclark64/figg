@@ -144,15 +144,18 @@ public enum SpeakerLabels {
     ///   always matched to voices with `turns`.
     public static func apply(_ turns: [SpeakerTurn], to lines: [TranscriptLine], stream: FiggAudio.AudioStream, offset: Double, timeline: SpeakerTimeline? = nil, rankTurns: [SpeakerTurn]? = nil) -> [TranscriptLine] {
         var names = labels(for: turns, stream: stream, rankTurns: rankTurns)
+        var fromApp: Set<String> = []  // voices named by the meeting app
         if stream == .system, let timeline {
             let named = appNames(for: turns, timeline: timeline, offset: offset)
             if !named.isEmpty { names = (names ?? [:]).merging(named) { _, app in app } }
+            fromApp = Set(named.keys)
         }
         guard let names else { return lines }
         return lines.map { line in
             var line = line
             if let id = speaker(for: line, turns: turns, offset: offset), let name = names[id] {
                 line.speakerLabel = name
+                line.speakerSource = fromApp.contains(id) ? SpeakerSource.app(timeline?.app ?? "") : nil
             }
             return line
         }
@@ -187,6 +190,7 @@ public enum SpeakerLabels {
                   let name = timeline.name(start: line.start, end: line.end) else { return line }
             var line = line
             line.speakerLabel = name
+            line.speakerSource = SpeakerSource.app(timeline.app)
             return line
         }
     }

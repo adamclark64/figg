@@ -75,10 +75,14 @@ public struct TranscriptLine: Codable, Sendable, Identifiable, Equatable, Fetcha
     /// Set when diarization split a stream into several people ("Guest 1",
     /// "Them 2"); nil means the stream's default label.
     public var speakerLabel: String?
+    /// Where `speakerLabel` came from when a person or an app chose it:
+    /// `app:<id>`, `calendar` or `typed` (see `SpeakerSource`). Nil for an
+    /// automatic label (Me, Guest N, Them N), so a wrong name is easy to spot.
+    public var speakerSource: String?
 
     public static let databaseTableName = "transcriptLine"
 
-    public init(id: Int64? = nil, meetingId: String, speaker: Speaker, start: Double, end: Double, text: String, speakerLabel: String? = nil) {
+    public init(id: Int64? = nil, meetingId: String, speaker: Speaker, start: Double, end: Double, text: String, speakerLabel: String? = nil, speakerSource: String? = nil) {
         self.id = id
         self.meetingId = meetingId
         self.speaker = speaker
@@ -86,6 +90,7 @@ public struct TranscriptLine: Codable, Sendable, Identifiable, Equatable, Fetcha
         self.end = end
         self.text = text
         self.speakerLabel = speakerLabel
+        self.speakerSource = speakerSource
     }
 
     /// What the transcript, prompts and exports show for this line's speaker.

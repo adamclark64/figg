@@ -1,4 +1,5 @@
 import FiggExport
+import FiggMeetingApps
 import FiggNotes
 import FiggStore
 import SwiftUI
@@ -66,8 +67,8 @@ struct MeetingView: View {
             .background(theme.canvas)
 
             if showTranscript {
-                TranscriptPane(lines: lines, shots: shots, live: isRecording, attendees: meeting?.attendees ?? []) { from, to in
-                    model.renameSpeaker(meetingId, from: from, to: to)
+                TranscriptPane(lines: lines, shots: shots, live: isRecording, attendees: meeting?.attendees ?? []) { from, to, source in
+                    model.renameSpeaker(meetingId, from: from, to: to, source: source)
                 }
                 .frame(minWidth: 240, idealWidth: 320, maxWidth: 480)
             }
@@ -541,7 +542,8 @@ struct TranscriptPane: View {
     var shots: [MeetingScreenshot] = []
     let live: Bool
     var attendees: [String] = []
-    var onRename: (String, String) -> Void = { _, _ in }
+    /// From, to, and the `SpeakerSource` of the new name.
+    var onRename: (String, String, String) -> Void = { _, _, _ in }
     @State private var renaming: String?  // the label being renamed
     @State private var renameText = ""
 
@@ -573,6 +575,14 @@ struct TranscriptPane: View {
                                 HStack(spacing: 6) {
                                     Text(line.displaySpeaker).font(.caption.weight(.semibold))
                                         .foregroundStyle(line.speaker == .me ? theme.accent : theme.ink)
+                                    if let source = line.speakerSource,
+                                       let tip = SpeakerSource.describe(source, appName: { MeetingAppRegistry().profile(id: $0)?.displayName }) {
+                                        Image(systemName: Self.sourceIcon(source))
+                                            .font(.caption2)
+                                            .foregroundStyle(theme.inkMuted)
+                                            .help(tip)
+                                            .accessibilityLabel(tip)
+                                    }
                                     Text(formatTimestamp(line.start)).font(.caption.monospacedDigit())
                                         .foregroundStyle(theme.inkMuted)
                                 }
@@ -614,7 +624,7 @@ struct TranscriptPane: View {
         )) {
             TextField("Name", text: $renameText)
             Button("Rename") {
-                if let from = renaming { onRename(from, renameText) }
+                if let from = renaming { onRename(from, renameText, SpeakerSource.typed) }
                 renaming = nil
             }
             Button("Cancel", role: .cancel) { renaming = nil }
@@ -623,11 +633,20 @@ struct TranscriptPane: View {
         }
     }
 
+    /// The marker beside a name a person or a meeting app chose.
+    private static func sourceIcon(_ source: String) -> String {
+        switch source {
+        case SpeakerSource.calendar: return "calendar"
+        case SpeakerSource.typed: return "pencil"
+        default: return "video"
+        }
+    }
+
     /// Rename a speaker to a calendar attendee in one click, or to any name.
     @ViewBuilder private func renameMenu(for speaker: String) -> some View {
         let taken = Set(lines.map(\.displaySpeaker))
         ForEach(attendees.filter { !taken.contains($0) }, id: \.self) { name in
-            Button("Rename \(speaker) to \(name)") { onRename(speaker, name) }
+            Button("Rename \(speaker) to \(name)") { onRename(speaker, name, SpeakerSource.calendar) }
         }
         Button("Rename \(speaker)…") {
             renameText = speaker

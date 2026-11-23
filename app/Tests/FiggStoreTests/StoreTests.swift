@@ -1,5 +1,6 @@
-import FiggStore
+@testable import FiggStore
 import Foundation
+import GRDB
 import Testing
 
 @Suite struct StoreTests {
@@ -112,5 +113,104 @@ import Testing
     @Test func timestampFormat() {
         #expect(formatTimestamp(65) == "01:05")
         #expect(formatTimestamp(3725) == "1:02:05")
+    }
+}
+
+/// Where a speaker's name came from (`TranscriptLine.speakerSource`).
+@Suite struct SpeakerSourceStoreTests {
+    let store = try! Store.inMemory()
+
+    func meeting() throws -> Meeting {
+        let m = Meeting(title: "Planning")
+        try store.save(m)
+        return m
+    }
+
+    @Test func oldDatabaseGainsAnEmptySourceAndKeepsItsLines() throws {
+        let queue = try DatabaseQueue()
+        try Store.migrator.migrate(queue, upTo: "v7-dictation-raw-text")
+        try queue.write { db in
+            try db.execute(sql: "INSERT INTO meeting (id, title, createdAt, status) VALUES ('m1', 'Old', ?, 'ready')", arguments: [Date()])
+            try db.execute(sql: """
+                INSERT INTO transcriptLine (meetingId, speaker, start, end, text, speakerLabel)
+                VALUES ('m1', 'them', 0, 2, 'hello', 'Them 1')
+                """)
+        }
+        let store = try Store(writer: queue)
+        let lines = try store.transcript(meetingId: "m1")
+        #expect(lines.map(\.displaySpeaker) == ["Them 1"])
+        #expect(lines.map(\.speakerSource) == [nil])
+    }
+
+    @Test func sourceIsSavedWithLines() throws {
+        let m = try meeting()
+        try store.append([
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 2, text: "hi", speakerLabel: "Avery Lane", speakerSource: SpeakerSource.app("meet")),
+            TranscriptLine(meetingId: m.id, speaker: .me, start: 2, end: 3, text: "hey"),
+        ])
+        let lines = try store.transcript(meetingId: m.id)
+        #expect(lines.map(\.speakerSource) == ["app:meet", nil])
+        #expect(SpeakerSource.appID(lines[0].speakerSource) == "meet")
+    }
+
+    @Test func renameSetsTypedOrCalendar() throws {
+        let m = try meeting()
+        try store.append([
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 2, text: "a", speakerLabel: "Them 1"),
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 2, end: 4, text: "b", speakerLabel: "Them 2"),
+        ])
+        try store.renameSpeaker(meetingId: m.id, from: "Them 1", to: "Sam Park")
+        try store.renameSpeaker(meetingId: m.id, from: "Them 2", to: "Kit Moss", source: SpeakerSource.calendar)
+        let lines = try store.transcript(meetingId: m.id)
+        #expect(lines.map(\.displaySpeaker) == ["Sam Park", "Kit Moss"])
+        #expect(lines.map(\.speakerSource) == ["typed", "calendar"])
+    }
+
+    @Test func typedNameSurvivesALaterFinalPass() throws {
+        let m = try meeting()
+        // Live lines: the call's one voice, renamed by hand while recording.
+        try store.append([
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 10, text: "first"),
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 10, end: 20, text: "second"),
+            TranscriptLine(meetingId: m.id, speaker: .me, start: 20, end: 25, text: "mine"),
+        ])
+        try store.renameSpeaker(meetingId: m.id, from: "Them", to: "Sam Park")
+
+        // The final pass splits the same audio differently and names the
+        // voice from the meeting app; the typed name still wins.
+        try store.replaceTranscript(meetingId: m.id, with: [
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 6, text: "first part", speakerLabel: "Avery Lane", speakerSource: SpeakerSource.app("zoom")),
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 6, end: 19, text: "the rest", speakerLabel: "Avery Lane", speakerSource: SpeakerSource.app("zoom")),
+            TranscriptLine(meetingId: m.id, speaker: .me, start: 20, end: 25, text: "mine"),
+        ])
+        let lines = try store.transcript(meetingId: m.id)
+        #expect(lines.map(\.displaySpeaker) == ["Sam Park", "Sam Park", "Me"])
+        #expect(lines.map(\.speakerSource) == ["typed", "typed", nil])
+    }
+
+    @Test func finalPassWithoutChosenNamesKeepsItsOwnLabels() throws {
+        let m = try meeting()
+        try store.append([TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 10, text: "live", speakerLabel: "Avery Lane", speakerSource: SpeakerSource.app("meet"))])
+        try store.replaceTranscript(meetingId: m.id, with: [
+            TranscriptLine(meetingId: m.id, speaker: .them, start: 0, end: 10, text: "final", speakerLabel: "Them 1"),
+        ])
+        let lines = try store.transcript(meetingId: m.id)
+        #expect(lines.map(\.displaySpeaker) == ["Them 1"])
+        #expect(lines.map(\.speakerSource) == [nil])
+    }
+
+    @Test func chosenNameOnlyMovesToTheSameStream() {
+        let old = [TranscriptLine(meetingId: "m", speaker: .me, start: 0, end: 10, text: "a", speakerLabel: "Robin", speakerSource: SpeakerSource.typed)]
+        let new = [TranscriptLine(meetingId: "m", speaker: .them, start: 0, end: 10, text: "a")]
+        #expect(TranscriptLine.keepingHumanNames(from: old, in: new).map(\.displaySpeaker) == ["Them"])
+    }
+
+    @Test func markerTooltips() {
+        let names = ["meet": "Google Meet"]
+        #expect(SpeakerSource.describe(nil, appName: { names[$0] }) == nil)
+        #expect(SpeakerSource.describe("app:meet", appName: { names[$0] }) == "Name from Google Meet")
+        #expect(SpeakerSource.describe("app:other", appName: { names[$0] }) == "Name from the meeting app")
+        #expect(SpeakerSource.describe("calendar", appName: { names[$0] }) == "Name from the calendar")
+        #expect(SpeakerSource.describe("typed", appName: { names[$0] }) == "Name typed by you")
     }
 }
