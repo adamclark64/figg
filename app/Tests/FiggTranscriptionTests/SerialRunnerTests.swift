@@ -45,4 +45,87 @@ private actor Overlap {
         let value = try await runner.run { 42 }
         #expect(value == 42)
     }
+
+    /// A dictation waiting to be typed goes ahead of meeting chunks that
+    /// are only waiting, but never interrupts the one that is running.
+    @Test func anUrgentJobGoesAheadOfWaitingOnes() async throws {
+        let runner = SerialRunner()
+        let overlap = Overlap()
+        // The first job holds the model until everything else is in line.
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                _ = try await runner.run {
+                    await overlap.enter(0)
+                    for await _ in gate { break }
+                    await overlap.leave()
+                }
+            }
+            for n in 1..<4 {
+                try await Task.sleep(for: .milliseconds(50))
+                group.addTask {
+                    _ = try await runner.run {
+                        await overlap.enter(n)
+                        await overlap.leave()
+                    }
+                }
+            }
+            try await Task.sleep(for: .milliseconds(50))
+            group.addTask {
+                _ = try await runner.run(urgent: true) {
+                    await overlap.enter(99)
+                    await overlap.leave()
+                }
+            }
+            try await Task.sleep(for: .milliseconds(50))
+            open.yield()
+            try await group.waitForAll()
+        }
+        #expect(await overlap.most == 1)
+        #expect(await overlap.order == [0, 99, 1, 2, 3])
+    }
+
+    /// A live preview still waiting when the key is let go is never run.
+    @Test func aJobCancelledWhileWaitingIsDropped() async throws {
+        let runner = SerialRunner()
+        let overlap = Overlap()
+        let (gate, open) = AsyncStream<Void>.makeStream()
+        let first = Task {
+            try await runner.run {
+                await overlap.enter(0)
+                for await _ in gate { break }
+                await overlap.leave()
+            }
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        let waiting = Task {
+            try await runner.run(urgent: true) { await overlap.enter(1) }
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        waiting.cancel()
+        await #expect(throws: CancellationError.self) { try await waiting.value }
+        open.yield()
+        try await first.value
+        // The line still moves afterwards.
+        _ = try await runner.run { await overlap.enter(2) }
+        #expect(await overlap.order == [0, 2])
+    }
+
+    /// Cancelling the caller does not cut a running prediction short.
+    @Test func aRunningJobFinishesEvenIfItsCallerIsCancelled() async throws {
+        let runner = SerialRunner()
+        let overlap = Overlap()
+        let task = Task {
+            try await runner.run { () async throws -> Int in
+                await overlap.enter(0)
+                try? await Task.sleep(for: .milliseconds(200))
+                try Task.checkCancellation()
+                await overlap.leave()
+                return 7
+            }
+        }
+        while await overlap.order.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+        task.cancel()
+        #expect(try await task.value == 7)
+    }
 }

@@ -360,3 +360,26 @@ import Testing
         #expect(!InsertionRouter.isSingleLine(FocusedField(bundleID: "com.apple.TextEdit", role: "AXTextArea")))
     }
 }
+
+@Suite struct DictationPreviewTests {
+    @Test func aShortDictationIsPreviewedWhole() {
+        let samples = [Float](repeating: 0.1, count: 16_000 * 10)
+        let (tail, cut) = DictationPreview.tail(samples)
+        #expect(tail.count == samples.count)
+        #expect(!cut)
+    }
+
+    @Test func aLongOneIsCutToItsEndInAPause() {
+        // 60 s of "speech" with one quiet half second, 16 s from the end.
+        var samples = [Float](repeating: 0.2, count: 16_000 * 60)
+        let pause = (16_000 * 44)..<(16_000 * 44 + 8_000)
+        for i in pause { samples[i] = 0 }
+        let (tail, cut) = DictationPreview.tail(samples)
+        #expect(cut)
+        let start = samples.count - tail.count
+        #expect(pause.contains(start))
+        // Never more than the window plus the two seconds it may reach back.
+        #expect(tail.count <= 16_000 * 17)
+        #expect(tail.count >= 16_000 * 15)
+    }
+}
