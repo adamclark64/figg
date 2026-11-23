@@ -270,6 +270,9 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         /// e.g. "ctrl+option+cmd+v" (the default, which no standard or macOS
         /// shortcut uses), or "" for off.
         public var pasteLastShortcut = "ctrl+option+cmd+v"
+        /// Saying "comma", "question mark", "new line" or "new paragraph"
+        /// types the mark or the break, not the words.
+        public var spokenPunctuation = true
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
@@ -280,6 +283,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case stopSound = "stop_sound"
             case cancelSound = "cancel_sound"
             case pasteLastShortcut = "paste_last_shortcut"
+            case spokenPunctuation = "spoken_punctuation"
         }
     }
 
@@ -477,6 +481,12 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # shift and cmd, and at least one of ctrl, option or cmd is needed.
           # It takes those keys from every other app. "" turns it off.
           paste_last_shortcut: \(q(dictation.pasteLastShortcut))
+          # Say "period", "comma", "question mark", "exclamation mark", "colon",
+          # "semicolon", "open quote", "close quote", "open bracket", "dash",
+          # "new line" or "new paragraph" and figg types the mark or the break,
+          # not the words. "heart emoji" and a few like it work too. Talking
+          # about a mark ("remove the comma") stays as words. Runs on this Mac.
+          spoken_punctuation: \(dictation.spokenPunctuation)
 
         """
     }
@@ -664,5 +674,6 @@ extension FiggConfig.Dictation {
         stopSound = try c.decodeIfPresent(String.self, forKey: .stopSound) ?? d.stopSound
         cancelSound = try c.decodeIfPresent(String.self, forKey: .cancelSound) ?? d.cancelSound
         pasteLastShortcut = try c.decodeIfPresent(String.self, forKey: .pasteLastShortcut) ?? d.pasteLastShortcut
+        spokenPunctuation = try c.decodeIfPresent(Bool.self, forKey: .spokenPunctuation) ?? d.spokenPunctuation
     }
 }

@@ -105,6 +105,13 @@ three-voice conversation (`BENCH_SPEAKERS=3` to give the count).
 same audio (`BENCH_CHUNK=30`, `BENCH_ONLY=parakeet` to vary). Run it before
 changing engines or chunking.
 
+`swift run --package-path app -c release figg-asr-bench --dictation` times the
+dictation path: the text step (`DictationText.prepare`, spoken punctuation
+off and on) in microseconds, and Parakeet on short, medium and long spoken
+utterances with the text step beside it. Run it before and after any change
+to what happens between letting go of the key and the text being typed
+(`BENCH_TEXT_ONLY=1` skips the model).
+
 Always read audio with `AudioChunk.readMono`, never a single
 `AVAudioFile.read`.
 
@@ -163,7 +170,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Slack/Confluence/Jira | `app/Sources/FiggExport/` |
 | Meeting lifecycle, crash recovery | `app/Sources/Figg/AppModel.swift` |
 | Meeting auto-detect | `app/Sources/FiggAudio/MicUsage.swift`, `MeetingDetector.swift`, `app/Sources/Figg/MeetingWatcher.swift` |
-| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
+| Dictation (hold fn, type into any app) | `app/Sources/FiggDictation/` (key rules, insertion routing, AX and keystroke typing; spoken punctuation and its word table in `SpokenPunctuation.swift`), `app/Sources/Figg/Dictation.swift`, `DictationPill.swift`, `DictationHistoryView.swift`, `FiggAudio/DictationCapture.swift`, history in `FiggStore/Dictations.swift` |
 | Floating recording widget | `app/Sources/Figg/RecordingWidget.swift` (panel, mouse, views), `app/Sources/FiggWidget/` (show/hide rule, placement) |
 | Meeting app speaker names (Accessibility) | `app/Sources/FiggMeetingApps/`: `MeetingAppProfile` (one per app: `ZoomProfile`, `MeetProfile`, `TeamsProfile`, `SlackHuddleProfile`), `AXTreeCapture` (the only AX walk), `MeetingAppRegistry` (which app), `SpeakingRules`, `SpeakerTimeline`; fixtures in `app/Tests/FiggMeetingAppsTests/Fixtures/`; `SpeakerLabels.appNames`; spec `specs/0004-meeting-app-names/` |
 | Skip the mic while muted in the meeting app | each profile's `selfMuted`, `SpeakerTimeline.muted` and `MuteTracker`, `MeetingAppWatch` (when the watcher starts, banner text), `FiggTranscription/MuteFilter.swift` |
@@ -216,6 +223,11 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   Tap the key for hands-free, Esc cancels. Used live only into the Claude
   desktop app (typed); native fields, browsers, Terminal and password
   fields have unit tests but no live check yet.
+  Spoken punctuation ("comma", "new paragraph") is a word table with unit
+  tests, checked against Parakeet on synthetic speech only
+  (`figg-asr-bench --dictation`): no real voice yet, and a typed line break
+  (Shift+Return; a space in terminals and one-line fields) has not been
+  tried in any live app.
   A dictation during a meeting recording is also heard by the meeting's mic
   and lands in its transcript as "Me". fn's own action (emoji, macOS
   dictation) still fires unless the user sets "Press 🌐 key to" to Do

@@ -181,7 +181,10 @@ final class DictationController: ObservableObject {
                 guard samples.count > 8_000, !SilenceGate.isSilent(samples) else { continue }
                 guard let segments = try? await self.transcriber.transcribe(samples: samples),
                       !Task.isCancelled, self.capturing else { continue }
-                self.liveText = DictationText.prepare(segments.compactMap { TranscriptCleaner.clean($0.text) })
+                // The panel shows one run of text; breaks appear when typed.
+                self.liveText = DictationText.singleLine(DictationText.prepare(
+                    segments.compactMap { TranscriptCleaner.clean($0.text) },
+                    spokenPunctuation: self.settings.config.dictation.spokenPunctuation))
             }
         }
     }
@@ -244,7 +247,8 @@ final class DictationController: ObservableObject {
         let (_, element) = TextInserter.focusedField()
         let text = DictationText.prepare(
             segments.compactMap { TranscriptCleaner.clean($0.text) },
-            precedingCharacter: TextInserter.precedingCharacter(element))
+            precedingCharacter: TextInserter.precedingCharacter(element),
+            spokenPunctuation: settings.config.dictation.spokenPunctuation)
         guard !text.isEmpty else {
             show(.idle)
             return
@@ -254,7 +258,7 @@ final class DictationController: ObservableObject {
         // A new dictation started while this one was transcribing: still
         // type this one, but leave the panel to the new one.
         let quiet = capturing
-        if !quiet { liveText = text.trimmingCharacters(in: .whitespaces) }
+        if !quiet { liveText = DictationText.singleLine(text).trimmingCharacters(in: .whitespaces) }
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
         let outcome = insert(text, showResult: !quiet)
         NSLog("figg dictation: %@ %d characters into %@", "\(outcome)", text.count, appName)
@@ -324,7 +328,7 @@ final class DictationController: ObservableObject {
     func insertLast() {
         guard let last = history.first else { return }
         target = NSWorkspace.shared.frontmostApplication
-        liveText = last.text
+        liveText = DictationText.singleLine(last.text)
         insert(" " + last.text)
     }
 
