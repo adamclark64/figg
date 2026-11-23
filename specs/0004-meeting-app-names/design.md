@@ -25,22 +25,20 @@ holding the mic (what `MeetingDetector` already sees) and the open windows.
 ```swift
 /// One meeting app figg knows how to read. Pure: no Accessibility calls.
 public protocol MeetingAppProfile: Sendable {
-    /// Short id saved in speakers.json and config ("zoom", "meet", ...).
-    var id: String { get }
-    /// Shown in banners and Settings ("Zoom", "Google Meet", ...).
-    var displayName: String { get }
-    /// Apps this profile can read. Browsers list every browser it supports.
-    var bundleIDs: Set<String> { get }
-    /// Chromium and Electron apps hide web content from Accessibility until
-    /// asked (AXManualAccessibility); true makes the capture ask.
-    var needsWebAccessibility: Bool { get }
-    /// Which part of the app to copy: the window, or one web area in it.
+    var id: String { get }            // "zoom", "meet", ... (speakers.json, config)
+    var displayName: String { get }   // "Zoom", "Google Meet", ... (banners, Settings)
+    var bundleIDs: Set<String> { get } // a web meeting lists every browser it supports
+    var needsWebAccessibility: Bool { get } // set AXManualAccessibility first
+    var policy: CapturePolicy { get } // node/depth caps, where to descend, where frames are needed
     func target(in windows: [AXWindowSummary]) -> AXTarget?
-    /// What the app's window says now, or nil when it is not a meeting
-    /// screen this profile understands.
-    func snapshot(from tree: AXNode, size: CGSize) -> MeetingAppSnapshot?
+    func snapshot(from capture: MeetingAppCapture) -> MeetingAppSnapshot?
 }
 ```
+
+`MeetingAppCapture` is the copied target (`tree`, `width`, `height`) plus,
+when `policy.otherWindowsDepth` asks for it, a shallow copy of the app's
+other windows (Zoom's self name is in its main window). It is `Codable`,
+so a capture is a fixture as it stands.
 
 `AXWindowSummary` is the cheap first look (title, identifier, frame, and
 for browsers the URL of each web area). Only the chosen target is walked,
@@ -72,9 +70,11 @@ sources that disagree give nil.
 
 ## Per-app profiles
 
-Everything below other than Zoom is a working hypothesis. Each profile's
-first step (plan P4) is capturing real trees and replacing these notes
-with "checked against <app version>", as `ZoomReading` does.
+Everything below other than Zoom is a working hypothesis until plan P4
+replaces it with what the apps' published markup shows (the selectors and
+ARIA labels open-source Meet and Teams bots and extensions rely on), noted
+as "from <source>, <date>" the way `ZoomReading` says what it was checked
+against.
 
 | | Zoom | Google Meet | Teams (new) | Slack huddle |
 |---|---|---|---|---|
@@ -191,8 +191,8 @@ are made with test accounts named after the existing fixture people.
 ## Open questions
 
 - Which element, if any, carries the speaking cue in Meet, Teams and Slack
-  (answered by P4 captures).
+  (answered by P4 from published markup).
 - Whether new Teams on macOS is WebKit or WebView2 under the hood, which
   decides `needsWebAccessibility`.
 - Whether setting `AXManualAccessibility` on Chrome costs noticeable CPU
-  on a long call (measure in P4 with Activity Monitor).
+  on a long call (worth one Activity Monitor check on a real call).

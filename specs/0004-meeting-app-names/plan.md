@@ -1,15 +1,15 @@
 # Plan: real names on transcript lines for every meeting app
 
-P1 to P3 are the protocol and the Zoom port; P4 captures real trees (needs
-a person on real calls); P5, P6 and P7 are one app each and can be built in
-parallel once P3 and their own P4 capture are in; P8 and P9 are
+P1 to P3 are the protocol and the Zoom port; P4 builds fixtures from each
+app's published markup; P5, P6 and P7 are one app each and can be built in
+parallel once P3 and their own P4 fixtures are in; P8 and P9 are
 independent of the profiles and can be built in parallel with them.
 
 ### P1. AXNode tree and capture
 
 - Files: app/Sources/FiggMeetingApps/AXNode.swift, app/Sources/FiggMeetingApps/AXTreeCapture.swift, app/Sources/FiggMeetingApps/ZoomReader.swift (move the `AX` helpers out), app/Tests/FiggMeetingAppsTests/AXNodeTests.swift, app/Tests/FiggMeetingAppsTests/Fixtures/
 - Depends on: none
-- Proved by: `AXNodeTests`: JSON round trip, a fixture loader, value text cut to 200 characters, `find`/`all(where:)` helpers; the capture itself is AX-only and is checked by P4
+- Proved by: `AXNodeTests`: JSON round trip, a fixture loader, value text cut to 200 characters, `find`/`all(where:)` helpers; the capture itself is AX-only; `--ax-dump` on a live app checks it
 
 ### P2. MeetingAppProfile, SpeakingRules, AccessibilityMeetingReader, Zoom port
 
@@ -23,11 +23,11 @@ independent of the profiles and can be built in parallel with them.
 - Depends on: P2
 - Proved by: `MeetingAppRegistryTests`: helper bundle to browser, Meet tab among other tabs picked and the others not targeted, two matches resolved by mic time, disabled app skipped, nothing on the mic falls back by order; a dump of a non-meeting Zoom window run by hand
 
-### P4. Capture real trees (manual, one per app)
+### P4. Fixtures from published markup
 
-- Files: app/Tests/FiggMeetingAppsTests/Fixtures/{meet-chrome,meet-safari,teams,slack-huddle}-*.json, the "checked against" notes in design.md
+- Files: app/Tests/FiggMeetingAppsTests/Fixtures/{meet-chrome,meet-safari,teams,slack-huddle}-*.json, the per-app table in design.md
 - Depends on: P3
-- Proved by: a person on a real call with two test accounts runs `--ax-dump` for each screen (grid, one person talking, you muted, People panel open, captions on for Meet), scrubs names with `--replace`, reads each file and commits it; design.md's per-app table filled in with what was found. CPU cost of web accessibility on Chrome noted.
+- Proved by: each fixture is an `AXNode` tree built from the names, ARIA labels and DOM ids or classes the apps are documented to use (open-source Meet and Teams bots and extensions, with source and date noted in design.md), for grid, one person talking, you muted, People panel open and, for Meet, captions on; made-up names only. A real-call `--ax-dump` is optional confirmation, not a gate.
 
 ### P5. Google Meet profile
 

@@ -62,8 +62,8 @@ means copying all of it.
 - [ ] `transcription.meeting_apps` round trip, missing key decodes to all
   apps on (proved by: `ConfigTests`)
 - [ ] Name provenance survives a save and a rename (proved by: `StoreTests`)
-- [ ] Names on lines in a real Meet call (Chrome and Safari), a real Teams
-  call and a real Slack huddle, two or more remote people (proved by:
+- [ ] Names on lines in a Meet call (Chrome and Safari), a Teams
+  call and a Slack huddle, two or more remote people (proved by:
   `docs/manual-test-checklist.md` "Meeting app speaker names")
 - [ ] AGENTS.md known gaps and `docs/agent-setup.md` updated (proved by: review)
 
