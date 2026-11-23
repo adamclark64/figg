@@ -1029,6 +1029,84 @@ function updateRadio(dt, t) {
   }
 }
 
+/* ---------- the office cat ----------
+   A white cat with a tabby cap, a tabby saddle and enormous ears. It lives in
+   the room on its own: loafs, wanders, jumps up onto the desk, the cabinet,
+   the sill, the chair and the newton, and back down again. The behaviour is
+   further down, next to the interaction code, because it needs the surfaces. */
+function makeCat() {
+  const white = flat(0xfbf7f4, { roughness: 0.9 });
+  const tabby = flat(0x857868, { roughness: 0.9 });
+  const pink = flat(0xf4b3bd, { roughness: 0.7 });
+  const dark = flat(0x1c1418, { roughness: 0.3 });
+  const g = new THREE.Group();
+  const add = (parent, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+
+  // Everything above the legs rides on `body`, so a loaf just lowers it.
+  const body = new THREE.Group(); g.add(body);
+  add(body, new THREE.IcosahedronGeometry(1, 1), white, 0, 0, 0).scale.set(0.105, 0.095, 0.21);
+  // the tabby saddle over the back half, like the patch in the photo
+  add(body, new THREE.IcosahedronGeometry(1, 1), tabby, -0.012, 0.022, -0.075).scale.set(0.1, 0.08, 0.12);
+
+  const head = new THREE.Group(); head.position.set(0, 0.1, 0.19); body.add(head);
+  add(head, new THREE.IcosahedronGeometry(0.072, 1), white, 0, 0.004, 0).scale.set(0.95, 0.9, 1.0);
+  // long wedge muzzle, narrower at the chin: the oriental face in the photo
+  const muzzle = add(head, new THREE.ConeGeometry(0.05, 0.1, 5), white, 0, -0.02, 0.07);
+  muzzle.rotation.x = Math.PI / 2; muzzle.scale.set(1, 1, 0.75);
+  add(head, new THREE.BoxGeometry(0.024, 0.016, 0.014), pink, 0, -0.012, 0.118).rotation.x = 0.3; // nose
+  // tabby cap on either side of a white blaze down the middle
+  for (const x of [-0.034, 0.034]) {
+    const cap = add(head, new THREE.IcosahedronGeometry(1, 0), tabby, x, 0.047, -0.012);
+    cap.scale.set(0.042, 0.03, 0.058);
+    cap.rotation.set(-0.2, 0, x > 0 ? -0.45 : 0.45);
+  }
+  // sleepy eyes: dark, half closed
+  for (const x of [-0.034, 0.034]) {
+    const e = add(head, new THREE.SphereGeometry(0.014, 6, 4), dark, x, 0.012, 0.062);
+    e.scale.set(1.15, 0.55, 0.6);
+    e.rotation.z = x > 0 ? -0.25 : 0.25;
+  }
+  // the ears: far too big, pointing out to the sides
+  const ears = [];
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Group(); ear.position.set(s * 0.05, 0.04, -0.01); head.add(ear);
+    const outer = add(ear, new THREE.ConeGeometry(0.058, 0.16, 4), white, 0, 0.075, 0);
+    outer.scale.z = 0.35;
+    const inner = add(ear, new THREE.ConeGeometry(0.045, 0.13, 4), pink, 0, 0.07, 0.008);
+    inner.scale.z = 0.2;
+    ear.rotation.set(-0.1, s * 0.35, -s * 0.95);
+    ear.userData.rest = ear.rotation.z;
+    ears.push(ear);
+  }
+
+  // legs pivot at the hip so the walk is a swing
+  const legs = [];
+  for (const [x, z] of [[-0.055, 0.13], [0.055, 0.13], [-0.055, -0.13], [0.055, -0.13]]) {
+    const hip = new THREE.Group(); hip.position.set(x, 0, z); body.add(hip);
+    add(hip, new THREE.CylinderGeometry(0.022, 0.018, 0.2, 6), white, 0, -0.1, 0);
+    add(hip, new THREE.SphereGeometry(0.024, 6, 4), white, 0, -0.2, 0.008).scale.set(1, 0.6, 1.3);
+    legs.push(hip);
+  }
+
+  // a striped tail in a chain of segments, so it can curl and sway
+  const tail = [];
+  let parent = new THREE.Group(); parent.position.set(0, 0.03, -0.2); body.add(parent);
+  for (let i = 0; i < 7; i++) {
+    const seg = new THREE.Group(); parent.add(seg);
+    if (i) seg.position.y = 0.05;
+    add(seg, new THREE.CylinderGeometry(0.017 - i * 0.0012, 0.019 - i * 0.0012, 0.054, 5), i % 2 ? tabby : flat(0x5f5449, { roughness: 0.9 }), 0, 0.025, 0);
+    tail.push(seg);
+    parent = seg;
+  }
+
+  g.userData.cat = { body, head, ears, legs, tail };
+  return g;
+}
+const cat = makeCat();
+cat.scale.setScalar(1.35); // a touch bigger than life, like everything else in here
+cat.position.set(0.15, 0, 1.55);
+room.add(cat);
+
 /* ---------- lights ---------- */
 scene.add(new THREE.HemisphereLight(0xffd6e6, 0x5a2a55, 0.85));
 const key = new THREE.DirectionalLight(0xfff0e6, 1.15);
@@ -1088,7 +1166,8 @@ resize();
    Drag the fig to spin it. Drag a prop to pick it up and carry it; let go and it
    drops onto whatever is under it. Tap a prop to flip it a quarter turn, scroll
    over (or while holding) one to turn it. Tap the radio on the sill to play or
-   pause the music, scroll over it for the volume. Drag empty space to look around. */
+   pause the music, scroll over it for the volume. Drag the cat to carry it, tap
+   it to pet it. Drag empty space to look around. */
 const pointer = new THREE.Vector2(), smooth = new THREE.Vector2(), ndc = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -1113,6 +1192,7 @@ for (const [i, o] of pickables.entries()) {
 }
 const propOf = (obj) => { while (obj && !obj.userData.prop) obj = obj.parent; return obj; };
 const isFig = (obj) => { while (obj) { if (obj === fig) return true; obj = obj.parent; } return false; };
+const isCat = (obj) => { while (obj) { if (obj === cat) return true; obj = obj.parent; } return false; };
 
 function setRay(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -1120,10 +1200,11 @@ function setRay(e) {
 }
 function hitTest(e) {
   setRay(e);
-  const hits = raycaster.intersectObjects([fig, radio, ...pickables], true).filter((h) => !h.object.isSprite);
+  const hits = raycaster.intersectObjects([fig, radio, cat, ...pickables], true).filter((h) => !h.object.isSprite);
   if (!hits.length) return null;
   const o = hits[0].object;
   if (isFig(o)) return { kind: 'fig' };
+  if (isCat(o)) return { kind: 'cat' };
   if (isRadio(o)) return { kind: 'radio' };
   const p = propOf(o);
   return p ? { kind: 'prop', obj: p } : null;
@@ -1156,6 +1237,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const hit = hitTest(e);
   if (hit?.kind === 'fig') { mode = 'fig'; spinVel = 0; }
   else if (hit?.kind === 'radio') mode = 'radio';
+  else if (hit?.kind === 'cat') { mode = 'cat'; grabCat(e); }
   else if (hit?.kind === 'prop') {
     mode = 'prop'; held = hit.obj;
     const p = held.userData.prop;
@@ -1183,6 +1265,8 @@ window.addEventListener('pointermove', (e) => {
   } else if (mode === 'orbit') {
     yaw = THREE.MathUtils.clamp(yaw - dx * 0.004, -0.7, 0.7);
     pitch = THREE.MathUtils.clamp(pitch + dy * 0.002, -0.12, 0.3);
+  } else if (mode === 'cat' && moved) {
+    dragCat(e);
   } else if (mode === 'prop' && moved) {
     const p = held.userData.prop;
     if (!p.held) { p.held = true; p.vy = 0; }
@@ -1207,6 +1291,8 @@ function release() {
     track('scene_interact', { object: 'fig', action: moved ? 'spin' : 'tap' });
   } else if (mode === 'orbit') {
     if (moved) track('scene_interact', { object: 'room', action: 'look_around' });
+  } else if (mode === 'cat') {
+    releaseCat(moved);
   } else if (mode === 'radio') {
     if (!moved) window.figgMusic?.toggle(); // pointerup still counts as the user's gesture for audio
   } else if (mode === 'prop') {
@@ -1221,15 +1307,18 @@ function release() {
 window.addEventListener('pointerup', release);
 window.addEventListener('pointercancel', release);
 
-// Show a pointer and a tooltip over the radio, so it reads as something to press.
+// Show a pointer and a tooltip over the radio and the cat, so they read as
+// something to press.
 let overRadio = false;
 function hover(e) {
   if (e.pointerType === 'touch') return;
-  const now = hitTest(e)?.kind === 'radio';
+  const kind = hitTest(e)?.kind;
+  const now = kind === 'radio' ? 'radio' : kind === 'cat' ? 'cat' : false;
   if (now === overRadio) return;
   overRadio = now;
-  canvas.classList.toggle('pressable', now);
-  canvas.title = now ? (window.figgMusic?.playing ? 'Pause the music' : 'Play some office music') : '';
+  canvas.classList.toggle('pressable', !!now);
+  canvas.title = now === 'radio' ? (window.figgMusic?.playing ? 'Pause the music' : 'Play some office music')
+    : now === 'cat' ? 'Pet the cat, or pick it up' : '';
 }
 window.addEventListener('figg-music', () => { overRadio = false; });
 
@@ -1275,6 +1364,380 @@ function updateProps(dt) {
   }
 }
 
+/* ---------- the cat's little life ----------
+   One state at a time: loaf (resting, staring at you), walk (on whatever it
+   stands on), crouch then jump (onto a perch or back down), held (carried by
+   the scruff), fall (dropped, or its perch was carried off). Perches hang off
+   the furniture they belong to, so moving the chair or the newton moves the
+   perch too, and the cat's height always comes from what is under it. */
+const kitty = (() => {
+  // Kitty noises are synthesised, so there is nothing to download. Browsers
+  // only allow sound after a gesture, so the context starts on the first
+  // touch of the cat and the cat stays quiet until then.
+  let ctx, out, noise;
+  function ready() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      out = ctx.createGain(); out.gain.value = 0.3; out.connect(ctx.destination);
+      noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return true;
+  }
+  // A meow is a buzzy tone through two moving vowel formants: "mi-aow".
+  function meow({ pitch = 1, len = 0.55, trill = 0 } = {}) {
+    if (!ctx) return;
+    const t = ctx.currentTime + 0.01, end = t + len;
+    const f0 = 560 * pitch * (0.92 + Math.random() * 0.16);
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(f0 * 0.78, t);
+    osc.frequency.linearRampToValueAtTime(f0 * 1.3, t + len * 0.35);
+    osc.frequency.linearRampToValueAtTime(f0 * 0.72, end);
+    const vib = ctx.createOscillator(); vib.frequency.value = 6.5;
+    const vibAmt = ctx.createGain(); vibAmt.gain.value = f0 * 0.025;
+    vib.connect(vibAmt).connect(osc.frequency);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(2.2, t + 0.05);
+    env.gain.setValueAtTime(2.2, t + len * 0.55);
+    env.gain.exponentialRampToValueAtTime(0.0001, end);
+    for (const [a, b, c, q] of [[650, 1150, 600, 5], [1500, 2700, 1100, 7]]) {
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
+      f.frequency.setValueAtTime(a, t);
+      f.frequency.linearRampToValueAtTime(b, t + len * 0.4);
+      f.frequency.linearRampToValueAtTime(c, end);
+      osc.connect(f).connect(env);
+    }
+    let last = env;
+    if (trill) { // the rolled "mrrp" of a chirp: fast tremolo on top
+      const am = ctx.createGain(); am.gain.value = 0.55;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 28;
+      const depth = ctx.createGain(); depth.gain.value = 0.45 * trill;
+      lfo.connect(depth).connect(am.gain); lfo.start(t); lfo.stop(end + 0.05);
+      env.connect(am); last = am;
+    }
+    last.connect(out);
+    osc.start(t); vib.start(t); osc.stop(end + 0.05); vib.stop(end + 0.05);
+  }
+  // A purr is low rumbling noise pulsed about 25 times a second.
+  function purr(secs = 1.8) {
+    if (!ctx) return;
+    const t = ctx.currentTime + 0.02;
+    const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 320;
+    const pulse = ctx.createGain(); pulse.gain.value = 0.5;
+    const lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = 25;
+    const depth = ctx.createGain(); depth.gain.value = 0.5;
+    lfo.connect(depth).connect(pulse.gain);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(1.6, t + 0.3);
+    env.gain.setValueAtTime(1.6, t + secs - 0.5);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + secs);
+    src.connect(lp).connect(pulse).connect(env).connect(out);
+    src.start(t); lfo.start(t); src.stop(t + secs + 0.05); lfo.stop(t + secs + 0.05);
+  }
+  return {
+    ready, purr,
+    meow: () => meow(),
+    mew: () => meow({ pitch: 1.35, len: 0.28 }),
+    chirp: () => meow({ pitch: 1.15, len: 0.22, trill: 1 }),
+    complain: () => meow({ pitch: 0.85, len: 0.8 }),
+    get on() { return !!ctx; },
+  };
+})();
+
+// Little speech bubbles that float up when the cat makes a noise.
+const bubbleTex = {};
+function catSays(text) {
+  if (!bubbleTex[text]) bubbleTex[text] = canvasTex(192, 64, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    c.font = '600 34px Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineWidth = 7; c.lineJoin = 'round'; c.strokeStyle = '#3a1240';
+    c.strokeText(text, w / 2, h / 2 + 2);
+    c.fillStyle = '#fff4fb'; c.fillText(text, w / 2, h / 2 + 2);
+  });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex[text], transparent: true, depthWrite: false, fog: false }));
+  s.scale.set(0.48, 0.16, 1);
+  s.userData = { age: 0, life: 1.4 };
+  s.position.copy(cat.position);
+  room.add(s);
+  bubbles.push(s);
+}
+const bubbles = [];
+function updateBubbles(dt) {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const s = bubbles[i], u = s.userData;
+    u.age += dt;
+    // follow the cat, so a carried cat keeps its complaint
+    s.position.set(cat.position.x, cat.position.y + 0.62 + u.age * 0.22, cat.position.z);
+    s.material.opacity = Math.min(1, u.age * 6) * Math.max(0, 1 - u.age / u.life);
+    if (u.age > u.life) { room.remove(s); s.material.dispose(); bubbles.splice(i, 1); }
+  }
+}
+
+const CAT = cat.userData.cat;
+// Where the cat can stand, including the furniture you can carry around.
+const catGround = [...surfaces, chairGroup, newton];
+// Places worth jumping up to, as points in each piece of furniture's own space.
+const perches = [
+  { name: 'desk', on: deskGroup, at: new THREE.Vector3(0.55, 0, 0.3) },
+  { name: 'cabinet', on: cab, at: new THREE.Vector3(0, 0, 0.02) },
+  { name: 'sill', on: room, at: new THREE.Vector3(-0.85, 0, WALL_Z + 0.14) },
+  { name: 'chair', on: chairGroup, at: new THREE.Vector3(0, 0, -0.04) },
+  { name: 'newton', on: newton, at: new THREE.Vector3(0, 0, 0) },
+];
+// Things in the way on the floor, as circles: [object, radius, local x].
+const catObstacles = [
+  [pedCap, 0.82, 0], [deskGroup, 0.6, -0.55], [deskGroup, 0.6, 0.55], [chairGroup, 0.38, 0],
+  [cab, 0.5, 0], [tall, 0.4, 0], [flamingoGroup, 0.28, 0], [newton, 0.7, 0],
+];
+const catState = {
+  mode: 'loaf', timer: 4, vy: 0, heading: 0.3, speed: 0, phase: 0, loaf: 1,
+  goal: new THREE.Vector3(), jumpTo: null, from: new THREE.Vector3(), to: new THREE.Vector3(),
+  jumpT: 0, jumpDur: 0.6, apex: 0, walkTime: 0, hold: new THREE.Vector3(), grabOffset: new THREE.Vector3(),
+  sway: 0, perk: 0, lastY: 0,
+};
+const catDown = new THREE.Vector3(), catTmp = new THREE.Vector3(), catStep = new THREE.Vector3();
+cat.rotation.y = catState.heading;
+
+function groundUnder(x, z, fromY) {
+  catDown.set(x, fromY, z);
+  raycaster.set(catDown, DOWN);
+  raycaster.far = fromY + 1;
+  const hit = raycaster.intersectObjects(catGround, true)[0];
+  raycaster.far = Infinity;
+  return hit ? hit.point.y : 0;
+}
+function perchPoint(p, outV) {
+  outV.copy(p.at);
+  p.on.localToWorld(outV);
+  room.worldToLocal(outV);
+  outV.y = groundUnder(outV.x, outV.z, 3);
+  return outV;
+}
+const randomFloorSpot = (v) => v.set(-3.2 + Math.random() * 7.2, 0, -2.4 + Math.random() * 4.6);
+const obstacleCentre = (o, lx) => { catTmp.set(lx, 0, 0); o.localToWorld(catTmp); return room.worldToLocal(catTmp); };
+function pushOutOfObstacles(v) {
+  for (const [o, r, lx] of catObstacles) {
+    obstacleCentre(o, lx);
+    const dx = v.x - catTmp.x, dz = v.z - catTmp.z, d = Math.hypot(dx, dz);
+    if (d < r) {
+      const k = d > 1e-4 ? r / d : 1;
+      v.x = catTmp.x + (d > 1e-4 ? dx : r) * k;
+      v.z = catTmp.z + (d > 1e-4 ? dz : 0) * k;
+    }
+  }
+  return clampToRoom(v);
+}
+const turnTo = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+
+function startJump(to, dur) {
+  const s = catState;
+  s.mode = 'crouch'; s.timer = 0.32;
+  s.from.copy(cat.position); s.to.copy(to);
+  s.jumpDur = dur ?? THREE.MathUtils.clamp(0.4 + Math.abs(to.y - cat.position.y) * 0.25, 0.4, 0.75);
+  s.apex = Math.max(0.18, to.y - cat.position.y + 0.25);
+}
+
+// Choose what to do once a loaf is over.
+function nextCatPlan() {
+  const s = catState;
+  const onFloor = cat.position.y < 0.1;
+  if (!onFloor) {
+    // down again, a little way out into the room
+    const out = catTmp.set(0.4 - cat.position.x, 0, 2.5 - cat.position.z).normalize().multiplyScalar(0.75);
+    const to = pushOutOfObstacles(cat.position.clone().add(out));
+    to.y = groundUnder(to.x, to.z, cat.position.y - 0.05);
+    s.heading = Math.atan2(to.x - cat.position.x, to.z - cat.position.z);
+    startJump(to);
+    return;
+  }
+  if (Math.random() < 0.5) {
+    const p = perches[Math.floor(Math.random() * perches.length)];
+    const top = perchPoint(p, new THREE.Vector3());
+    if (top.y > 0.25) {
+      const dir = catTmp.set(0.4 - top.x, 0, 2.5 - top.z).normalize().multiplyScalar(0.8);
+      s.goal.copy(top).add(dir); s.goal.y = 0;
+      pushOutOfObstacles(s.goal);
+      s.jumpTo = p;
+      s.mode = 'walk'; s.walkTime = 0;
+      return;
+    }
+  }
+  randomFloorSpot(s.goal);
+  pushOutOfObstacles(s.goal);
+  s.jumpTo = null;
+  s.mode = 'walk'; s.walkTime = 0;
+}
+
+function updateCat(dt, t) {
+  const s = catState, P = cat.position;
+  if (s.mode === 'held') {
+    P.lerp(s.hold, 1 - Math.exp(-14 * dt));
+  } else if (s.mode === 'crouch') {
+    s.timer -= dt;
+    if (s.timer <= 0) {
+      s.mode = 'jump'; s.jumpT = 0;
+      if (s.to.y > s.from.y + 0.2 && kitty.on && Math.random() < 0.6) { kitty.chirp(); catSays('mrrp'); }
+    }
+  } else if (s.mode === 'jump') {
+    s.jumpT += dt / s.jumpDur;
+    const u = Math.min(1, s.jumpT);
+    P.x = THREE.MathUtils.lerp(s.from.x, s.to.x, u);
+    P.z = THREE.MathUtils.lerp(s.from.z, s.to.z, u);
+    P.y = THREE.MathUtils.lerp(s.from.y, s.to.y, u) + s.apex * 4 * u * (1 - u);
+    if (u >= 1) { s.mode = 'loaf'; s.timer = 5 + Math.random() * 7; s.jumpTo = null; }
+  } else if (s.mode === 'walk') {
+    s.walkTime += dt;
+    const dx = s.goal.x - P.x, dz = s.goal.z - P.z, d = Math.hypot(dx, dz);
+    // Head for the goal, bending round anything close by on the side that
+    // keeps it closest to the goal. Near the goal, mind the furniture less:
+    // perches are always next to some.
+    let wx = dx / (d || 1), wz = dz / (d || 1);
+    for (const [o, r, lx] of catObstacles) {
+      const c = obstacleCentre(o, lx);
+      const ox = P.x - c.x, oz = P.z - c.z, od = Math.hypot(ox, oz), gap = od - r;
+      if (gap > 0.45 || od < 1e-4) continue;
+      let tx = -oz / od, tz = ox / od;
+      if (tx * wx + tz * wz < 0) { tx = -tx; tz = -tz; }
+      const w = (0.45 - gap) * 2.4 * Math.min(1, d / 0.6);
+      wx += (ox / od * 0.4 + tx) * w; wz += (oz / od * 0.4 + tz) * w;
+    }
+    const want = Math.atan2(wx, wz);
+    s.heading = turnTo(s.heading, want, 1 - Math.exp(-6 * dt));
+    if (d < 0.08 || s.walkTime > 16) {
+      s.speed = 0;
+      if (s.jumpTo && s.walkTime <= 16) {
+        const to = perchPoint(s.jumpTo, new THREE.Vector3());
+        s.heading = Math.atan2(to.x - P.x, to.z - P.z);
+        startJump(to);
+      } else { s.mode = 'loaf'; s.timer = 3 + Math.random() * 6; s.jumpTo = null; }
+    } else {
+      // slow down to turn, so it walks in arcs instead of skating
+      const facing = Math.cos(Math.atan2(Math.sin(want - s.heading), Math.cos(want - s.heading)));
+      s.speed = THREE.MathUtils.lerp(s.speed, 0.65 * Math.max(0.2, facing), 1 - Math.exp(-5 * dt));
+      const next = pushOutOfObstacles(catStep.set(P.x + Math.sin(s.heading) * s.speed * dt, P.y, P.z + Math.cos(s.heading) * s.speed * dt));
+      // anything taller than a small step is a wall: walk round it, never up it
+      if (groundUnder(next.x, next.z, P.y + 1.5) <= P.y + 0.08) { P.x = next.x; P.z = next.z; }
+      else s.heading += dt * 2.5;
+    }
+  } else if (s.mode === 'loaf' && !reduceMotion) {
+    s.timer -= dt;
+    if (s.timer <= 0) nextCatPlan();
+  }
+
+  // Whatever it is not doing on purpose, gravity does: a dropped cat falls,
+  // and so does one whose chair was carried away.
+  if (s.mode === 'loaf' || s.mode === 'walk' || s.mode === 'fall') {
+    const g = groundUnder(P.x, P.z, P.y + 0.3);
+    if (s.mode === 'fall' || s.vy > 0 || P.y > g + 0.08) {
+      if (s.mode !== 'fall') { s.mode = 'fall'; s.vy = 0; }
+      s.vy -= 12 * dt;
+      P.y += s.vy * dt;
+      if (P.y <= g) {
+        const hard = s.vy < -3;
+        P.y = g; s.vy = 0;
+        s.mode = 'loaf'; s.timer = 2 + Math.random() * 4;
+        if (hard && kitty.on) { kitty.mew(); catSays('mew'); }
+      }
+    } else P.y = g;
+  }
+
+  // Pose: loaf when resting, stand to move, legs dangle when carried.
+  const walking = s.mode === 'walk' && s.speed > 0.02;
+  const standing = s.mode !== 'loaf' && s.mode !== 'fall';
+  s.loaf += ((standing ? 0 : 1) - s.loaf) * (1 - Math.exp(-6 * dt));
+  if (s.mode === 'crouch') s.loaf = Math.min(1, s.loaf + dt * 2);
+  CAT.body.position.y = THREE.MathUtils.lerp(0.22, 0.1, s.loaf);
+  s.phase += dt * (walking ? 9 * (s.speed / 0.5) : 0);
+  const stride = walking ? 0.55 : 0;
+  CAT.legs.forEach((leg, i) => {
+    const diag = (i === 0 || i === 3) ? 0 : Math.PI;
+    let rx = Math.sin(s.phase + diag) * stride;
+    if (s.mode === 'held') rx = Math.sin(t * 3 + i) * 0.15 + (i < 2 ? -0.2 : 0.25);
+    if (s.mode === 'jump') rx = (i < 2 ? -0.9 : 0.8) * Math.sin(Math.min(1, s.jumpT) * Math.PI);
+    leg.rotation.x += (rx - leg.rotation.x) * (1 - Math.exp(-18 * dt));
+    leg.scale.y = THREE.MathUtils.lerp(1, 0.35, s.loaf);
+  });
+  CAT.body.position.y += walking ? Math.abs(Math.sin(s.phase)) * 0.012 : 0;
+
+  // Face where it is going; when loafing, turn round to stare at the viewer.
+  if (s.mode === 'loaf') {
+    catTmp.copy(camera.position); room.worldToLocal(catTmp);
+    s.heading = turnTo(s.heading, Math.atan2(catTmp.x - P.x, catTmp.z - P.z), 1 - Math.exp(-1.5 * dt));
+  }
+  cat.rotation.y = s.heading;
+  // held cats hang a little nose-down and swing with the drag
+  const tiltX = s.mode === 'held' ? 0.35 + s.sway * 0.4 : (s.mode === 'jump' ? (s.to.y > s.from.y ? -0.5 : 0.4) * Math.sin(Math.min(1, s.jumpT) * Math.PI) : 0);
+  cat.rotation.x += (tiltX - cat.rotation.x) * (1 - Math.exp(-8 * dt));
+  s.sway *= Math.exp(-4 * dt);
+
+  // head bob while walking, ears flick now and then, perk up when touched
+  CAT.head.rotation.x = walking ? Math.sin(s.phase * 2) * 0.05 : Math.sin(t * 0.5) * 0.04;
+  s.perk *= Math.exp(-3 * dt);
+  CAT.ears.forEach((ear, i) => {
+    const flick = Math.max(0, Math.sin(t * 0.9 + i * 2.1) - 0.97) * 12;
+    ear.rotation.z = ear.userData.rest * (1 - s.perk * 0.35) + (i ? -1 : 1) * flick * 0.25;
+  });
+  // tail: up like a question mark when walking, curled round when loafing,
+  // hanging when carried
+  const up = s.mode === 'held' ? -1.2 : walking || s.mode === 'crouch' ? 1.0 : 0.15;
+  CAT.tail.forEach((seg, i) => {
+    const base = i === 0 ? (s.mode === 'held' ? -2.9 : up > 0.5 ? -0.35 : -1.75) : 0;
+    const curl = s.mode === 'loaf' || s.mode === 'fall' ? 0.32 : (walking && i > 3 ? 0.25 : 0.04);
+    const wave = Math.sin(t * (walking ? 3 : 1.4) - i * 0.7) * (0.08 + i * 0.03);
+    const rx = base + curl * Math.sign(up || 1) * (s.mode === 'loaf' ? 0 : 1);
+    seg.rotation.x += (rx - seg.rotation.x) * (1 - Math.exp(-6 * dt));
+    seg.rotation.z += ((s.mode === 'loaf' ? curl * 1.2 : 0) + wave - seg.rotation.z) * (1 - Math.exp(-6 * dt));
+  });
+
+  updateBubbles(dt);
+}
+
+// Pointer handling for the cat, called from the shared handlers above.
+function grabCat(e) {
+  const s = catState;
+  kitty.ready();
+  s.perk = 1;
+  const at = pointOnHoldPlane(e, cat.position.y);
+  s.grabOffset.set(0, 0, 0);
+  if (at) s.grabOffset.set(cat.position.x - at.x, 0, cat.position.z - at.z);
+  s.liftY = cat.position.y + 0.45;
+  s.hold.copy(cat.position);
+}
+function dragCat(e) {
+  const s = catState;
+  if (s.mode !== 'held') {
+    s.mode = 'held'; s.vy = 0; s.jumpTo = null;
+    kitty.complain(); catSays('meow?!');
+  }
+  const at = pointOnHoldPlane(e, s.liftY);
+  if (at) {
+    const next = clampToRoom(at.clone().add(s.grabOffset));
+    s.sway = THREE.MathUtils.clamp(s.sway + (next.x - s.hold.x) * 3, -1, 1);
+    s.hold.set(next.x, s.liftY, next.z);
+  }
+}
+function releaseCat(movedIt) {
+  const s = catState;
+  if (movedIt) {
+    s.mode = 'fall'; s.vy = 0;
+    track('scene_interact', { object: 'cat', action: 'carry' });
+  } else {
+    // a tap is a pet: purr, meow, and settle down to look at you
+    if (s.mode !== 'jump' && s.mode !== 'crouch') { s.mode = 'loaf'; s.timer = 5 + Math.random() * 4; s.speed = 0; }
+    s.perk = 1;
+    kitty.purr();
+    if (Math.random() < 0.5) { kitty.meow(); catSays('meow'); } else { kitty.chirp(); catSays('prrr ♡'); }
+    track('scene_interact', { object: 'cat', action: 'pet' });
+  }
+}
+
 const camOffset = new THREE.Vector3();
 function updateCamera() {
   smooth.lerp(pointer, 0.03);
@@ -1304,6 +1767,7 @@ function tick() {
   fig.position.y = FIG_Y + Math.sin(t * 0.8) * 0.04;
 
   updateRadio(dt, clock.elapsedTime);
+  updateCat(dt, clock.elapsedTime);
   stepTranscript(dt);
   screenTimer += dt;
   if (screenTimer > 1 / 15) { drawScreen(clock.elapsedTime); screenTimer = 0; }
