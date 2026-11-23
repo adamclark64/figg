@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/adamclark64/figg/compare/v0.21.0...v0.22.0) (2026-11-23)
+
+
+### Features
+
+* **site:** add an office cat to the landing page room ([#146](https://github.com/adamclark64/figg/issues/146)) ([e13ee96](https://github.com/adamclark64/figg/commit/e13ee9680c6e4f74dabb823c4e7eace7364123da)), closes [#145](https://github.com/adamclark64/figg/issues/145)
+
 ## [0.21.0](https://github.com/adamclark64/figg/compare/v0.20.0...v0.21.0) (2026-11-23)
 
 
