@@ -52,7 +52,11 @@ The design should handle both.
   system or the network runs synchronously on the main thread before the
   main window's first frame; each such step is moved off it or bounded by
   a timeout (proved by: Swift Testing tests of the startup sequence with
-  fakes that never return, showing the model reaches a drawable state)
+  fakes that never return, showing the model reaches a drawable state).
+  One exception: opening the database, its migrations and the first
+  meeting list load stay synchronous, since they already fail fast on a
+  lock and fall back with a banner, and moving them is too big for a
+  patch; their stages are recorded so a report would show a stall there
 - [ ] A step that throws or times out during startup leaves the app with a
   visible banner naming the step, not an empty window (proved by: Swift
   Testing test per step with a failing fake)
