@@ -90,3 +90,12 @@ struct SignerCheckTests {
         #expect(SignerCheck.currentRequirement()?.isEmpty == false)
     }
 }
+
+struct SystemPermissionsTests {
+    /// The async read covers every case, so no row is left at its
+    /// placeholder once a read finishes. Only reads, so it is safe on CI.
+    @Test func statusesCoverEveryPermission() async {
+        let statuses = await SystemPermissions.statuses()
+        #expect(Set(statuses.keys) == Set(Permission.allCases))
+    }
+}

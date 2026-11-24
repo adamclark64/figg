@@ -39,6 +39,18 @@ public enum SystemPermissions {
         }
     }
 
+    /// Every permission's status, read on a detached task.
+    ///
+    /// Each check is a round trip to a system daemon (TCC, EventKit,
+    /// WindowServer) and any of them can block. Reading them here, off the
+    /// main thread, means a slow or stuck daemon delays only this answer,
+    /// never the first frame of the main window.
+    public nonisolated static func statuses() async -> [Permission: PermissionStatus] {
+        await Task.detached(priority: .userInitiated) {
+            Dictionary(uniqueKeysWithValues: Permission.allCases.map { ($0, status($0)) })
+        }.value
+    }
+
     /// The public check said no; TCC can still say whether it was asked.
     private static func notGranted(_ tcc: PermissionStatus?) -> PermissionStatus {
         tcc == .notAsked ? .notAsked : .denied

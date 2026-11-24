@@ -25,6 +25,13 @@ public enum SignerCheck {
         return text as String
     }
 
+    /// `currentRequirement()` on a detached task. The Security calls read
+    /// the app's code signature from disk and can be slow, so launch awaits
+    /// this instead of making them on the main thread.
+    public nonisolated static func currentRequirementAsync() async -> String? {
+        await Task.detached(priority: .userInitiated) { currentRequirement() }.value
+    }
+
     /// Whether to open the Permissions screen at launch: the signer is new
     /// to this Mac (or was never recorded) and something figg needs is not
     /// allowed. A new signer with everything allowed needs nothing.
