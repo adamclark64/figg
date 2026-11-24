@@ -1,0 +1,42 @@
+# Plan: the main window always draws on launch
+
+### P1. FiggStartup target: stages, stage log, stall detector, step sequence
+
+- Files: app/Package.swift, app/Sources/FiggStartup/StartupStage.swift,
+  app/Sources/FiggStartup/StartupLog.swift,
+  app/Sources/FiggStartup/StallDetector.swift,
+  app/Sources/FiggStartup/StartupSequence.swift,
+  app/Tests/FiggStartupTests/StartupLogTests.swift,
+  app/Tests/FiggStartupTests/StallDetectorTests.swift,
+  app/Tests/FiggStartupTests/StartupSequenceTests.swift
+- Depends on: none
+- Proved by: StartupSequenceTests (a never-returning step times out and the
+  next runs; a throwing step is reported), StallDetectorTests,
+  StartupLogTests (summary text, known labels only, unwritable folder)
+
+### P2. Read permission statuses off the main thread
+
+- Files: app/Sources/FiggPermissions/SystemPermissions.swift,
+  app/Sources/Figg/PermissionsView.swift,
+  app/Tests/FiggPermissionsTests/PermissionsTests.swift
+- Depends on: none
+- Proved by: PermissionsTests (`statuses()` returns every case); CI build
+  of the async `PermissionCenter.refresh` and `checkAtLaunch`
+
+### P3. Run startup after the first frame, with stages, timeouts and the watchdog
+
+- Files: app/Package.swift (Figg depends on FiggStartup),
+  app/Sources/Figg/AppModel.swift, app/Sources/Figg/MainView.swift,
+  app/Sources/Figg/FiggApp.swift
+- Depends on: P1, P2
+- Proved by: StartupSequenceTests (P1) for the timeout behaviour; CI build
+  and test job; manual launch check from P4
+
+### P4. Startup stage in bug reports, manual checks and docs
+
+- Files: app/Sources/Figg/BugReportView.swift,
+  docs/manual-test-checklist.md, AGENTS.md
+- Depends on: P1, P3
+- Proved by: StartupLogTests summary test (P1); manual checklist steps
+  (empty data folder, data folder from an earlier version, report shows
+  the `startup` line)
