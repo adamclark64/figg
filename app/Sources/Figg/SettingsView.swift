@@ -97,6 +97,7 @@ struct AISettings: View {
                 } else {
                     TextField("Base URL", text: $settings.config.llm.active.baseURL)
                     SecureField("API key", text: apiKey)
+                        .disabled(!settings.secretsLoaded)
                 }
             } footer: {
                 Text(providerFooter).foregroundStyle(.secondary)
@@ -283,8 +284,11 @@ struct SharingSettings: View {
     var body: some View {
         Form {
             TextField("Atlassian site", text: $settings.config.sharing.atlassianSite, prompt: Text("https://your-site.atlassian.net"))
+            // Disabled until the Keychain read finishes, so typing cannot race it.
             TextField("Email", text: $settings.atlassianEmail)
+                .disabled(!settings.secretsLoaded)
             SecureField("API token", text: $settings.atlassianToken)
+                .disabled(!settings.secretsLoaded)
             Link("Create an API token", destination: URL(string: "https://id.atlassian.com/manage-profile/security/api-tokens")!)
                 .font(.caption)
             TextField("Confluence space key", text: $settings.config.sharing.confluenceSpace)

@@ -19,8 +19,23 @@ final class AppSettings: ObservableObject {
     /// on defaults and does not overwrite the file, so a typo is never lost.
     @Published private(set) var loadError: String?
 
-    @Published var atlassianEmail: String { didSet { Keychain.write("atlassianEmail", atlassianEmail) } }
-    @Published var atlassianToken: String { didSet { Keychain.write("atlassianToken", atlassianToken) } }
+    /// The didSets write the Keychain only for a change the user made: while
+    /// `loadSecrets` applies what it read, `loadingSecrets` is set, so a
+    /// loaded value is never written back (and an empty one never deletes).
+    @Published var atlassianEmail: String = "" {
+        didSet { if !loadingSecrets { Keychain.write("atlassianEmail", atlassianEmail) } }
+    }
+    @Published var atlassianToken: String = "" {
+        didSet { if !loadingSecrets { Keychain.write("atlassianToken", atlassianToken) } }
+    }
+
+    /// False until the first `loadSecrets` finishes. Settings disables the
+    /// email, token and API key fields until then, so nothing the user types
+    /// can race a Keychain read that is still in flight.
+    @Published private(set) var secretsLoaded = false
+
+    /// Set while `loadSecrets` applies values it read, so the didSet writers skip them.
+    private var loadingSecrets = false
 
     /// API keys for `llm.providers` entries, by provider id. Kept in memory
     /// so building a provider or drawing Settings does not hit the Keychain.
@@ -34,13 +49,15 @@ final class AppSettings: ObservableObject {
     init(configURL: URL = FiggConfig.defaultURL) {
         self.configURL = configURL
         config = FiggConfig()
-        atlassianEmail = Keychain.read("atlassianEmail") ?? ""
-        atlassianToken = Keychain.read("atlassianToken") ?? ""
         reload()
         // Write the file if it's missing, or rewrite it if a newer figg added
         // settings it doesn't list yet, so every option is visible to edit.
         let current = try? String(contentsOf: configURL, encoding: .utf8)
         if loadError == nil, current != config.yaml() { save() }
+        // init runs on the main thread before any window exists, and a
+        // Keychain read can block on securityd or wait on an access prompt,
+        // so secrets load in the background and the window draws first.
+        Task { await self.loadSecrets() }
     }
 
     /// Re-reads config.yaml (called at launch and whenever figg comes to the front).
@@ -54,17 +71,52 @@ final class AppSettings: ObservableObject {
         }
         keepAudio.value = config.recording.keepAudio
         skipMicWhenMuted.value = config.transcription.skipMicWhenMuted
-        loadLLMKeys()
+        // Runs on every activation, so it never reads the Keychain inline:
+        // keys for providers added to config.yaml by hand load in the background.
+        if secretsLoaded, config.llm.providers.contains(where: { llmKeys[$0.id] == nil }) {
+            Task { await loadSecrets() }
+        }
     }
 
-    private static func keychainAccount(provider id: String) -> String { "llmKey.\(id)" }
+    private nonisolated static func keychainAccount(provider id: String) -> String { "llmKey.\(id)" }
 
-    /// Picks up keys for providers added to config.yaml by hand. A key the
-    /// Keychain does not return is left as it was, never cleared.
-    private func loadLLMKeys() {
-        for p in config.llm.providers where llmKeys[p.id] == nil {
-            if let key = Keychain.read(Self.keychainAccount(provider: p.id)) { llmKeys[p.id] = key }
+    /// Reads the Atlassian items (on the first load only) and the key of
+    /// every provider in `config.llm.providers` that is not loaded yet, off
+    /// the main thread, then applies them here without running the Keychain
+    /// writers. A value the Keychain does not return (missing, locked,
+    /// refused) is left as it is, never cleared, so a late, empty or failed
+    /// read cannot overwrite a stored item.
+    func loadSecrets() async {
+        let readAtlassian = !secretsLoaded
+        let providerIDs = config.llm.providers.map(\.id).filter { llmKeys[$0] == nil }
+        let read = await Task.detached(priority: .userInitiated) { () -> LoadedSecrets in
+            var out = LoadedSecrets()
+            if readAtlassian {
+                out.email = Keychain.read("atlassianEmail")
+                out.token = Keychain.read("atlassianToken")
+            }
+            for id in providerIDs {
+                if let key = Keychain.read(AppSettings.keychainAccount(provider: id)) { out.keys[id] = key }
+            }
+            return out
+        }.value
+
+        loadingSecrets = true
+        defer { loadingSecrets = false }
+        if readAtlassian, !secretsLoaded {
+            if let email = read.email { atlassianEmail = email }
+            if let token = read.token { atlassianToken = token }
         }
+        // A key set by the user while the read was in flight wins.
+        for (id, key) in read.keys where llmKeys[id] == nil { llmKeys[id] = key }
+        secretsLoaded = true
+    }
+
+    /// What one background Keychain read returned; nil means not read or not found.
+    private struct LoadedSecrets: Sendable {
+        var email: String?
+        var token: String?
+        var keys: [String: String] = [:]
     }
 
     func apiKey(for providerID: String) -> String { llmKeys[providerID] ?? "" }
