@@ -21,17 +21,24 @@ final class PermissionCenter: ObservableObject {
     @Published private(set) var needsRelaunch = false
 
     private var fixed: Set<Permission> = []
+    private let askedStore = AskedPermissions(in: FiggPaths.standard.base)
+    /// Prompts shown before, whose answer this launch should already see.
+    private var asked: Set<Permission>
     private let bundleID = Bundle.main.bundleIdentifier ?? "dev.adamclark.figg"
     private let signerURL = SignerCheck.storeURL(in: FiggPaths.standard.base)
     private let signer = SignerCheck.currentRequirement()
 
-    private init() { refresh() }
+    private init() {
+        asked = askedStore.load()
+        refresh()
+    }
 
     static func open() { SettingsWindow.open(tab: .permissions) }
 
     func status(_ permission: Permission) -> PermissionStatus { statuses[permission] ?? .notAsked }
     func step(_ permission: Permission) -> PermissionStep {
-        PermissionStep.next(for: status(permission), fixedThisLaunch: fixed.contains(permission))
+        PermissionStep.next(for: status(permission), fixedThisLaunch: fixed.contains(permission),
+                            askedBefore: asked.contains(permission))
     }
     var missing: [Permission] { Self.needed.filter { status($0) != .granted } }
 
@@ -62,6 +69,10 @@ final class PermissionCenter: ObservableObject {
         case .none: break
         case .ask:
             await SystemPermissions.request(permission)
+            askedStore.record(permission)
+            // Screen Recording only shows its answer after a reopen, so this
+            // launch keeps offering Allow; the next one offers Fix.
+            if !permission.needsRelaunch { asked.insert(permission) }
         case .fix:
             // Clears only figg's own entry for this one permission.
             _ = await SystemPermissions.reset(permission, bundleID: bundleID)
@@ -120,7 +131,7 @@ struct PermissionsSettings: View {
                 }
             }
             Section {
-                ForEach(Permission.allCases) { permission in
+                ForEach(shown) { permission in
                     row(permission)
                 }
             }
@@ -129,6 +140,11 @@ struct PermissionsSettings: View {
         }
         .onAppear { center.refresh() }
         .onReceive(tick) { _ in center.refresh() }
+    }
+
+    /// Calendars only matters with the calendar switched on.
+    private var shown: [Permission] {
+        Permission.allCases.filter { $0 != .calendar || model.settings.config.calendar.enabled }
     }
 
     private func row(_ permission: Permission) -> some View {

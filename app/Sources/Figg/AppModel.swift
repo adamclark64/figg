@@ -197,7 +197,8 @@ final class AppModel: ObservableObject {
                 await MainActor.run {
                     self?.banners.append(Banner(
                         kind: .warning,
-                        text: "figg can't read your calendar. Allow it under System Settings > Privacy & Security > Calendars, or turn the calendar off in figg's settings."))
+                        text: "figg can't read your calendar. Allow Calendars in figg's Permissions settings, or turn the calendar off.",
+                        action: .fixPermissions))
                 }
                 return
             }

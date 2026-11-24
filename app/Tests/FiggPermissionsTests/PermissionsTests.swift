@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import FiggPermissions
 
@@ -17,6 +18,28 @@ struct PermissionStepTests {
         #expect(PermissionStep.next(for: .denied, fixedThisLaunch: true) == .openSettings)
         #expect(PermissionStep.next(for: .notAsked, fixedThisLaunch: true) == .openSettings)
     }
+
+    /// A prompt figg already showed that still reads as never asked is a
+    /// stale entry macOS skips the prompt for, so the row offers Fix.
+    @Test func askedButStillNotAskedOffersFix() {
+        #expect(PermissionStep.next(for: .notAsked, fixedThisLaunch: false, askedBefore: true) == .fix)
+        #expect(PermissionStep.next(for: .notAsked, fixedThisLaunch: true, askedBefore: true) == .openSettings)
+        #expect(PermissionStep.next(for: .granted, fixedThisLaunch: false, askedBefore: true) == .none)
+    }
+}
+
+struct AskedPermissionsTests {
+    @Test func remembersAskedPermissionsAcrossLoads() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = AskedPermissions(in: dir)
+        #expect(store.load().isEmpty)
+        store.record(.screenRecording)
+        store.record(.calendar)
+        store.record(.screenRecording)
+        #expect(AskedPermissions(in: dir).load() == [.screenRecording, .calendar])
+    }
 }
 
 struct PermissionResetTests {
@@ -27,7 +50,7 @@ struct PermissionResetTests {
     }
 
     @Test func serviceNames() {
-        #expect(Permission.allCases.map(\.tccService) == ["Microphone", "AudioCapture", "Accessibility", "ScreenCapture"])
+        #expect(Permission.allCases.map(\.tccService) == ["Microphone", "AudioCapture", "Accessibility", "Calendar", "ScreenCapture"])
     }
 }
 
@@ -53,6 +76,13 @@ struct SignerCheckTests {
     @Test func screenRecordingAloneStaysQuiet() {
         var statuses = allGranted
         statuses[.screenRecording] = .denied
+        #expect(!SignerCheck.shouldOpenPermissions(current: "new", stored: "old", statuses: statuses))
+    }
+
+    /// Calendars is optional too.
+    @Test func calendarAloneStaysQuiet() {
+        var statuses = allGranted
+        statuses[.calendar] = .denied
         #expect(!SignerCheck.shouldOpenPermissions(current: "new", stored: "old", statuses: statuses))
     }
 

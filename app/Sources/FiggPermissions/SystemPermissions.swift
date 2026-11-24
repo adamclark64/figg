@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import AVFoundation
 import CoreGraphics
+import EventKit
 import Foundation
 
 /// Reads and asks for figg's permissions through macOS.
@@ -26,6 +27,12 @@ public enum SystemPermissions {
         case .accessibility:
             if AXIsProcessTrusted() { return .granted }
             return notGranted(TCC.preflight("kTCCServiceAccessibility"))
+        case .calendar:
+            switch EKEventStore.authorizationStatus(for: .event) {
+            case .fullAccess: return .granted
+            case .notDetermined: return .notAsked
+            default: return .denied
+            }
         case .screenRecording:
             if CGPreflightScreenCaptureAccess() { return .granted }
             return notGranted(TCC.preflight("kTCCServiceScreenCapture"))
@@ -49,6 +56,8 @@ public enum SystemPermissions {
         case .accessibility:
             let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
             _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+        case .calendar:
+            _ = try? await EKEventStore().requestFullAccessToEvents()
         case .screenRecording:
             _ = CGRequestScreenCaptureAccess()
         }
