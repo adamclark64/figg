@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/adamclark64/figg/compare/v0.22.0...v0.22.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **permissions:** add calendars row and offer fix when allow does nothing ([#149](https://github.com/adamclark64/figg/issues/149)) ([151e77c](https://github.com/adamclark64/figg/commit/151e77c76b3616ccd3f9653fa4743d6039f42e4c))
+
 ## [0.22.0](https://github.com/adamclark64/figg/compare/v0.21.0...v0.22.0) (2026-11-23)
 
 
