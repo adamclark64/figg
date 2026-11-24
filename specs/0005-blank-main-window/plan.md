@@ -34,6 +34,8 @@
 - Depends on: none
 - Proved by: CI build; manual checklist step (P5) that stored keys survive
   a launch unchanged
+- Note: `AppSettings.init` starts `Task { await loadSecrets() }` so keys
+  load on their own until P4 moves the call into `LaunchSteps`.
 
 ### P4. Run startup after the first frame, with stages, timeouts and the watchdog
 

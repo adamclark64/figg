@@ -217,3 +217,8 @@ First critic round (8 findings) addressed:
 - A report-body test was added in FiggFeedbackTests.
 - The coalesced permission read has a 5 s staleness limit and a separate
   `hasRead` flag.
+
+Second critic round: no blockers. P3 starts `loadSecrets()` from
+`AppSettings.init` until P4 moves it into `LaunchSteps`. The rule that a
+late Keychain read never writes back stays a manual check, because
+`AppSettings` lives in the app target; moving it is left for later.

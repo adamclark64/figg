@@ -3,10 +3,12 @@
 ## Problem
 
 On one Mac running macOS 26.5.2, figg 0.22.1 opens its main window and
-shows nothing in it: no sidebar, no empty state, no banner. Deleting the
+shows nothing in it: at its minimum size, dark, with a toolbar strip but
+no Record button, no sidebar, no empty state and no banner. Deleting the
 app and installing it fresh did not help. The same build draws normally on
-macOS 26.2. The menu bar item and the bug reporter still work, so the app
-is running. Reported in #151.
+macOS 26.2. The report was filed from a different Mac, so whether the
+affected copy's menu bar and main thread still respond is not known.
+Reported in #151.
 
 The cause is not known yet. Nothing in the 0.22.1 change (the Calendars
 permission row) obviously blanks a window, and no one can reproduce it on
