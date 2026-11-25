@@ -56,6 +56,8 @@ a token that can push. So:
 
 4. **Run factory-spec with `--draft`** (follow `.claude/skills/factory-spec/SKILL.md`),
    with these additions:
+   - Issue line: `#<N> (closes)`, or `#<N> (part of)` if the spec only
+     covers part of the report.
    - Problem: the paraphrased report, figg and macOS versions if given,
      and "Reported in #<N>."
    - Acceptance criteria: a regression test for a bug; mark anything only

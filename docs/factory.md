@@ -63,7 +63,10 @@ fixing a wrong plan after approval 1 is not.
 
 At approval 1, read `design.md` and `plan.md` as well as the spec. At
 approval 2, the final PR copies the spec's acceptance criteria; check each
-one is ticked and that its test or check really exists. Anything that
+one is ticked and that its test or check really exists. It also says
+`Closes #N` or `Part of #N`, from the `Issue:` line at the top of
+`spec.md`, so merging it closes the issue the work came from (or leaves a
+partly done one open). Anything that
 needs your Mac (signing, microphone and system audio permissions, a real
 call) is not covered by CI: run the matching lines of
 [manual-test-checklist.md](manual-test-checklist.md) before you merge.
