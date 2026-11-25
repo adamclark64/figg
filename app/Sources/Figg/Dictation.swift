@@ -168,20 +168,26 @@ final class DictationController: ObservableObject {
         }
     }
 
-    /// Transcribes what has been heard so far about once a second, so the
-    /// words appear while the user speaks. Parakeet takes a fraction of a
-    /// second for a few seconds of audio; one pass at a time.
+    /// Transcribes the latest of what has been heard about once a second,
+    /// so the words appear while the user speaks. Parakeet takes a fraction
+    /// of a second for a few seconds of audio; one pass at a time.
     private func startLivePreview() {
         liveTask?.cancel()
         liveTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(700))
                 guard let self, self.capturing, await self.transcriber.isDownloaded() else { continue }
-                let samples = self.heard(self.capture.snapshot())
+                // Only the last stretch: see `DictationPreview`.
+                let (samples, cut) = DictationPreview.tail(self.heard(self.capture.snapshot()))
                 guard samples.count > 8_000, !SilenceGate.isSilent(samples) else { continue }
-                guard let segments = try? await self.transcriber.transcribe(samples: samples),
+                // Urgent, so it is not stuck behind meeting chunks. Stop and
+                // Esc cancel this task, which drops a pass still waiting.
+                guard let segments = try? await self.transcriber.transcribe(samples: samples, urgent: true),
                       !Task.isCancelled, self.capturing else { continue }
-                self.liveText = DictationText.prepare(segments.compactMap { TranscriptCleaner.clean($0.text) })
+                // The panel shows one run of text; breaks appear when typed.
+                self.liveText = (cut ? "… " : "") + DictationText.singleLine(DictationText.prepare(
+                    segments.compactMap { TranscriptCleaner.clean($0.text) },
+                    spokenPunctuation: self.settings.config.dictation.spokenPunctuation))
             }
         }
     }
@@ -236,7 +242,8 @@ final class DictationController: ObservableObject {
         }
         let segments: [TranscriptSegment]
         do {
-            segments = try await transcriber.transcribe(samples: samples)
+            // Ahead of any meeting chunks waiting for the model.
+            segments = try await transcriber.transcribe(samples: samples, urgent: true)
         } catch {
             show(.note("Could not transcribe: \(error.localizedDescription)"))
             return
@@ -244,7 +251,8 @@ final class DictationController: ObservableObject {
         let (_, element) = TextInserter.focusedField()
         let text = DictationText.prepare(
             segments.compactMap { TranscriptCleaner.clean($0.text) },
-            precedingCharacter: TextInserter.precedingCharacter(element))
+            precedingCharacter: TextInserter.precedingCharacter(element),
+            spokenPunctuation: settings.config.dictation.spokenPunctuation)
         guard !text.isEmpty else {
             show(.idle)
             return
@@ -254,7 +262,7 @@ final class DictationController: ObservableObject {
         // A new dictation started while this one was transcribing: still
         // type this one, but leave the panel to the new one.
         let quiet = capturing
-        if !quiet { liveText = text.trimmingCharacters(in: .whitespaces) }
+        if !quiet { liveText = DictationText.singleLine(text).trimmingCharacters(in: .whitespaces) }
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
         let outcome = insert(text, showResult: !quiet)
         NSLog("figg dictation: %@ %d characters into %@", "\(outcome)", text.count, appName)
@@ -324,7 +332,7 @@ final class DictationController: ObservableObject {
     func insertLast() {
         guard let last = history.first else { return }
         target = NSWorkspace.shared.frontmostApplication
-        liveText = last.text
+        liveText = DictationText.singleLine(last.text)
         insert(" " + last.text)
     }
 

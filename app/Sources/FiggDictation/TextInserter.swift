@@ -45,11 +45,12 @@ public enum TextInserter {
         case .none(let reason):
             return .notInserted(reason)
         case .keystrokes:
-            type(text)
+            type(text, lineBreak: InsertionRouter.typedLineBreak(for: field))
             return .typed
         case .accessibility:
-            if let element, writeSelection(element, text) { return .inserted }
-            type(text)
+            let written = InsertionRouter.isSingleLine(field) ? DictationText.singleLine(text) : text
+            if let element, writeSelection(element, written) { return .inserted }
+            type(text, lineBreak: InsertionRouter.typedLineBreak(for: field))
             return .typed
         }
     }
@@ -68,9 +69,31 @@ public enum TextInserter {
     }
 
     /// Types the text as Unicode key events. No modifier flags are set, so a
-    /// still-held key cannot turn the text into shortcuts.
-    static func type(_ text: String) {
+    /// still-held key cannot turn the text into shortcuts. Line breaks (from
+    /// "new line", "new paragraph") are typed as Shift+Return, or as a space
+    /// where a break has no place.
+    static func type(_ text: String, lineBreak: TypedLineBreak = .shiftReturn) {
         let source = CGEventSource(stateID: .hidSystemState)
+        guard lineBreak == .shiftReturn, text.contains(where: \.isNewline) else {
+            typeLine(DictationText.singleLine(text), source)
+            return
+        }
+        for (n, line) in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).enumerated() {
+            if n > 0 {
+                for down in [true, false] {
+                    guard let event = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: down) else { continue }
+                    event.flags = .maskShift
+                    event.post(tap: .cghidEventTap)
+                }
+                usleep(2_000)
+            }
+            typeLine(String(line), source)
+        }
+    }
+
+    private static let returnKeyCode: CGKeyCode = 36
+
+    private static func typeLine(_ text: String, _ source: CGEventSource?) {
         for piece in KeystrokeChunks.split(text) {
             let units = Array(piece.utf16)
             for down in [true, false] {

@@ -79,6 +79,11 @@ if CommandLine.arguments.contains("--diarize") {
     exit(0)
 }
 
+if CommandLine.arguments.contains("--dictation") {
+    try await dictationBench()
+    exit(0)
+}
+
 let args = CommandLine.arguments.dropFirst()
 let audioURL: URL
 let reference: String
