@@ -1,6 +1,7 @@
 import AppKit
 import FiggExport
 import FiggFeedback
+import FiggStartup
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -349,6 +350,9 @@ struct BugReportView: View {
         if !build.isEmpty { extra["build"] = build }
         let hardware = ReportContext.hardwareModel
         if !hardware.isEmpty { extra["hardware"] = hardware }
+        // How far this launch and the last one got, so a report about a
+        // blank window says where startup stopped. Stage labels only.
+        extra["startup"] = StartupLog.shared.summary
         return BugReportPayload(
             type: type,
             description: descriptionText.trimmingCharacters(in: .whitespacesAndNewlines),
