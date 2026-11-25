@@ -17,7 +17,13 @@ struct MainView: View {
         let theme = Theme.named(settings.config.appearance.theme)
         NavigationSplitView(columnVisibility: $columnVisibility) {
             Sidebar()
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+                // The max keeps a bad restored width from taking over the
+                // window: macOS autosaves the split view's pane widths and
+                // restores them at launch without checking them against the
+                // current window or screen, so a width saved for a larger
+                // display (for example an external monitor that is no longer
+                // connected) laid the window out thousands of points wide.
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 420)
                 // From the sidebar, not the root, so `window-drawn` means the
                 // sidebar really appeared.
                 .onAppear { model.sidebarAppeared() }
