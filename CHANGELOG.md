@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.2](https://github.com/adamclark64/figg/compare/v0.22.1...v0.22.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **startup:** draw the main window before slow startup steps and report where launch stalls ([#158](https://github.com/adamclark64/figg/issues/158)) ([487430c](https://github.com/adamclark64/figg/commit/487430c003e71327b247d5cfa257ccd2cf5df187))
+* **startup:** show the main window before the rest of startup runs, with a banner for a stuck step ([#160](https://github.com/adamclark64/figg/issues/160)) ([43354bd](https://github.com/adamclark64/figg/commit/43354bd2eaa2c381f1cd657fe6e98bf797bf78cf))
+
 ## [0.22.1](https://github.com/adamclark64/figg/compare/v0.22.0...v0.22.1) (2026-11-24)
 
 
