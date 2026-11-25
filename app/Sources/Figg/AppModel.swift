@@ -7,6 +7,7 @@ import FiggExport
 import FiggLLM
 import FiggMeetingApps
 import FiggNotes
+import FiggStartup
 import FiggStore
 import FiggTranscription
 import FiggUpdate
@@ -119,6 +120,8 @@ final class AppModel: ObservableObject {
             store = try! Store.inMemory()
             openError = error
         }
+        // Not `startupLog`: self is not fully initialised yet.
+        StartupLog.shared.reached(.storeOpened)
         let t = settings.config.transcription
         if t.engine.lowercased() == "whisper" {
             transcriber = WhisperKitTranscriber(model: t.model, language: t.language.isEmpty ? nil : t.language, downloadBase: paths.models)
@@ -151,25 +154,98 @@ final class AppModel: ObservableObject {
             banners.append(Banner(kind: .error, text: "Could not open the figg database: \(openError.localizedDescription). Notes will not be saved."))
         }
         reloadMeetings()
-        // The first download is large, so it waits for the user to ask (or to
-        // record). If the model is already on disk, load it now.
-        Task { if await transcriber.isDownloaded() { await loadWhisper() } }
-        Task { await recoverUnfinished() }
-        PermissionCenter.shared.checkAtLaunch()
-        meetingWatcher = MeetingWatcher(model: self, settings: settings)
-        meetingWatcher?.start()
-        recordingWidget = RecordingWidget(model: self, settings: settings)
-        recordingWidget?.start()
-        // Set up (or drop) calendar access now and whenever the setting flips.
+        startupLog.reached(.meetingsLoaded)
+        // Everything else waits for `finishLaunch()`, which the main window
+        // starts once it appears. In case that window never appears (closed
+        // at last quit, or a SwiftUI restore that skips it), start it here
+        // too after a few seconds; it runs only once either way.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            await self?.finishLaunch()
+        }
+    }
+
+    // MARK: Launch
+
+    /// The stage log for this launch; `FiggApp` began it before this model existed.
+    private let startupLog = StartupLog.shared
+    private var launchStarted = false
+
+    /// The sidebar appeared, so the window really drew its content. Recorded
+    /// only before later stages, so reopening the window does not move a
+    /// finished launch back to `window-drawn`.
+    func sidebarAppeared() {
+        guard let stage = startupLog.current?.stage,
+              let now = StartupStage.allCases.firstIndex(of: stage),
+              let drawn = StartupStage.allCases.firstIndex(of: .windowDrawn),
+              now < drawn else { return }
+        startupLog.reached(.windowDrawn)
+    }
+
+    /// Runs the rest of startup after the main window has drawn (issue 151:
+    /// a window that never drew). Each step runs under a timeout through
+    /// `LaunchSteps`, so a hung or failing one gives a banner naming it and
+    /// the rest still start. Work that calls the system (Keychain, TCC) is
+    /// done off the main actor by the methods the steps call. Runs once.
+    func finishLaunch() async {
+        guard !launchStarted else { return }
+        launchStarted = true
+        let steps = LaunchSteps(
+            keychain: { @MainActor [weak self] in
+                await self?.settings.loadSecrets()
+            },
+            permissions: { @MainActor in
+                await PermissionCenter.shared.checkAtLaunchAsync()
+            },
+            watcher: { @MainActor [weak self] in
+                guard let self else { return }
+                self.meetingWatcher = MeetingWatcher(model: self, settings: self.settings)
+                self.meetingWatcher?.start()
+            },
+            widget: { @MainActor [weak self] in
+                guard let self else { return }
+                self.recordingWidget = RecordingWidget(model: self, settings: self.settings)
+                self.recordingWidget?.start()
+            },
+            calendar: { @MainActor [weak self] in
+                self?.startCalendarWatch()
+            },
+            model: { @MainActor [weak self] in
+                // The first download is large, so it waits for the user to ask
+                // (or to record). If the model is already on disk, load it. The
+                // load itself can take longer than a step's timeout and shows
+                // its own state, so it is started here, not awaited.
+                guard let self, await self.transcriber.isDownloaded() else { return }
+                Task { await self.loadWhisper() }
+            },
+            recovery: { @MainActor [weak self] in
+                // Recovery transcribes whole meetings, so it runs on its own.
+                guard let self else { return }
+                Task { await self.recoverUnfinished() }
+            },
+            updates: { @MainActor [weak self] in
+                self?.startUpdateChecks()
+            })
+        await steps.run(log: startupLog) { @MainActor [weak self] text in
+            self?.banners.append(Banner(kind: .warning, text: text))
+        }
+    }
+
+    /// Sets up (or drops) calendar access now and whenever the setting flips.
+    private func startCalendarWatch() {
         calendarWatch = settings.$config.map(\.calendar.enabled).removeDuplicates().sink { [weak self] enabled in
             Task { @MainActor in self?.setCalendarEnabled(enabled) }
         }
+    }
+
+    /// The first update check a few seconds after launch, then again every
+    /// so often and after the Mac wakes, since figg stays open for days.
+    /// Each is a no-op until the schedule says it is due.
+    private func startUpdateChecks() {
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
             await self?.autoCheckForUpdates()
         }
-        // figg stays open for days, so look again every so often and after
-        // the Mac wakes. Each is a no-op until the schedule says it is due.
         updateTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.autoCheckForUpdates() }
         }

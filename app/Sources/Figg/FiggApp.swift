@@ -2,6 +2,7 @@ import AppKit
 import FiggAudio
 import FiggFeedback
 import FiggMeetingApps
+import FiggStartup
 import FiggWidget
 import SwiftUI
 
@@ -12,6 +13,10 @@ struct FiggApp: App {
     @StateObject private var model: AppModel
 
     init() {
+        // First, before anything that could stall, so every stage and any
+        // main-thread stall of this launch lands in the stage log.
+        StartupLog.shared.begin()
+        StartupWatchdog.shared.start()
         let settings = AppSettings()
         _settings = StateObject(wrappedValue: settings)
         _model = StateObject(wrappedValue: AppModel(settings: settings))
@@ -103,6 +108,95 @@ extension FiggApp {
         image.size = NSSize(width: image.size.width / image.size.height * 18, height: 18)
         return image
     }()
+}
+
+/// Notices when the main thread stops answering during launch and records
+/// the stall in the stage log, for the next bug report. A step that blocks
+/// the main actor cannot be timed out and no banner can draw meanwhile, so
+/// this is the only way such a hang leaves a trace.
+///
+/// A main-queue timer stamps a heartbeat; a background timer feeds the
+/// stamps and the clock to `StallDetector` and writes any stall it reports.
+/// Both stop 10 s after launch reaches `ready`.
+final class StartupWatchdog: @unchecked Sendable {
+    static let shared = StartupWatchdog(log: .shared)
+
+    private let log: StartupLog
+    private let lock = NSLock()
+    private var detector: StallDetector
+    private var started = false
+    private var readyAt: TimeInterval?
+    private var heartbeat: DispatchSourceTimer?
+    private var check: DispatchSourceTimer?
+    private let queue = DispatchQueue(label: "figg.startup-watchdog", qos: .utility)
+
+    /// How long the watchdog keeps watching once launch is `ready`.
+    private static let afterReady: TimeInterval = 10
+
+    init(log: StartupLog) {
+        self.log = log
+        detector = StallDetector(start: Self.now())
+    }
+
+    /// Monotonic seconds; does not jump with the wall clock.
+    private static func now() -> TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+    /// Starts both timers. Called once, on the main thread, from `FiggApp.init`.
+    func start() {
+        let first = lock.withLock { () -> Bool in
+            guard !started else { return false }
+            started = true
+            detector = StallDetector(start: Self.now())
+            return true
+        }
+        guard first else { return }
+
+        // Fires only when the main queue is free, so a gap means a stall.
+        let beat = DispatchSource.makeTimerSource(queue: .main)
+        beat.schedule(deadline: .now(), repeating: .milliseconds(500))
+        beat.setEventHandler { [weak self] in self?.beat() }
+
+        let watch = DispatchSource.makeTimerSource(queue: queue)
+        watch.schedule(deadline: .now() + .seconds(1), repeating: .seconds(1))
+        watch.setEventHandler { [weak self] in self?.tick() }
+
+        lock.withLock {
+            heartbeat = beat
+            check = watch
+        }
+        beat.resume()
+        watch.resume()
+    }
+
+    private func beat() {
+        let time = Self.now()
+        lock.withLock { detector.heartbeat(at: time) }
+    }
+
+    /// On the background queue: records a stall at the current stage, and
+    /// stops both timers once launch has been `ready` for a while.
+    private func tick() {
+        let time = Self.now()
+        let stage = log.current?.stage ?? .launched
+        let stall = lock.withLock { detector.stall(at: time) }
+        if let stall { log.stalled(at: stage, seconds: stall) }
+        guard stage == .ready else { return }
+        let done = lock.withLock { () -> Bool in
+            if readyAt == nil { readyAt = time }
+            return time - (readyAt ?? time) >= Self.afterReady
+        }
+        if done { stop() }
+    }
+
+    private func stop() {
+        let timers = lock.withLock { () -> [DispatchSourceTimer] in
+            let all = [heartbeat, check].compactMap { $0 }
+            heartbeat = nil
+            check = nil
+            return all
+        }
+        timers.forEach { $0.cancel() }
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
