@@ -46,7 +46,7 @@ let package = Package(
             dependencies: [
                 "FiggStore", "FiggAudio", "FiggTranscription",
                 "FiggLLM", "FiggNotes", "FiggExport", "FiggConfig", "FiggCalendar", "FiggUpdate", "FiggFeedback",
-                "FiggWidget", "FiggMeetingApps", "FiggDictation", "FiggPermissions",
+                "FiggWidget", "FiggMeetingApps", "FiggDictation", "FiggPermissions", "FiggStartup",
             ]
         ),
         .executableTarget(name: "figg-audio-probe", dependencies: ["FiggAudio", "FiggMeetingApps"]),

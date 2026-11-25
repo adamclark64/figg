@@ -56,8 +56,8 @@ final class AppSettings: ObservableObject {
         if loadError == nil, current != config.yaml() { save() }
         // init runs on the main thread before any window exists, and a
         // Keychain read can block on securityd or wait on an access prompt,
-        // so secrets load in the background and the window draws first.
-        Task { await self.loadSecrets() }
+        // so secrets are not read here: `loadSecrets()` is the first launch
+        // step (`AppModel.finishLaunch`), after the window has drawn.
     }
 
     /// Re-reads config.yaml (called at launch and whenever figg comes to the front).

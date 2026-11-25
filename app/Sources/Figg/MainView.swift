@@ -7,12 +7,20 @@ import SwiftUI
 struct MainView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var settings: AppSettings
+    /// Both columns shown at launch, whatever macOS restored: a saved window
+    /// state with the sidebar collapsed to nothing would otherwise draw an
+    /// empty window (one reading of issue 151). The user can still hide the
+    /// sidebar after that.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         let theme = Theme.named(settings.config.appearance.theme)
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             Sidebar()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+                // From the sidebar, not the root, so `window-drawn` means the
+                // sidebar really appeared.
+                .onAppear { model.sidebarAppeared() }
         } detail: {
             VStack(spacing: 0) {
                 BannerStack()
@@ -37,6 +45,9 @@ struct MainView: View {
         .tint(theme.accent)
         .environment(\.theme, theme)
         .environment(\.loaderStyle, LoaderStyle.named(settings.config.appearance.loader))
+        // The rest of startup runs once the window is up; it runs only once,
+        // so reopening the window does not start it again.
+        .task { await model.finishLaunch() }
     }
 }
 
