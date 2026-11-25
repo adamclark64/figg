@@ -170,6 +170,7 @@ final PR into `main` (approval 2). How to drive it: `docs/factory.md`.
 | Calendar (titles, attendees, brief) | `app/Sources/FiggCalendar/`, `app/Sources/FiggNotes/Brief.swift` |
 | Note templates, quick actions | `app/Sources/FiggNotes/Templates.swift`, `QuickActions.swift` |
 | macOS permissions (Settings > Permissions, Fix, signer change) | `app/Sources/FiggPermissions/`, `app/Sources/Figg/PermissionsView.swift` (the only place figg asks) |
+| Startup stages, stall watchdog, launch timeouts | `app/Sources/FiggStartup/`, `AppModel.finishLaunch`, `FiggApp.init` |
 | Settings / config.yaml | `app/Sources/FiggConfig/FiggConfig.swift`, `app/Sources/Figg/AppSettings.swift` |
 | In-app updates | `app/Sources/FiggUpdate/` (`UpdateVerifier` holds the release public keys; `ReleaseNotes.swift` picks, cuts and formats the notes), `app/Sources/Figg/UpdateManager.swift`, `app/Sources/Figg/ReleaseNotesView.swift` (the banner's "What's new" sheet), `app/scripts/publish-dmg-blob.mjs`, `app/scripts/changelog-notes.mjs` (the notes in `latest.json`), `docs/release-signing.md` |
 | Bug reporter | `app/Sources/FiggFeedback/`, `app/Sources/Figg/BugReportView.swift`, `api/api/v1/bug-report.ts` |
@@ -203,7 +204,8 @@ the `figg-api` Vercel project, or moving `/v1/bug-report`, sends every
 installed copy to the fallback.
 
 Reports are public issues. They carry only user text, user-chosen
-screenshots and app/OS/engine versions; never audio, transcripts, notes,
+screenshots, app/OS/engine versions and the startup stage label (how
+far this launch and the last one got); never audio, transcripts, notes,
 meeting titles, calendar data or logs. The `Daily issue digest` workflow
 (`.github/issue-digest/README.md`) posts a read-only triage summary of
 `user-report` issues each day; it never edits code or issues.
@@ -278,6 +280,10 @@ meeting titles, calendar data or logs. The `Daily issue digest` workflow
   in the running app or against GitHub's issue form in each browser. A
   report through the hosted API has not been sent from the running app,
   and `figg-api` is not deployed yet.
+- The blank main window from #151 has not been reproduced. Launch now
+  draws the window before the slow steps, warns when one hangs, and bug
+  reports carry how far startup got (`startup-stage.txt` in the data
+  folder). The database open still runs on the main thread.
 - No Developer ID yet, so no notarized `.dmg` (releases are signed with a
   self-signed certificate; `docs/release-signing.md`).
 - Updates are signed by the release job and the app refuses any other DMG

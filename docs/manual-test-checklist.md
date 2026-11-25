@@ -12,6 +12,13 @@ macOS permissions, or Bedrock.
 - [ ] Edit config.yaml by hand, switch back to figg: Settings shows the new value
 - [ ] Break the YAML (e.g. `aws: [`): warning banner, defaults used, file not overwritten
 
+## Launch
+- [ ] Quit figg, move `~/Library/Application Support/figg` aside, launch: the sidebar and Record button show within a few seconds. Quit and move the folder back after
+- [ ] With a data folder from an earlier version, launch: the sidebar (with its meetings) and Record button show within a few seconds
+- [ ] Stored model provider and Atlassian keys are unchanged after launch (Settings shows them as saved, an enhance and a Jira export still work)
+- [ ] Report a Bug's Context shows a `startup:` line, e.g. `this launch: ready; last launch: ready`
+- [ ] `~/Library/Application Support/figg/startup-stage.txt` holds only a stage label, plus a stall line if a step hung
+
 ## Permissions
 - [ ] `app/scripts/bundle.sh` ends with `signed with 'figg Local Signing'` (else permissions reset each build)
 - [ ] `open app/build/Figg.app --args --probe-audio` with a sound playing: /tmp/figg-probe.txt shows non-zero system peak
