@@ -45,17 +45,23 @@ APP="build/Figg.app"
 
 xcodebuild -scheme Figg -configuration "$CONFIG" -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath .build/xcode -skipPackagePluginValidation -skipMacroValidation -quiet build
+# The MCP server Claude Desktop and Claude Code run (Settings, Claude).
+xcodebuild -scheme figg-mcp -configuration "$CONFIG" -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath .build/xcode -skipPackagePluginValidation -skipMacroValidation -quiet build
 BIN=".build/xcode/Build/Products/$CONFIG"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/Figg" "$APP/Contents/MacOS/Figg"
+cp "$BIN/figg-mcp" "$APP/Contents/MacOS/figg-mcp"
 # Package resource bundles (GRDB, swift-crypto, swift-transformers).
 find "$BIN" -maxdepth 1 -name '*.bundle' -exec cp -R {} "$APP/Contents/Resources/" \;
 # Icons; regenerate from Resources/figg-logo.png with: swift scripts/make-icon.swift
 cp Resources/AppIcon.icns Resources/MenuBarIcon.png Resources/MenuBarIcon@2x.png "$APP/Contents/Resources/"
 # Dictation's start and stop sounds (DictationSound.Source.bundled).
 cp -R Resources/Sounds "$APP/Contents/Resources/"
+# The fig newton Claude Desktop shows for figg's extension (Settings, Claude).
+cp Resources/ClaudeIcon.png "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 if [[ "$BUNDLE_ID" != "$RELEASE_ID" ]]; then
   # A different name too, so the two can be told apart in Privacy & Security.
@@ -64,6 +70,12 @@ if [[ "$BUNDLE_ID" != "$RELEASE_ID" ]]; then
 fi
 
 codesign --force --deep --options runtime --timestamp=none \
+  --entitlements Resources/Figg.entitlements \
+  --sign "$IDENTITY" "$APP"
+# --deep gave figg-mcp the app's entitlements (mic, audio). It reads text
+# only, so sign it again without them, then reseal the app around it.
+codesign --force --options runtime --timestamp=none --sign "$IDENTITY" "$APP/Contents/MacOS/figg-mcp"
+codesign --force --options runtime --timestamp=none \
   --entitlements Resources/Figg.entitlements \
   --sign "$IDENTITY" "$APP"
 

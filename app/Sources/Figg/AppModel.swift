@@ -99,6 +99,8 @@ final class AppModel: ObservableObject {
     private var meetingWatcher: MeetingWatcher?
     private var recordingWidget: RecordingWidget?
     let updates = UpdateManager()
+    /// Claude Desktop and Claude Code links (Settings, Claude).
+    let claude = ClaudeConnector()
     /// Set when the user chose Update during a recording; installed on stop.
     private var pendingUpdate: ReleaseInfo?
     private var updateSchedule = UpdateSchedule()

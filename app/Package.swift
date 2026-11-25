@@ -8,6 +8,7 @@ let package = Package(
         .executable(name: "Figg", targets: ["Figg"]),
         .executable(name: "figg-audio-probe", targets: ["figg-audio-probe"]),
         .executable(name: "figg-asr-bench", targets: ["figg-asr-bench"]),
+        .executable(name: "figg-mcp", targets: ["figg-mcp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -41,18 +42,23 @@ let package = Package(
         .target(name: "FiggExport", dependencies: ["FiggStore", "FiggNotes"]),
         .target(name: "FiggFeedback", dependencies: ["FiggExport"]),
         .target(name: "FiggUpdate", dependencies: ["FiggExport"]),
+        .target(name: "FiggMCP", dependencies: ["FiggStore", .product(name: "GRDB", package: "GRDB.swift")]),
+        .target(name: "FiggClaude"),
         .executableTarget(
             name: "Figg",
             dependencies: [
                 "FiggStore", "FiggAudio", "FiggTranscription",
                 "FiggLLM", "FiggNotes", "FiggExport", "FiggConfig", "FiggCalendar", "FiggUpdate", "FiggFeedback",
-                "FiggWidget", "FiggMeetingApps", "FiggDictation", "FiggPermissions", "FiggStartup",
+                "FiggWidget", "FiggMeetingApps", "FiggDictation", "FiggPermissions", "FiggStartup", "FiggClaude",
             ]
         ),
         .executableTarget(name: "figg-audio-probe", dependencies: ["FiggAudio", "FiggMeetingApps"]),
+        .executableTarget(name: "figg-mcp", dependencies: ["FiggMCP", "FiggStore"]),
         .executableTarget(name: "figg-asr-bench", dependencies: ["FiggTranscription", "FiggStore", "FiggAudio", "FiggDictation"]),
         .testTarget(name: "FiggMeetingAppsTests", dependencies: ["FiggMeetingApps"], resources: [.copy("Fixtures")]),
         .testTarget(name: "FiggStoreTests", dependencies: ["FiggStore", .product(name: "GRDB", package: "GRDB.swift")]),
+        .testTarget(name: "FiggMCPTests", dependencies: ["FiggMCP", "FiggStore", .product(name: "GRDB", package: "GRDB.swift")]),
+        .testTarget(name: "FiggClaudeTests", dependencies: ["FiggClaude"]),
         .testTarget(name: "FiggLLMTests", dependencies: ["FiggLLM"]),
         .testTarget(name: "FiggConfigTests", dependencies: ["FiggConfig"]),
         .testTarget(name: "FiggCalendarTests", dependencies: ["FiggCalendar"]),

@@ -5,4 +5,5 @@
 export const SOURCES = [
   { group: 'Guides', file: 'README.md', url: '/docs', label: 'How figg works' },
   { group: 'Guides', file: 'docs/agent-setup.md', url: '/docs/agent-setup', label: 'Set up with an agent', agentPrompt: true },
+  { group: 'Guides', file: 'docs/use-with-claude.md', url: '/docs/use-with-claude', label: 'Use with Claude' },
 ];
