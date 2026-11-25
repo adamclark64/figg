@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.3](https://github.com/adamclark64/figg/compare/v0.22.2...v0.22.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* **window:** cap the sidebar width so a bad restored layout cannot fill the window ([#161](https://github.com/adamclark64/figg/issues/161)) ([7feb504](https://github.com/adamclark64/figg/commit/7feb504276106e760fb3cdc869a071787b76c6e7))
+
 ## [0.22.2](https://github.com/adamclark64/figg/compare/v0.22.1...v0.22.2) (2026-11-25)
 
 
