@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.23.0](https://github.com/adamclark64/figg/compare/v0.22.3...v0.23.0) (2026-11-28)
+
+
+### Features
+
+* **dictation:** leave out um, uh and repeated words ([#167](https://github.com/adamclark64/figg/issues/167)) ([0312f9e](https://github.com/adamclark64/figg/commit/0312f9e03d3692df335ac6c3734d6b8195515769)), closes [#166](https://github.com/adamclark64/figg/issues/166)
+* **dictation:** type marks and line breaks when you say them ([#144](https://github.com/adamclark64/figg/issues/144)) ([a3f7ec2](https://github.com/adamclark64/figg/commit/a3f7ec2336d3cdff0f46f277db881865592cebfa))
+* **mcp:** let claude read figg meetings through a local mcp server ([#165](https://github.com/adamclark64/figg/issues/165)) ([cc877b0](https://github.com/adamclark64/figg/commit/cc877b0d1524fb0569cb40294c71c940171c811c))
+
 ## [0.22.3](https://github.com/adamclark64/figg/compare/v0.22.2...v0.22.3) (2026-11-25)
 
 
