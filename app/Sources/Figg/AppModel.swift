@@ -463,7 +463,8 @@ final class AppModel: ObservableObject {
         let id = meeting.id
         let queue = self.queue!
         silenceWatch = SilenceWatch()
-        let recorder = Recorder(dir: paths.pendingDir(id)) { [weak self] chunk in
+        let recorder = Recorder(dir: paths.pendingDir(id),
+                                preferBuiltInMic: settings.config.recording.preferBuiltInMic) { [weak self] chunk in
             let peak = chunk.stream == .system ? chunk.peak() : 1
             Task { await queue.enqueue(chunk, meetingId: id) }
             Task { @MainActor in self?.checkSystemSilence(peak: peak) }

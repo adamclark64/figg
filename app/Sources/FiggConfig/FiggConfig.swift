@@ -156,12 +156,19 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         public var keepAudio = false
         /// Show the floating pill while recording with another app in front.
         public var widget = true
+        /// Record "Me" from the Mac's own microphone when macOS would use a
+        /// Bluetooth headset's (AirPods and the like). A headset mic records
+        /// in a low-quality call mode, and with headphones on the Mac's mic
+        /// hears only you. Ignored when there is no built-in mic or the lid
+        /// is closed.
+        public var preferBuiltInMic = true
         /// Where the user last dragged the pill; nil means the default spot
         /// (right edge, centred). Written by figg, not meant for hand edits.
         public var widgetPosition: WidgetPosition?
         enum CodingKeys: String, CodingKey {
             case keepAudio = "keep_audio"
             case widget
+            case preferBuiltInMic = "prefer_built_in_mic"
             case widgetPosition = "widget_position"
         }
 
@@ -431,6 +438,10 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # Show a small floating pill while figg records and another app is in
           # front: live levels, and a click on the fig returns to the note.
           widget: \(recording.widget)
+          # With AirPods or another Bluetooth headset, record you from the Mac's
+          # own microphone instead: a headset mic records in a low-quality call
+          # mode. Not used when the Mac has no microphone or its lid is closed.
+          prefer_built_in_mic: \(recording.preferBuiltInMic)
           # Where you last dragged the pill (figg writes this). null puts it back
           # on the right edge of the screen.
           widget_position: \(recording.widgetPosition.map { "{ x: \($0.x), y: \($0.y) }" } ?? "null")
@@ -629,6 +640,7 @@ extension FiggConfig.Recording {
         let d = Self()
         keepAudio = try c.decodeIfPresent(Bool.self, forKey: .keepAudio) ?? d.keepAudio
         widget = try c.decodeIfPresent(Bool.self, forKey: .widget) ?? d.widget
+        preferBuiltInMic = try c.decodeIfPresent(Bool.self, forKey: .preferBuiltInMic) ?? d.preferBuiltInMic
         // figg's own bookkeeping, not a setting: a value it cannot read means
         // the default spot, not a config error.
         widgetPosition = (try? c.decodeIfPresent(WidgetPosition.self, forKey: .widgetPosition)) ?? nil

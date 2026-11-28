@@ -16,6 +16,10 @@ public final class Recorder: @unchecked Sendable {
     public let dir: URL
     private let chunkSeconds: Double
     private let onChunk: @Sendable (AudioChunk) -> Void
+    /// Use the Mac's own mic instead of a Bluetooth headset's (MicChoice).
+    private let preferBuiltInMic: Bool
+    /// The input "Me" is recorded from, once started.
+    public private(set) var micName: String?
 
     private var mic: MicCapture?
     private var system: AnyObject?
@@ -24,9 +28,11 @@ public final class Recorder: @unchecked Sendable {
     /// Live per-stream loudness for the recording strip's waveform.
     public let levels = LevelMeter()
 
-    public init(dir: URL, chunkSeconds: Double = 10, onChunk: @escaping @Sendable (AudioChunk) -> Void) {
+    public init(dir: URL, chunkSeconds: Double = 10, preferBuiltInMic: Bool = true,
+                onChunk: @escaping @Sendable (AudioChunk) -> Void) {
         self.dir = dir
         self.chunkSeconds = chunkSeconds
+        self.preferBuiltInMic = preferBuiltInMic
         self.onChunk = onChunk
     }
 
@@ -69,8 +75,17 @@ public final class Recorder: @unchecked Sendable {
         if await MicCapture.requestPermission() {
             let writer = makeWriter(.mic)
             let capture = MicCapture()
+            // Chosen at every start and resume, so connecting AirPods
+            // between a pause and a resume is handled too.
+            let defaultInput = InputDevices.defaultInput()
+            let chosen = MicChoice.override(preferBuiltIn: preferBuiltInMic, defaultInput: defaultInput,
+                                            inputs: InputDevices.all(), lidClosed: InputDevices.lidClosed())
             do {
-                try capture.start { writer.append($0) }
+                let used = try capture.start(device: chosen?.id) { writer.append($0) }
+                micName = (used ? chosen ?? defaultInput : defaultInput)?.name
+                if used, let chosen, let defaultInput {
+                    NSLog("figg recorder: recording from %@ instead of %@", chosen.name, defaultInput.name)
+                }
                 mic = capture
                 writers[.mic] = writer
                 levels.activate(.mic)
