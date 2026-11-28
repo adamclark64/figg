@@ -18,6 +18,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
     public var appearance = Appearance()
     public var updates = Updates()
     public var dictation = Dictation()
+    public var claude = Claude()
 
     public init() {}
 
@@ -290,6 +291,14 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         }
     }
 
+    /// figg's link to Claude Desktop and Claude Code (Settings, Claude).
+    public struct Claude: Codable, Equatable, Sendable {
+        public init() {}
+        /// After a meeting, show a card once offering to connect Claude, if
+        /// Claude is installed and not connected yet. "Not now" turns it off.
+        public var suggest = true
+    }
+
     /// `$FIGG_CONFIG` if set, else `~/.config/figg/config.yaml`.
     public static var defaultURL: URL {
         if let path = ProcessInfo.processInfo.environment["FIGG_CONFIG"], !path.isEmpty {
@@ -495,6 +504,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # it only takes words away, and "like" and "you know" stay.
           remove_fillers: \(dictation.removeFillers)
 
+        claude:
+          # After a meeting, offer once to connect Claude Desktop or Claude Code
+          # so Claude can read your meetings (Settings, Claude).
+          suggest: \(claude.suggest)
+
         """
     }
 }
@@ -524,6 +538,7 @@ extension FiggConfig {
         appearance = try c.decodeIfPresent(Appearance.self, forKey: .appearance) ?? Appearance()
         updates = try c.decodeIfPresent(Updates.self, forKey: .updates) ?? Updates()
         dictation = try c.decodeIfPresent(Dictation.self, forKey: .dictation) ?? Dictation()
+        claude = try c.decodeIfPresent(Claude.self, forKey: .claude) ?? Claude()
     }
 }
 
@@ -683,5 +698,12 @@ extension FiggConfig.Dictation {
         pasteLastShortcut = try c.decodeIfPresent(String.self, forKey: .pasteLastShortcut) ?? d.pasteLastShortcut
         spokenPunctuation = try c.decodeIfPresent(Bool.self, forKey: .spokenPunctuation) ?? d.spokenPunctuation
         removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers) ?? d.removeFillers
+    }
+}
+
+extension FiggConfig.Claude {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        suggest = try c.decodeIfPresent(Bool.self, forKey: .suggest) ?? Self().suggest
     }
 }

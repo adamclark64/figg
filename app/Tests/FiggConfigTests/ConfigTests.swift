@@ -14,6 +14,7 @@ import Testing
         #expect(c.detection.enabled)
         #expect(c.appearance.theme == "fig")
         #expect(c.updates.autoCheck)
+        #expect(c.claude.suggest)
         #expect(c.feedback.bugReportEndpoint.isEmpty)
         #expect(c.recording.widget)
         #expect(c.recording.widgetPosition == nil)
@@ -51,6 +52,7 @@ import Testing
         c.notes.defaultTab = "mine"
         c.sharing.confluenceSpace = "has \"quotes\" and \\ slash"
         c.updates.autoCheck = false
+        c.claude.suggest = false
         c.feedback.bugReportEndpoint = "https://relay.example.com/api/bug-report"
         c.dictation.enabled = false
         c.dictation.key = "fn"
@@ -243,6 +245,11 @@ import Testing
     @Test func updatesSectionIsOptional() throws {
         let c = try FiggConfig.parse("updates: {}")
         #expect(c.updates.autoCheck)
+    }
+
+    @Test func claudeSectionIsOptional() throws {
+        #expect(try FiggConfig.parse("claude: {}").claude.suggest)
+        #expect(try !FiggConfig.parse("claude:\n  suggest: false\n").claude.suggest)
     }
 
     @Test func emptyFileIsDefaults() throws {

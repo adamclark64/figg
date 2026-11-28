@@ -143,6 +143,11 @@ struct MeetingView: View {
             if let error = meeting?.errorMessage, meeting?.status == .needsEnhance {
                 Text(error).font(.callout).foregroundStyle(theme.inkMuted).textSelection(.enabled)
             }
+            // Once a meeting has finished notes, offer to let Claude read them.
+            if meeting?.status == .ready, meeting?.enhancedNotes != nil, !isRecording,
+               model.settings.config.claude.suggest {
+                ClaudeSuggestionCard(connector: model.claude) { model.settings.config.claude.suggest = false }
+            }
         }
     }
 

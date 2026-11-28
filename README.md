@@ -160,6 +160,13 @@ locally; [app/scripts/dmg.sh](app/scripts/dmg.sh) is the shared packaging step.
 - [Agent setup guide](docs/agent-setup.md): for a coding agent installing and configuring figg on someone's Mac
 - [AGENTS.md](AGENTS.md): orientation for AI agents and new contributors changing the code
 
+## Use your meetings in Claude
+
+Settings, Claude connects Claude Desktop or Claude Code in one click, so
+Claude can list, search and read your meetings, notes and transcripts on
+this Mac (read-only, never audio). Whatever Claude reads goes to Anthropic
+like anything you paste into a chat. See [docs/use-with-claude.md](docs/use-with-claude.md).
+
 ## Where data lives
 
 `~/.config/figg/config.yaml` holds settings. `~/Library/Application Support/figg/` holds `figg.sqlite` (meetings, notes,

@@ -34,6 +34,7 @@ struct SettingsView: View {
             RecordingSettings().tabItem { Label("Recording", systemImage: "waveform") }.tag(SettingsWindow.Tab.recording)
             DictationSettings().tabItem { Label("Dictation", systemImage: "mic") }.tag(SettingsWindow.Tab.dictation)
             SharingSettings().tabItem { Label("Sharing", systemImage: "square.and.arrow.up") }.tag(SettingsWindow.Tab.sharing)
+            ClaudeSettings().tabItem { Label("Claude", systemImage: "bubble.left.and.text.bubble.right") }.tag(SettingsWindow.Tab.claude)
         }
     }
 }
