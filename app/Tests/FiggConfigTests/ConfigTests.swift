@@ -17,6 +17,7 @@ import Testing
         #expect(c.claude.suggest)
         #expect(c.feedback.bugReportEndpoint.isEmpty)
         #expect(c.recording.widget)
+        #expect(c.recording.preferBuiltInMic)
         #expect(c.recording.widgetPosition == nil)
         #expect(c.notes.defaultTab == "enhanced")
     }
@@ -37,6 +38,7 @@ import Testing
                                      baseURL: "http://localhost:1234/v1", models: .init(notes: "qwen", fast: "")))
         c.recording.keepAudio = true
         c.recording.widget = false
+        c.recording.preferBuiltInMic = false
         c.recording.widgetPosition = .init(x: 1380, y: -212.5)
         c.sharing.jiraProject = "PROJ"
         c.transcription.engine = "whisper"
@@ -250,6 +252,12 @@ import Testing
     @Test func claudeSectionIsOptional() throws {
         #expect(try FiggConfig.parse("claude: {}").claude.suggest)
         #expect(try !FiggConfig.parse("claude:\n  suggest: false\n").claude.suggest)
+    }
+
+    @Test func builtInMicIsPreferredUnlessTurnedOff() throws {
+        #expect(try FiggConfig.parse("recording: {}").recording.preferBuiltInMic)
+        let off = try FiggConfig.parse("recording:\n  prefer_built_in_mic: false\n")
+        #expect(!off.recording.preferBuiltInMic)
     }
 
     @Test func emptyFileIsDefaults() throws {

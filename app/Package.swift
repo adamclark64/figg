@@ -59,6 +59,7 @@ let package = Package(
         .testTarget(name: "FiggStoreTests", dependencies: ["FiggStore", .product(name: "GRDB", package: "GRDB.swift")]),
         .testTarget(name: "FiggMCPTests", dependencies: ["FiggMCP", "FiggStore", .product(name: "GRDB", package: "GRDB.swift")]),
         .testTarget(name: "FiggClaudeTests", dependencies: ["FiggClaude"]),
+        .testTarget(name: "FiggAudioTests", dependencies: ["FiggAudio"]),
         .testTarget(name: "FiggLLMTests", dependencies: ["FiggLLM"]),
         .testTarget(name: "FiggConfigTests", dependencies: ["FiggConfig"]),
         .testTarget(name: "FiggCalendarTests", dependencies: ["FiggCalendar"]),

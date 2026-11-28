@@ -1,3 +1,4 @@
+import AudioToolbox
 import AVFoundation
 import Foundation
 
@@ -13,8 +14,19 @@ final class MicCapture {
         }
     }
 
-    func start(onBuffer: @escaping (AVAudioPCMBuffer) -> Void) throws {
+    /// Records from `device`, or the system default input when nil.
+    /// Returns false when `device` could not be selected and the default is
+    /// used instead: a mic that records beats none.
+    @discardableResult
+    func start(device: AudioDeviceID? = nil, onBuffer: @escaping (AVAudioPCMBuffer) -> Void) throws -> Bool {
         let input = engine.inputNode
+        var selected = device == nil
+        if var device, let unit = input.audioUnit {
+            let status = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                              &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+            selected = status == noErr
+            if !selected { NSLog("figg recorder: could not pick microphone %u (%d); using the default", device, status) }
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
             throw AudioCaptureError.noInputDevice
@@ -24,6 +36,7 @@ final class MicCapture {
         }
         engine.prepare()
         try engine.start()
+        return selected
     }
 
     func stop() {

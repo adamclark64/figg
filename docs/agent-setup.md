@@ -505,7 +505,10 @@ When both checks pass, figg is set up. Tell the human:
 
 - figg offers to record by itself when a meeting app starts using the mic.
 - Headphones give the cleanest transcript; on laptop speakers the mic also
-  hears the other side.
+  hears the other side. With AirPods or another Bluetooth headset, figg
+  records the human from the Mac's own mic, because a headset mic records in
+  a low-quality call mode ("Use the Mac's microphone with AirPods and other
+  Bluetooth headsets" in Settings, Recording; `recording.prefer_built_in_mic`).
 - On calls in the Zoom desktop app, Google Meet (Chrome, Arc, Edge or
   Safari), the new Microsoft Teams app and Slack huddles, figg can name the
   other speakers from the meeting app's window ("Name speakers from the
