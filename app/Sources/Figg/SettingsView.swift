@@ -209,6 +209,12 @@ struct DictationSettings: View {
             }
             Text("figg needs Accessibility to notice the key in other apps and to type the text. Password fields are skipped.")
                 .settingsCaption()
+            Section("Filler words") {
+                Toggle("Leave out um, uh and repeated words", isOn: $settings.config.dictation.removeFillers)
+                    .disabled(!settings.config.dictation.enabled)
+                Text("Drops um, uh, er and hmm, and words said twice by accident (\"the the\", \"did you, did you\"). Words people say twice on purpose, like \"very very\" or \"bye bye\", stay, and so do \"like\" and \"you know\". Runs on this Mac with no model, so it adds no wait.")
+                    .settingsCaption()
+            }
             Section("Spoken punctuation") {
                 Toggle("Type marks and line breaks when I say them", isOn: $settings.config.dictation.spokenPunctuation)
                     .disabled(!settings.config.dictation.enabled)

@@ -274,6 +274,8 @@ public struct FiggConfig: Codable, Equatable, Sendable {
         /// Saying "comma", "question mark", "new line" or "new paragraph"
         /// types the mark or the break, not the words.
         public var spokenPunctuation = true
+        /// Leave out "um", "uh" and words said twice by accident ("the the").
+        public var removeFillers = true
         enum CodingKeys: String, CodingKey {
             case enabled
             case key = "shortcut"
@@ -285,6 +287,7 @@ public struct FiggConfig: Codable, Equatable, Sendable {
             case cancelSound = "cancel_sound"
             case pasteLastShortcut = "paste_last_shortcut"
             case spokenPunctuation = "spoken_punctuation"
+            case removeFillers = "remove_fillers"
         }
     }
 
@@ -496,6 +499,11 @@ public struct FiggConfig: Codable, Equatable, Sendable {
           # not the words. "heart emoji" and a few like it work too. Talking
           # about a mark ("remove the comma") stays as words. Runs on this Mac.
           spoken_punctuation: \(dictation.spokenPunctuation)
+          # Leave out um, uh, er and hmm, and words said twice by accident ("the
+          # the", "did you, did you"). A fixed word list on this Mac, no model:
+          # it only takes words away, and "like" and "you know" stay.
+          remove_fillers: \(dictation.removeFillers)
+
         claude:
           # After a meeting, offer once to connect Claude Desktop or Claude Code
           # so Claude can read your meetings (Settings, Claude).
@@ -689,6 +697,7 @@ extension FiggConfig.Dictation {
         cancelSound = try c.decodeIfPresent(String.self, forKey: .cancelSound) ?? d.cancelSound
         pasteLastShortcut = try c.decodeIfPresent(String.self, forKey: .pasteLastShortcut) ?? d.pasteLastShortcut
         spokenPunctuation = try c.decodeIfPresent(Bool.self, forKey: .spokenPunctuation) ?? d.spokenPunctuation
+        removeFillers = try c.decodeIfPresent(Bool.self, forKey: .removeFillers) ?? d.removeFillers
     }
 }
 

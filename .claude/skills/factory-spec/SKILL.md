@@ -75,6 +75,10 @@ stage does the rest.
    ```
 
 5. **Fill in the spec.** Every section, comments deleted:
+   - Issue line: `#N (closes)` if shipping the spec settles the whole
+     issue, `#N (part of)` if it is one slice and the issue stays open,
+     `none` without an issue. The build stage turns it into the final
+     PR's closing keyword, so get it right here.
    - Problem: what is missing today and who notices; link the issue if any.
    - Intended outcome: the user-visible result, not the implementation.
    - Constraints: keep "AGENTS.md hard rules apply." and add the specific
@@ -110,8 +114,11 @@ stage does the rest.
      --jq '.number, .html_url'
    ```
 
-   The body: one paragraph on what the spec asks for, a link to the issue
-   if any, and this footer:
+   The body: one paragraph on what the spec asks for, `Refs #N` for the
+   issue if any, and this footer. Never write `Closes`, `Fixes` or
+   `Resolves` before an issue number here: merging the Spec PR builds
+   nothing, and GitHub would close the issue on that merge. The final PR
+   closes it.
 
    ```markdown
    ---
