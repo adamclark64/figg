@@ -160,7 +160,14 @@ open yet:
 2. Write the body to `/tmp/factory/NNNN-final.md`: a short summary of the
    change, a link to the spec folder, the ticked checklist, one line per
    item PR (number and title), anything unresolved from design.md's Review
-   notes, and "**Approval 2:** merging this PR ships spec NNNN to main."
+   notes, the issue line, and "**Approval 2:** merging this PR ships spec
+   NNNN to main."
+   The issue line comes from the `Issue:` line at the top of `spec.md`:
+   `#N (closes)` becomes `Closes #N.`, `#N (part of)` becomes
+   `Part of #N.`, and `none` or no line writes nothing. Write the number
+   with its `#`; "issue 48" is not linked and closes nothing. Only this
+   PR can close the issue: GitHub ignores closing keywords on PRs into
+   `factory/NNNN`, so item PRs never carry one.
 3. Open it with a user-facing Conventional Commit title for the whole
    change (it is what release-please sees), and label it:
 

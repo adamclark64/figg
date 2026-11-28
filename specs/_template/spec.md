@@ -1,9 +1,17 @@
 # <Title: what changes, in a few words>
 
+Issue: <#N (closes), #N (part of), or none>
+
 <!--
 Copy this folder to specs/<id>-<slug>/ (see specs/README.md) and fill in
 every section. This file is public: keep it to the product and the code.
 Delete these comments when done.
+
+The Issue line decides what the final PR does to the issue the work comes
+from. "(closes)" when shipping this spec settles the whole issue: the
+final PR says "Closes #N" and GitHub closes it on merge. "(part of)" when
+the spec is one slice and the issue should stay open. "none" when there is
+no issue.
 -->
 
 ## Problem

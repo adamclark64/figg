@@ -37,8 +37,12 @@ specs/
 
 ## Writing a spec
 
-Copy `_template/spec.md` and fill in each section: problem, intended
-outcome, constraints, acceptance criteria, out of scope. Keep it short.
+Copy `_template/spec.md` and fill in the `Issue:` line and each section:
+problem, intended outcome, constraints, acceptance criteria, out of scope.
+Keep it short. The `Issue:` line is how the work closes its issue:
+`#N (closes)` makes the final PR say `Closes #N`, so merging it closes the
+issue; `#N (part of)` links the issue and leaves it open. The Spec PR only
+says `Refs #N`, since merging it builds nothing.
 Each acceptance criterion must be testable and name what proves it,
 because figg only builds on macOS and agents rely on CI to check their work.
 
