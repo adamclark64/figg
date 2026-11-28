@@ -32,18 +32,25 @@ func dictationBench() async throws {
     // What Parakeet tends to write when the marks are spoken: its own
     // punctuation around the words.
     let spokenAsHeard = "Hi Sam, comma, thanks for sending the notes. Period. New paragraph. Can we meet on Tuesday? Question mark."
+    let fillers = "Um, so I think we should, uh, move the launch to Thursday and, um, did you, did you get the the notes?"
     let cases: [(String, [String])] = [
         ("plain, 21 words", [plain]),
         ("spoken marks, 18 words", [spoken]),
         ("spoken marks as heard, 18 words", [spokenAsHeard]),
         ("plain, 420 words", [Array(repeating: plain, count: 20).joined(separator: " ")]),
         ("spoken marks, 360 words", [Array(repeating: spoken, count: 20).joined(separator: " ")]),
+        ("fillers, 23 words", [fillers]),
+        ("fillers, 460 words", [Array(repeating: fillers, count: 20).joined(separator: " ")]),
     ]
     print("== text step (DictationText.prepare), median per call")
     for (name, segments) in cases {
         let off = medianNanos { keep(DictationText.prepare(segments, precedingCharacter: "x")) }
         let on = medianNanos { keep(DictationText.prepare(segments, precedingCharacter: "x", spokenPunctuation: true)) }
-        print(String(format: "%-34@ off %8.2f µs | spoken punctuation on %8.2f µs", name as NSString, off / 1_000, on / 1_000))
+        let both = medianNanos {
+            keep(DictationText.prepare(segments, precedingCharacter: "x", spokenPunctuation: true, removeFillers: true))
+        }
+        print(String(format: "%-34@ off %8.2f µs | spoken punctuation on %8.2f µs | and fillers %8.2f µs",
+                     name as NSString, off / 1_000, on / 1_000, both / 1_000))
     }
     if ProcessInfo.processInfo.environment["BENCH_TEXT_ONLY"] != nil { return }
 

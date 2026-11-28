@@ -187,7 +187,8 @@ final class DictationController: ObservableObject {
                 // The panel shows one run of text; breaks appear when typed.
                 self.liveText = (cut ? "… " : "") + DictationText.singleLine(DictationText.prepare(
                     segments.compactMap { TranscriptCleaner.clean($0.text) },
-                    spokenPunctuation: self.settings.config.dictation.spokenPunctuation))
+                    spokenPunctuation: self.settings.config.dictation.spokenPunctuation,
+                    removeFillers: self.settings.config.dictation.removeFillers))
             }
         }
     }
@@ -252,7 +253,8 @@ final class DictationController: ObservableObject {
         let text = DictationText.prepare(
             segments.compactMap { TranscriptCleaner.clean($0.text) },
             precedingCharacter: TextInserter.precedingCharacter(element),
-            spokenPunctuation: settings.config.dictation.spokenPunctuation)
+            spokenPunctuation: settings.config.dictation.spokenPunctuation,
+            removeFillers: settings.config.dictation.removeFillers)
         guard !text.isEmpty else {
             show(.idle)
             return

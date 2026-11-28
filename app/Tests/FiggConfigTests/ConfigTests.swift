@@ -62,6 +62,7 @@ import Testing
         c.dictation.cancelSound = "Frog"
         c.dictation.pasteLastShortcut = "ctrl+shift+f5"
         c.dictation.spokenPunctuation = false
+        c.dictation.removeFillers = false
         #expect(try FiggConfig.parse(c.yaml()) == c)
     }
 
@@ -105,6 +106,7 @@ import Testing
         #expect(c.dictation.soundVolume == 0.5)
         #expect(c.dictation.startSound == "Soft Start")
         #expect(c.dictation.spokenPunctuation)
+        #expect(c.dictation.removeFillers)
         #expect(c.dictation.stopSound == "Soft Stop")
         #expect(c.dictation.cancelSound == "Soft Stop")
         #expect(c.dictation.pasteLastShortcut == "ctrl+option+cmd+v")

@@ -132,11 +132,15 @@ public enum DictationText {
     /// text before the cursor ends in a letter or punctuation, so a second
     /// dictation does not run into the first. With `spokenPunctuation`,
     /// spoken marks and breaks ("comma", "new paragraph") become the marks
-    /// themselves; the result can then hold line breaks.
+    /// themselves; the result can then hold line breaks. With
+    /// `removeFillers`, "um", "uh" and words said twice by accident go first
+    /// (`FillerWords`).
     public static func prepare(
-        _ segments: [String], precedingCharacter: Character? = nil, spokenPunctuation: Bool = false
+        _ segments: [String], precedingCharacter: Character? = nil, spokenPunctuation: Bool = false,
+        removeFillers: Bool = false
     ) -> String {
-        let words = segments.flatMap { $0.split(whereSeparator: \.isWhitespace) }
+        let heard = segments.flatMap { $0.split(whereSeparator: \.isWhitespace) }
+        let words = removeFillers ? FillerWords.remove(heard) : heard
         guard !words.isEmpty else { return "" }
         let joined = spokenPunctuation ? SpokenPunctuation.english.apply(words) : words.joined(separator: " ")
         guard let first = joined.first else { return "" }
